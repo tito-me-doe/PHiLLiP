@@ -1,0 +1,47 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+$children = [];
+$options = getopt('', array_merge(['thread:'], array_keys(Agent\Cli::LOG_OPTIONS)));
+$threadId = isset($options['thread']) ? (int)$options['thread'] : null;
+$lastRecovery = 0;
+$stopping = false;
+pcntl_signal(SIGTERM, function () use (&$stopping) { $stopping = true; });
+pcntl_signal(SIGINT, function () use (&$stopping) { $stopping = true; });
+while (!$stopping || $children) {
+    pcntl_signal_dispatch();
+    if (!$stopping && time() - $lastRecovery >= 10) {
+        $expiry = "status = 'running' AND COALESCE(heartbeat_at, started_at, created_at) < NOW() - INTERVAL '90 seconds'";
+        $scope = $threadId === null ? " AND thread_id IN (SELECT id FROM threads WHERE COALESCE((settings->>'manual')::boolean, FALSE) = FALSE)" : ' AND thread_id = ?';
+        foreach (Agent\Database::rows('SELECT id, thread_id FROM runs WHERE ' . $expiry . $scope, $threadId === null ? [] : [$threadId]) as $stale) {
+            Agent\State::transaction(function () use ($stale, $expiry, $scope, $threadId) {
+                // A worker heartbeat or terminal event may have arrived since the initial scan.
+                Agent\Database::row('SELECT id FROM threads WHERE id = ? FOR UPDATE', [$stale['thread_id']]);
+                $parameters = $threadId === null ? [$stale['id']] : [$stale['id'], $threadId];
+                if (Agent\Database::row('SELECT id FROM runs WHERE id = ? AND ' . $expiry . $scope, $parameters)) Agent\Run::finishStopped($stale['id'], 'Worker heartbeat expired; execution outcome may be incomplete');
+            });
+        }
+        $lastRecovery = time();
+    }
+    foreach ($children as $id => $process) {
+        $status = proc_get_status($process);
+        $q = Agent\Database::connection()->prepare('SELECT status, stop_level FROM runs WHERE id = ?'); $q->execute([$id]); $run = $q->fetch();
+        if ($status['running'] && (!$run || $run['status'] !== 'running' || $run['stop_level'] >= 3 || $stopping)) {
+            proc_terminate($process, 9);
+            proc_close($process);
+            Agent\Run::finishStopped($id, $stopping ? 'Worker shutdown' : 'Forced stop');
+            unset($children[$id]);
+        } elseif (!$status['running']) {
+            proc_close($process);
+            if ($run && $run['status'] === 'running') Agent\Run::finishStopped($id, 'Execution process ended unexpectedly');
+            unset($children[$id]);
+        }
+    }
+    while (!$stopping && count($children) < 4 && ($run = Agent\Run::claim($threadId))) {
+        $command = 'exec ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/phill-run') . ' ' . (int)$run['id'];
+        $process = proc_open($command, [['file', '/dev/null', 'r'], STDOUT, STDERR], $pipes);
+        if (is_resource($process)) $children[$run['id']] = $process;
+        else Agent\Run::finishStopped($run['id'], 'Execution process could not be started');
+    }
+    usleep(150000);
+}

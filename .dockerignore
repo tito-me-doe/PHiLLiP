@@ -1,0 +1,6 @@
+.git
+.env
+storage
+config/*.local.json
+vendor
+node_modules

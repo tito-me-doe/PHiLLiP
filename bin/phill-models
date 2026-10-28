@@ -1,0 +1,56 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+$options = getopt('', array_merge(['json', 'profiles', 'save:', 'test:', 'help'], array_keys(Agent\Cli::LOG_OPTIONS)));
+try {
+    Agent\Log::configure(['cli_stream' => 'stderr']);
+    // getopt deliberately tolerates unknown flags; administration must not silently
+    // ignore a typo and perform a different operation instead.
+    for ($i = 1; $i < count($argv); $i++) {
+        $parts = explode('=', $argv[$i], 2); $flag = $parts[0];
+        if (in_array($flag, ['--save', '--test'], true)) {
+            $value = isset($parts[1]) ? $parts[1] : (isset($argv[$i + 1]) ? $argv[++$i] : '');
+            if ($value === '' || (!isset($parts[1]) && strpos($value, '--') === 0)) throw new InvalidArgumentException('A value is required for ' . $flag);
+        } elseif (!in_array($flag, ['--json', '--profiles', '--help'], true) || isset($parts[1])) throw new InvalidArgumentException('Unknown option: ' . $flag);
+    }
+    $modes = (isset($options['save']) ? 1 : 0) + (isset($options['test']) ? 1 : 0) + (isset($options['profiles']) ? 1 : 0);
+    if ($modes > 1 || (isset($options['help']) && $modes)) throw new InvalidArgumentException('Choose only one of --profiles, --save, or --test');
+    foreach (['save', 'test'] as $key) if (isset($options[$key]) && !is_string($options[$key])) throw new InvalidArgumentException('Specify --' . $key . ' only once');
+    if (isset($options['help'])) {
+        echo "Usage: phill-models [--profiles | --save JSON_OR_FILE_OR_- | --test PROFILE] [--json] [--debug | --verbose]\n\n--save accepts a named profile payload; enabled:true verifies before enabling.\nUse --save - for private JSON on stdin. --test probes without changing saved state.\n";
+        exit(0);
+    }
+    if (isset($options['save'])) {
+        $payload = $options['save'];
+        if (strlen($payload) > 1048576) throw new InvalidArgumentException('Profile JSON exceeds the 1 MiB limit');
+        if ($payload === '-') $payload = stream_get_contents(STDIN, 1048577);
+        elseif (substr(ltrim($payload), 0, 1) !== '{' && is_file($payload)) $payload = file_get_contents($payload, false, null, 0, 1048577);
+        if (!is_string($payload) || strlen($payload) > 1048576) throw new InvalidArgumentException('Profile JSON is unreadable or exceeds the 1 MiB limit');
+        $row = Agent\Profiles::save(Agent\Config::object($payload, 'Profile payload'));
+        // Never echo credentials or arbitrary engine error bodies from a saved profile.
+        $result = ['id' => $row['id'], 'name' => $row['name'], 'enabled' => $row['enabled'],
+            'capabilities' => Agent\Registry::capabilities($row), 'tested_at' => $row['tested_at']];
+        echo isset($options['json']) ? json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
+            : Agent\Terminal::strip($row['name']) . ($row['enabled'] ? ' [enabled]' : ' [disabled]') . ' id=' . $row['id'] . "\n";
+        Agent\Log::writeSuccess('Model profile saved');
+        exit(0);
+    }
+    if (isset($options['test'])) {
+        $tested = Agent\Profiles::test(Agent\Config::resolve($options['test']));
+        $result = ['capabilities' => Agent\Registry::capabilities($tested), 'tests' => []];
+        foreach ($tested['metadata'] as $name => $test) $result['tests'][$name] = ['ok' => $test['ok'], 'seconds' => $test['seconds']];
+        $working = $tested['supports_chat'] || $tested['supports_embeddings'] || $tested['supports_rerank'];
+        echo isset($options['json']) ? json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
+            : 'Profile test: ' . ($working ? 'usable' : 'unavailable') . ' ' . json_encode($result['capabilities']) . "\n";
+        if ($working) Agent\Log::writeSuccess('Model profile tested; saved state was not changed');
+        else Agent\Log::writeError('Model profile verification failed; saved state was not changed');
+        exit($working ? 0 : 1);
+    }
+    $registry = new Agent\Registry();
+    $rows = isset($options['profiles']) ? $registry->profiles() : $registry->models();
+    if (isset($options['json'])) echo json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+    else foreach ($rows as $row) {
+        if (isset($options['profiles'])) echo $row['name'] . ($row['enabled'] ? ' [enabled]' : ' [disabled]') . "\n";
+        else echo $row['url'] . ' ' . $row['engine'] . ' ' . $row['model'] . ' [' . $row['status'] . '] ' . json_encode(Agent\Registry::capabilities($row)) . "\n";
+    }
+} catch (Throwable $e) { Agent\Log::writeError($e->getMessage()); exit($e instanceof InvalidArgumentException ? 2 : 1); }

@@ -1,0 +1,57 @@
+#!/usr/bin/env php
+<?php
+// Operator-only bootstrap. The agent SQL tools never invoke this command.
+require dirname(__DIR__) . '/bootstrap.php';
+try {
+    if (PHP_SAPI !== 'cli') throw new RuntimeException('Research provisioning requires CLI');
+    $db = Agent\Database::connection();
+    if ($db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'pgsql') throw new RuntimeException('Database research currently supports PostgreSQL only');
+    $role = 'phillip_research';
+    $schema = Agent\DatabaseResearch::SCHEMA;
+    $database = $db->query('SELECT current_database()')->fetchColumn();
+    $quotedDatabase = '"' . str_replace('"', '""', $database) . '"';
+    $exists = $db->prepare('SELECT oid FROM pg_catalog.pg_roles WHERE rolname = ?'); $exists->execute([$role]); $oid = $exists->fetchColumn();
+    if ($oid !== false) {
+        $q = $db->prepare('SELECT count(*) FROM pg_catalog.pg_auth_members WHERE member = ?'); $q->execute([$oid]);
+        if ((int)$q->fetchColumn()) throw new RuntimeException('Existing research role has memberships; remove them explicitly before provisioning');
+        $q = $db->prepare("SELECT count(*) FROM pg_catalog.pg_shdepend WHERE refclassid = 'pg_catalog.pg_authid'::regclass AND refobjid = ? AND deptype = 'o'"); $q->execute([$oid]);
+        if ((int)$q->fetchColumn()) throw new RuntimeException('Existing research role owns database objects; choose a clean dedicated role before provisioning');
+    }
+    $password = bin2hex(random_bytes(32));
+    $db->beginTransaction();
+    try {
+        if ($oid === false) $db->exec('CREATE ROLE ' . $role . ' LOGIN');
+        $db->exec('ALTER ROLE ' . $role . ' LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 4 PASSWORD ' . $db->quote($password));
+        $db->exec('ALTER ROLE ' . $role . ' RESET ALL');
+        $db->exec('ALTER ROLE ' . $role . ' IN DATABASE ' . $quotedDatabase . ' RESET ALL');
+        $db->exec('ALTER ROLE ' . $role . ' SET default_transaction_read_only = on');
+        $db->exec("ALTER ROLE " . $role . " SET statement_timeout = '1000ms'");
+        $db->exec("ALTER ROLE " . $role . " SET lock_timeout = '100ms'");
+        $db->exec("ALTER ROLE " . $role . " SET idle_in_transaction_session_timeout = '2000ms'");
+        $db->exec('ALTER ROLE ' . $role . ' SET search_path = pg_catalog, engineering_research');
+        $db->exec(file_get_contents(dirname(__DIR__) . '/database/016_engineering_research.sql'));
+        // Repair only this dedicated role's grants; never change PUBLIC grants on application data.
+        $db->exec('REVOKE ALL PRIVILEGES ON DATABASE ' . $quotedDatabase . ' FROM ' . $role);
+        $db->exec('GRANT CONNECT ON DATABASE ' . $quotedDatabase . ' TO ' . $role);
+        $db->exec('REVOKE ALL ON SCHEMA public FROM ' . $role);
+        $db->exec('REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ' . $role);
+        $db->exec('REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM ' . $role);
+        $db->exec('REVOKE ALL ON SCHEMA ' . $schema . ' FROM ' . $role);
+        $db->exec('GRANT USAGE ON SCHEMA ' . $schema . ' TO ' . $role);
+        $db->exec('REVOKE ALL ON ALL TABLES IN SCHEMA ' . $schema . ' FROM ' . $role);
+        foreach (array_keys(Agent\DatabaseResearch::RELATIONS) as $table) $db->exec('GRANT SELECT ON ' . $schema . '.' . $table . ' TO ' . $role);
+        $q = $db->prepare("SELECT count(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'engineering_research') AND c.relkind IN ('r','p','v','m','f') AND (pg_catalog.has_table_privilege(?,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR pg_catalog.has_any_column_privilege(?,c.oid,'SELECT,INSERT,UPDATE,REFERENCES'))");
+        $q->execute([$role, $role]);
+        if ((int)$q->fetchColumn()) throw new RuntimeException('Research role has inherited or PUBLIC access to non-research data; provisioning refused. Review database grants.');
+        $config = ['user' => $role, 'password' => $password, 'schema' => $schema];
+        $db->prepare('INSERT INTO settings (key, value) VALUES (?, ?::jsonb) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value')->execute(['services.database_research', json_encode($config)]);
+        $db->commit();
+    } catch (Throwable $e) { if ($db->inTransaction()) $db->rollBack(); throw $e; }
+    // A fresh restricted connection proves the configuration without disclosing credentials.
+    $tables = Agent\DatabaseResearch::tables();
+    echo 'Provisioned dedicated PostgreSQL research role; ' . count($tables['tables']) . " curated relations verified. Credentials stored in private database settings.\n";
+} catch (Throwable $e) {
+    // PDO server messages can contain passwords from CREATE/ALTER ROLE; do not emit them.
+    Agent\Log::writeError($e instanceof PDOException ? 'Research provisioning failed; verify PostgreSQL administrator access and migrations' : $e->getMessage());
+    exit(1);
+}

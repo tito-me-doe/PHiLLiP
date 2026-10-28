@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS logs (
+    id BIGSERIAL PRIMARY KEY,
+    priority SMALLINT NOT NULL CHECK (priority BETWEEN -4 AND 2),
+    raw JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS logs_created_at ON logs (created_at);

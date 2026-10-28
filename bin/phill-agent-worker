@@ -1,0 +1,8 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+try {
+    if (count($argv) === 3) Agent\Agents::execute($argv[1], $argv[2]);
+    elseif (count($argv) === 2) Agent\Agents::supervise($argv[1]);
+    else throw new InvalidArgumentException('This private worker requires an agent ID and optional run ID');
+} catch (Throwable $e) { Agent\Log::writeError($e); exit(1); }

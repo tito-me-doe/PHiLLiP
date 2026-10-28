@@ -1,0 +1,7 @@
+.phillip-messages{position:fixed;top:12px;right:16px;z-index:200;display:grid;gap:8px;max-width:min(560px,calc(100vw - 32px));max-height:45vh;overflow:auto;pointer-events:none}
+.phillip-message{pointer-events:none;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:10px;padding:12px 14px;border:1px solid #b7c4d1;border-left-width:4px;border-radius:8px;background:#f0f4f7;color:#243646;box-shadow:0 4px 18px #00000012;font:14px/1.45 system-ui,sans-serif}
+.phillip-message span{white-space:pre-wrap;overflow-wrap:anywhere}.phillip-message button{pointer-events:auto;border:0;background:transparent;color:inherit;padding:0 2px;cursor:pointer;font-size:18px;line-height:1.2}
+.phillip-message.log-verbose,.phillip-message.log-debug{background:#f2f0f7;border-color:#a59bbf;color:#4c4269}
+.phillip-message.log-warning{background:#fff8e7;border-color:#d4a641;color:#725713}
+.phillip-message.log-success{background:#eff6e9;border-color:#839b68;color:#3e592c}
+.phillip-message.log-error,.phillip-message.log-fatal{background:#fff0ed;border-color:#c57162;color:#87382a}.phillip-message.log-fatal strong{text-transform:uppercase}

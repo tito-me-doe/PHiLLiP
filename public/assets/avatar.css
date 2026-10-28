@@ -1,0 +1,82 @@
+.avatar svg { width: 100%; height: 100%; overflow: visible; }
+.avatar-body { transform-origin: 120px 180px; animation: avatar-breathe 4.5s ease-in-out infinite; }
+/* Independent eyelids keep blinking even when an expression transforms the eye group. */
+.avatar .eye-left, .avatar .eye-right, .avatar-heart-eyes > path {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: avatar-blink-eye 7.3s linear infinite;
+}
+.avatar .eye-right, .avatar-heart-eyes > path + path { animation-delay: 45ms; }
+.avatar-pupil { animation: avatar-glance 11s ease-in-out infinite; }
+.avatar[data-avatar="terminal"] .avatar-eyes { transform-origin: 120px 80px; }
+.avatar[data-avatar="sprout"] .avatar-eyes { transform-origin: 120px 150px; }
+.avatar-mouth { fill: transparent; transform-box: fill-box; transform-origin: center; }
+.avatar-brow { transition: opacity .3s, transform .3s; }
+.avatar-crash, .avatar-heart-eyes, .avatar-shades, .avatar-tears,
+.avatar-confetti, .avatar-sleep,
+.avatar-speaking-mouth { display: none; }
+/* Generic talking is continuous, not tied to token length or fragment replacement. */
+.avatar.is-talking .avatar-speaking-mouth {
+  display: block;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: avatar-mouth-talk .48s ease-in-out infinite;
+}
+.avatar.is-talking .avatar-mouth { visibility: hidden; }
+.avatar.is-talking .avatar-body { animation: avatar-talk 1.1s ease-in-out infinite; }
+.avatar.thinking .avatar-body { animation: avatar-think 2s ease-in-out infinite; }
+.avatar.thinking .avatar-pupil { animation: none; transform: translate(3px, -3px); }
+.avatar.happy .avatar-body { animation: avatar-happy .7s ease 2; }
+.avatar.happy .avatar-eyes { transform: scaleY(.7); }
+.avatar.sad .avatar-body { transform: translateY(5px) rotate(-3deg); animation: none; }
+.avatar.sad .avatar-mouth { transform: rotate(180deg); }
+.avatar.angry .avatar-body { animation: avatar-grumble .22s ease-in-out 3; }
+.avatar.angry .avatar-brow { opacity: 1; }
+.avatar.angry .brow-left { transform: rotate(15deg); transform-origin: 87px 61px; }
+.avatar.angry .brow-right { transform: rotate(-15deg); transform-origin: 151px 61px; }
+.avatar.surprised .avatar-eyes { transform: scaleY(1.5); }
+.avatar.bsod .avatar-screen { fill: #214bb0; }
+.avatar.bsod .avatar-face, .avatar.bsod .avatar-speaking-mouth { display: none; }
+.avatar.bsod .avatar-crash { display: block; animation: avatar-static .25s steps(2) 3; }
+.avatar.bsod .avatar-body { animation: avatar-shock .18s linear 4; }
+.avatar.love .avatar-heart-eyes, .avatar.cool .avatar-shades,
+.avatar.sad .avatar-tears, .avatar.party .avatar-confetti,
+.avatar.sleepy .avatar-sleep { display: block; }
+.avatar.love .avatar-eyes, .avatar.cool .avatar-eyes { visibility: hidden; }
+.avatar.love .avatar-heart-eyes { transform-origin: 120px 80px; animation: avatar-love 1s ease-in-out infinite; }
+.avatar.wink .eye-left { animation: none; transform: scaleY(.1); }
+.avatar.eyeroll .avatar-pupil { animation: none; transform: translateY(-7px); }
+.avatar.party .avatar-body { animation: avatar-happy .5s ease-in-out 4; }
+.avatar.party .avatar-confetti { animation: avatar-confetti 1s ease-out infinite; }
+.avatar.sleepy .avatar-eyes { transform: scaleY(.25); }
+.avatar.sleepy .avatar-body { animation: avatar-think 4s ease-in-out infinite; }
+.avatar.confused .avatar-body { animation: avatar-think .8s ease-in-out 3; }
+@keyframes avatar-blink-eye {
+  0%, 28%, 30%, 74%, 76%, 100% { transform: scaleY(1); }
+  29%, 75% { transform: scaleY(.06); }
+}
+@keyframes avatar-mouth-talk {
+  0%, 100% { transform: scale(.9, .12); }
+  25% { transform: scale(1, .9); }
+  55% { transform: scale(.7, .35); }
+  80% { transform: scale(.85, 1.05); }
+}
+@keyframes avatar-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes avatar-think { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(3deg) translateY(-3px); } }
+@keyframes avatar-happy { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px) rotate(3deg); } }
+@keyframes avatar-shock { 0%, 100% { transform: translateX(-2px); } 50% { transform: translateX(2px); } }
+@keyframes avatar-talk { 0%, 100% { transform: rotate(-1deg); } 50% { transform: rotate(1deg) translateY(-2px); } }
+@keyframes avatar-love { 50% { transform: scale(1.12); } }
+@keyframes avatar-grumble { 50% { transform: translateX(2px) rotate(2deg); } }
+@keyframes avatar-static { 50% { opacity: .4; } }
+@keyframes avatar-glance { 0%, 20%, 50%, 100% { transform: translate(0); } 25%, 32% { transform: translate(-3px, 1px); } 65%, 72% { transform: translate(3px, -2px); } }
+@keyframes avatar-confetti { 0% { opacity: 0; transform: translateY(5px); } 40% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+/* Reduced motion keeps the body still: tiny opacity-only eyelid/mouth state changes. */
+@media (prefers-reduced-motion: reduce) {
+  .avatar .eye-left, .avatar .eye-right, .avatar-heart-eyes > path { animation: avatar-soft-blink 7.3s linear infinite !important; }
+  .avatar .eye-right, .avatar-heart-eyes > path + path { animation-delay: 45ms !important; }
+  .avatar.is-talking .avatar-speaking-mouth { animation: avatar-soft-talk .8s steps(1, end) infinite !important; }
+  .avatar.is-talking .avatar-mouth { visibility: visible; }
+}
+@keyframes avatar-soft-blink { 0%, 28%, 30%, 74%, 76%, 100% { opacity: 1; } 29%, 75% { opacity: .06; } }
+@keyframes avatar-soft-talk { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }

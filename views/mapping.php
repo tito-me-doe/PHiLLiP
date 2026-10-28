@@ -1,0 +1,4 @@
+<?php use Agent\Views as V; ?>
+<div class="grid"><?php foreach (Agent\Mappings::COLUMNS[$entity] as $key): ?><label><?=V::h($key)?><select data-column="<?=V::h($entity . '.' . $key)?>"><option value="">Not mapped</option><?php foreach ($columns as $column): ?><option <?=$column === $key ? 'selected' : ''?>><?=V::h($column)?></option><?php endforeach; if ($key === 'active'): ?><option value="literal:1">Always active</option><?php elseif ($key === 'is_admin'): ?><option value="literal:0">Not an administrator</option><?php endif; ?></select></label><?php endforeach; ?></div>
+<label class="check-label"><input type="checkbox" id="writable-<?=V::h($entity)?>">Allow PHiLLiP to write to this table</label>
+<?php if (in_array($entity, ['users', 'teams'], true)): ?><label class="check-label"><input type="checkbox" id="auto-<?=V::h($entity)?>">Database generates IDs</label><?php endif; ?>

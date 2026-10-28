@@ -1,0 +1,13 @@
+{
+  "name": "phillip-ui",
+  "private": true,
+  "scripts": {
+    "build": "esbuild assets/vendor.js --bundle --minify --outfile=public/assets/vendor.js --format=iife"
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

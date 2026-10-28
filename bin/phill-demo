@@ -1,0 +1,19 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+$db = Agent\Database::connection();
+$users = [];
+foreach (['admin' => ['Administrator', true], 'alice' => ['Alice Morgan', false], 'bob' => ['Bob Chen', false], 'carol' => ['Carol Rivera', false], 'visitor' => ['Visitor', false]] as $username => $values) {
+    $users[$username] = Agent\Identity::user(['username' => $username]) ?: Agent\Identity::createUser(['username' => $username, 'password' => 'phillip-demo', 'display_name' => $values[0], 'is_admin' => $values[1]]);
+}
+foreach (['engineering' => 'Engineering', 'sales' => 'Sales'] as $id => $name) $db->prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT DO NOTHING')->execute([$id, $name]);
+foreach (['admin' => ['engineering', 'sales'], 'alice' => ['engineering'], 'bob' => ['engineering', 'sales'], 'carol' => ['sales'], 'visitor' => []] as $name => $teams) {
+    foreach ($teams as $team) $db->prepare('INSERT INTO memberships (user_id, team_id) VALUES (?, ?) ON CONFLICT DO NOTHING')->execute([$users[$name]['id'], $team]);
+}
+Agent\Identity::grant('organization', '*', 'Agent\\Tools\\Fetch', true);
+Agent\Identity::grant('team', 'engineering', 'Agent\\Tools\\SearchWeb', true);
+Agent\Identity::grant('team', 'engineering', 'Agent\\Tools\\Memory', true);
+Agent\Identity::grant('user', $users['alice']['id'], 'Agent\\Tools\\BrowseWeb', true);
+Agent\Identity::grant('user', $users['bob']['id'], 'Agent\\Tools\\BrowseWeb', false);
+$db->prepare("INSERT INTO settings (key, value) VALUES ('installation', ?::jsonb) ON CONFLICT DO NOTHING")->execute([json_encode(['auth' => 'standalone', 'mappings' => [], 'admin_ids' => [$users['admin']['id']]])]);
+echo "Demo accounts: admin, alice, bob, carol, visitor\nPassword for newly created demo accounts: phillip-demo\n";

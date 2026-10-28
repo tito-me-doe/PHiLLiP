@@ -1,0 +1,45 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+$options = getopt('a', array_merge(['cidr:', 'ports:', 'url:', 'json', 'no-save'], array_keys(Agent\Cli::LOG_OPTIONS)));
+try {
+    $registry = isset($options['no-save']) ? null : new Agent\Registry();
+    $scanner = new Agent\Scanner();
+    $bases = [];
+    if (isset($options['url'])) $bases = (array)$options['url'];
+    else {
+        $cidrs = Agent\Network::cidrs(isset($options['cidr']) ? $options['cidr'] : getenv('SCAN_CIDRS'));
+        $ports = isset($options['a']) ? range(1, 65535) : Agent\Network::ports(isset($options['ports']) ? $options['ports'] : getenv('SCAN_PORTS'));
+        $lastReport = 0;
+        $open = Agent\Network::openPorts($cidrs, $ports, (int)getenv('SCAN_CONCURRENCY') ?: 192, (float)getenv('SCAN_TIMEOUT') ?: 0.6,
+            function ($checked, $found) use (&$lastReport) {
+                if (time() - $lastReport < 10) return;
+                Agent\Log::writeInfo('Checked %d sockets; %d open ports', $checked, $found);
+                $lastReport = time();
+            });
+        foreach ($open as $socket) $bases[] = ($socket['port'] === 443 ? 'https' : 'http') . '://' . $socket['host'] . ':' . $socket['port'];
+        // Recheck known endpoints in this scan's exact host/port scope, including offline sockets.
+        if ($registry) {
+            $hosts = array_fill_keys(iterator_to_array(Agent\Network::hosts($cidrs), false), true);
+            foreach ($registry->endpoints() as $endpoint) {
+                $host = parse_url($endpoint['url'], PHP_URL_HOST);
+                $port = parse_url($endpoint['url'], PHP_URL_PORT) ?: (strpos($endpoint['url'], 'https:') === 0 ? 443 : 80);
+                if (isset($hosts[$host]) && in_array($port, $ports)) $bases[] = $endpoint['url'];
+            }
+        }
+    }
+    $found = [];
+    foreach (array_chunk(array_values(array_unique($bases)), 8) as $batch) {
+      foreach ($scanner->inspectBatch($batch) as $base => $result) {
+        if (!$result) { if ($registry) $registry->unavailable($base); continue; }
+        if ($registry) $registry->record($result['endpoint'], $result['models']);
+        $found[] = $result;
+        if (!isset($options['json'])) {
+            echo $result['endpoint']['url'] . '  ' . $result['endpoint']['engine'] . '  ' . $result['endpoint']['status'] . "\n";
+            foreach ($result['models'] as $model) echo '  ' . $model['model'] . ' [' . $model['status'] . '] capabilities=' . json_encode(Agent\Registry::capabilities($model)) . "\n";
+        }
+      }
+    }
+    if (isset($options['json'])) echo json_encode($found, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+    else echo count($found) . " compatible endpoints found. Raw metadata stored in registry; use --json to inspect.\n";
+} catch (Throwable $e) { Agent\Log::writeError($e); exit(1); }

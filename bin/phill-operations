@@ -1,0 +1,65 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+$stop = false;
+$lastCleanup = 0;
+pcntl_signal(SIGTERM, function () use (&$stop) { $stop = true; });
+while (!$stop) {
+    pcntl_signal_dispatch();
+    Agent\Database::execute("UPDATE operations SET status='failed', output='The operation was interrupted. Retry from setup or Settings.', updated_at=NOW() WHERE status='running' AND updated_at < NOW() - INTERVAL '15 minutes'");
+    if (time() - $lastCleanup >= 3600) {
+        try { Agent\Attachments::collectExpired(); }
+        catch (Throwable $e) { Agent\Log::writeWarning('Pending-upload cleanup', $e); }
+        $lastCleanup = time();
+    }
+    $q = Agent\Database::connection()->query("UPDATE operations SET status = 'running', updated_at = NOW() WHERE id = (SELECT id FROM operations WHERE status = 'queued' ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING *");
+    $job = $q->fetch();
+    if (!$job) { usleep(500000); continue; }
+    $payload = json_decode($job['payload'], true);
+    if ($job['type'] === 'thread_title') {
+        try {
+            $run = Agent\Run::get($payload['run_id']);
+            (new Agent\Thread($run['thread_id']))->generateTitle($run['id'], $payload['title']);
+            Agent\Database::execute("UPDATE operations SET status='completed', output='Conversation title ready', updated_at=NOW() WHERE id=?", [$job['id']]);
+        } catch (Throwable $error) {
+            Agent\Log::writeWarning('Conversation title could not be generated', $error);
+            Agent\Database::execute("UPDATE operations SET status='failed', output='Automatic title unavailable; you can name this conversation yourself.', updated_at=NOW() WHERE id=?", [$job['id']]);
+        }
+        continue;
+    }
+    if ($job['type'] === 'profile_verify') {
+        try {
+            Agent\Database::execute('UPDATE operations SET output = ? WHERE id = ?', ['Testing chat, streaming and optional capabilities…', $job['id']]);
+            $source = (new Agent\Registry())->profile(['id' => $payload['profile_id']]);
+            if (!$source) throw new RuntimeException('Selected model no longer exists');
+            $lastProgress = 0;
+            Agent\Events::withListener(function ($event) use ($job, &$lastProgress) {
+                if (time() - $lastProgress >= 2) { Agent\Database::execute('UPDATE operations SET updated_at=NOW() WHERE id=? AND status=\'running\'', [$job['id']]); $lastProgress = time(); }
+            }, function () use ($source) { Agent\Profiles::save('default', Agent\Config::resolve($source), true); });
+            Agent\Database::execute("UPDATE operations SET status='completed', output='Default model verified', updated_at=NOW() WHERE id=?", [$job['id']]);
+        } catch (Throwable $error) {
+            Agent\Log::writeError('Default model verification failed', $error);
+            Agent\Database::execute("UPDATE operations SET status='failed', output='Model verification failed. Check the endpoint and retry.', updated_at=NOW() WHERE id=?", [$job['id']]);
+        }
+        continue;
+    }
+    $command = 'exec ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/phill-scan');
+    if (!empty($payload['cidr'])) $command .= ' --cidr ' . escapeshellarg($payload['cidr']);
+    if (!empty($payload['ports'])) $command .= ' --ports ' . escapeshellarg($payload['ports']);
+    if (!empty($payload['all'])) $command .= ' -a';
+    $process = proc_open($command, [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes);
+    stream_set_blocking($pipes[1], false); stream_set_blocking($pipes[2], false);
+    $output = ''; $last = 0;
+    do {
+        pcntl_signal_dispatch();
+        $output = substr($output . stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]), -200000);
+        if (time() - $last >= 1) { Agent\Database::connection()->prepare('UPDATE operations SET output = ?, updated_at = NOW() WHERE id = ?')->execute([$output, $job['id']]); $last = time(); }
+        if ($stop) proc_terminate($process);
+        $status = proc_get_status($process);
+        if ($status['running']) usleep(100000);
+    } while ($status['running']);
+    $output .= stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+    fclose($pipes[1]); fclose($pipes[2]); $closed = proc_close($process);
+    $code = $status['exitcode'] >= 0 ? $status['exitcode'] : $closed;
+    Agent\Database::connection()->prepare('UPDATE operations SET status = ?, output = ?, updated_at = NOW() WHERE id = ?')->execute([$code === 0 ? 'completed' : 'failed', $output, $job['id']]);
+}

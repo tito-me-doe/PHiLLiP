@@ -1,0 +1,1 @@
+{"profiles":{"json-test":{"url":"http://127.0.0.1:9999/v1/chat/completions","model":"json-fallback"}}}

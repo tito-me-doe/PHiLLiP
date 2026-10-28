@@ -1,0 +1,20 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+$stop = false;
+$lastRecovery = 0;
+pcntl_signal(SIGTERM, function () use (&$stop) { $stop = true; });
+while (!$stop) {
+    pcntl_signal_dispatch();
+    if (time() - $lastRecovery > 10) {
+        Agent\Database::connection()->exec("UPDATE index_jobs SET status = 'queued' WHERE status = 'running' AND updated_at < NOW() - INTERVAL '5 minutes'");
+        $lastRecovery = time();
+    }
+    if ($runId = Agent\Indexer::claim()) {
+        try { Agent\Indexer::process($runId); }
+        catch (Throwable $e) {
+            Agent\Database::connection()->prepare("UPDATE index_jobs SET status = 'degraded', error = ?, updated_at = NOW() WHERE run_id = ?")->execute([$e->getMessage(), $runId]);
+            Agent\Log::writeError($e);
+        }
+    } else usleep(500000);
+}

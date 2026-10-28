@@ -1,0 +1,19 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+$options = getopt('', ['once', 'project:']);
+$stopping = false;
+if (function_exists('pcntl_signal')) {
+    pcntl_signal(SIGTERM, function () use (&$stopping) { $stopping = true; });
+    pcntl_signal(SIGINT, function () use (&$stopping) { $stopping = true; });
+}
+$control = function () use (&$stopping) {
+    if (function_exists('pcntl_signal_dispatch')) pcntl_signal_dispatch();
+    return $stopping ? 2 : 0;
+};
+do {
+    try { Agent\ProjectRunner::tick(isset($options['project']) ? $options['project'] : null, $control); }
+    catch (Throwable $e) { Agent\Log::writeError($e); if (isset($options['once'])) exit(1); }
+    if (isset($options['once'])) break;
+    usleep(500000);
+} while (!$control());

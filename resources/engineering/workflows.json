@@ -1,0 +1,38 @@
+{
+  "web-research": {
+    "name": "Web Research",
+    "roles": ["web-researcher", "adversarial-reviewer"],
+    "phases": ["gather-evidence", "independent-review", "synthesize"],
+    "coordinator": "Run web research for the task. Phase 1 gather-evidence: the Web Researcher searches and fetches primary sources for the exact URLs and source paths in the brief, citing each fetched URL. Phase 2 independent-review: the Adversarial Reviewer examines the evidence for failure modes, edge cases and contradictions. Phase 3 synthesize: produce a sourced summary that separates verified evidence from uncertainty. Do not use the Classifier for independent review and do not use DocumentationWriter Workspace for a plain report."
+  },
+  "code-research": {
+    "name": "Code Research",
+    "roles": ["code-researcher", "architect", "security-reviewer"],
+    "phases": ["gather-evidence", "independent-review", "synthesize"],
+    "coordinator": "Run code research for the task. Phase 1 gather-evidence: the Code Researcher reads the exact repository source paths, tests, migrations and caller constraints and reports line numbers and quoted evidence. Phase 2 independent-review: the Architect proposes structure and boundaries; the Security Reviewer reviews for auth, input handling, data exposure and privilege issues. Phase 3 synthesize: produce findings grounded in exact paths, separating evidence from speculation, allowing `no_verified_findings`."
+  },
+  "database-research": {
+    "name": "Database Research",
+    "roles": ["database-researcher", "code-researcher", "architect"],
+    "phases": ["gather-evidence", "independent-review", "synthesize"],
+    "coordinator": "Run database research for the task. Phase 1 gather-evidence: the Database Researcher runs read-only queries through the low-privilege SQL research connection and reports exact schema, tables and columns, with Code Researcher and Architect consulted as needed for readonly query evidence. Phase 2 independent-review: the Code Researcher and Architect review the data model and boundaries as needed. Phase 3 synthesize: report findings with exact references, never mutating data, allowing `no_verified_findings`."
+  },
+  "implement": {
+    "name": "Implement",
+    "roles": ["implementer", "test-engineer", "adversarial-reviewer", "security-reviewer"],
+    "phases": ["plan", "code", "test", "adversarialreview"],
+    "coordinator": "Run implementation for the task. Phase 1 plan: agree the implementation plan and which files change. Phase 2 code: the Implementer writes code using Source to read and Workspace to write, requesting patch approval for each file; claims edits only with tool evidence and never self-approves. Phase 3 test: the Test Engineer runs tests and reports exact results; unrun tests are reported as unrun and assertions are never weakened to green. Phase 4 adversarialreview: the Adversarial Reviewer and Security Reviewer find failure modes and security issues. Deliver changed files and verified results, never claiming completion prematurely."
+  },
+  "review": {
+    "name": "Review",
+    "roles": ["adversarial-reviewer", "security-reviewer", "classifier"],
+    "phases": ["gather-evidence", "independent-review", "synthesize"],
+    "coordinator": "Run review for the task. Phase 1 gather-evidence: reviewers examine the exact source paths and evidence. Phase 2 independent-review: the Adversarial Reviewer and Security Reviewer each report findings independently, allowing `no_verified_findings`. Phase 3 synthesize: the Classifier categorizes the review and a consolidated report separates confirmed issues from unverified concerns."
+  },
+  "triage": {
+    "name": "Triage",
+    "roles": ["classifier"],
+    "phases": ["triage"],
+    "coordinator": "Triage the task. The Classifier reads the brief and returns one category from the allowed set with confidence and reason. Do not route or act beyond the classification result."
+  }
+}

@@ -1,0 +1,14 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+try {
+    $options = getopt('', ['username:', 'help']);
+    if (isset($options['help'])) { echo "Usage: phill-bootstrap --username NAME\nCreates the initial temporary administrator once; never resets an existing installation.\n"; exit(0); }
+    if (!isset($options['username']) || !is_string($options['username'])) throw new InvalidArgumentException('Provide --username NAME');
+    Agent\Log::configure(['cli_stream' => 'stderr']);
+    Agent\Engineering::install();
+    $result = Agent\Onboarding::bootstrap($options['username']);
+    if ($result['created']) {
+        echo "\nAdministrator: " . $result['username'] . "\nTemporary password: " . $result['password'] . "\nChange this password at your first sign-in. It is not saved in a plaintext file.\n";
+    } else echo "Existing installation preserved. Sign in with your existing credentials.\n";
+} catch (Throwable $error) { Agent\Log::writeError($error->getMessage()); Agent\Log::writeVerbose($error); exit(1); }

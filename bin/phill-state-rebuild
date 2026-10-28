@@ -1,0 +1,7 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+try {
+    $ids = isset($argv[1]) ? [(int)$argv[1]] : Agent\Database::connection()->query("SELECT r.id FROM runs r LEFT JOIN states s ON s.scope = 'run' AND s.run_id = r.id WHERE s.id IS NULL OR COALESCE((s.value->>'last_event_id')::bigint, 0) < COALESCE((SELECT MAX(e.id) FROM events e WHERE e.run_id = r.id), 0) ORDER BY r.id")->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($ids as $id) { Agent\WorkflowState::rebuild($id); echo 'Rebuilt state for run ' . $id . "\n"; }
+} catch (Throwable $e) { Agent\Log::writeError($e); exit(1); }

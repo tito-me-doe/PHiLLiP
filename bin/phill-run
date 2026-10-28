@@ -1,0 +1,5 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+try { Agent\Run::execute((int)$argv[1]); }
+catch (Throwable $e) { Agent\Log::writeError($e); exit(1); }

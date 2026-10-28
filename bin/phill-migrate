@@ -1,0 +1,20 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+try {
+    $db = Agent\Database::connection();
+    $db->exec("CREATE TABLE IF NOT EXISTS migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ DEFAULT NOW())");
+    foreach (glob(dirname(__DIR__) . '/database/*.sql') as $file) {
+        $name = basename($file);
+        $query = $db->prepare('SELECT 1 FROM migrations WHERE name = ?');
+        $query->execute([$name]);
+        if ($query->fetchColumn()) continue;
+        $db->beginTransaction();
+        try {
+            $db->exec(file_get_contents($file));
+            $db->prepare('INSERT INTO migrations (name) VALUES (?)')->execute([$name]);
+            $db->commit();
+            echo 'Applied ' . $name . "\n";
+        } catch (Throwable $e) { $db->rollBack(); throw $e; }
+    }
+} catch (Throwable $e) { Agent\Log::writeError($e); exit(1); }

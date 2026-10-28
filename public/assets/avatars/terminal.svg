@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 220" role="img" aria-label="PHiLLiP, a friendly beige terminal">
+ <ellipse cx="120" cy="203" rx="78" ry="8" fill="#473e2a" opacity=".09"/>
+ <g class="avatar-body"><path d="M42 175Q120 161 198 175L211 197Q120 210 29 197Z" fill="#d6c8ad" stroke="#8d8065" stroke-width="3"/>
+ <path d="M81 169L86 151H155L160 169" fill="#b7aa8c" stroke="#8d8065" stroke-width="3"/>
+ <rect x="30" y="22" width="180" height="145" rx="22" fill="#ecdfc2" stroke="#8d8065" stroke-width="3"/>
+ <path d="M45 34H190" stroke="#fff5de" stroke-width="5" stroke-linecap="round"/>
+ <rect class="avatar-screen" x="47" y="39" width="146" height="107" rx="13" fill="#354d45"/>
+ <g class="avatar-face" fill="none" stroke="#c3f3a5" stroke-width="6" stroke-linecap="round">
+  <g class="avatar-eyes" stroke="none">
+   <g class="eye-left"><ellipse cx="87" cy="80" rx="13" ry="17" fill="#bce4a9"/><g class="avatar-pupil"><ellipse cx="89" cy="82" rx="7" ry="10" fill="#67b766"/><ellipse cx="90" cy="83" rx="4" ry="7" fill="#18392c"/><circle cx="85" cy="76" r="3" fill="#efffe3"/></g></g>
+   <g class="eye-right"><ellipse cx="151" cy="80" rx="13" ry="17" fill="#bce4a9"/><g class="avatar-pupil"><ellipse cx="149" cy="82" rx="7" ry="10" fill="#67b766"/><ellipse cx="148" cy="83" rx="4" ry="7" fill="#18392c"/><circle cx="145" cy="76" r="3" fill="#efffe3"/></g></g>
+  </g>
+  <path class="avatar-mouth" d="M102 111Q120 126 138 111"/>
+  <ellipse class="avatar-speaking-mouth" cx="120" cy="118" rx="13" ry="10" fill="#163b2d" stroke="#c3f3a5" stroke-width="4"/>
+  <path class="avatar-brow brow-left" d="M77 61l17-3" opacity="0"/><path class="avatar-brow brow-right" d="M144 58l17 3" opacity="0"/>
+ </g>
+ <g class="avatar-heart-eyes" fill="#ef8c96"><path d="M87 91L74 77C63 62 88 59 87 72C89 59 111 62 100 77Z"/><path d="M151 91L138 77C127 62 152 59 151 72C153 59 175 62 164 77Z"/></g>
+ <g class="avatar-shades" fill="#172322" stroke="#93b9a0" stroke-width="2"><path d="M70 69h34v18q-17 13-34-1ZM134 69h34v17q-17 14-34 1Z"/><path d="M104 75h30"/></g>
+ <g class="avatar-tears" stroke="#84cbd6" stroke-width="4" stroke-linecap="round"><path d="M78 96l-2 10M160 96l2 10"/></g>
+ <g class="avatar-confetti" fill="#dba66b"><path d="m54 24 6-7 3 11ZM182 13l4 9 7-8ZM120 5l4 7-9 1Z"/><circle cx="66" cy="11" r="3"/><circle cx="173" cy="30" r="3"/></g>
+ <text class="avatar-sleep" x="159" y="60" fill="#dbe9c2" font-family="monospace" font-size="15">z Z</text>
+ <path class="avatar-scanlines" d="M52 50h136M52 60h136M52 70h136M52 80h136M52 90h136M52 100h136M52 110h136M52 120h136M52 130h136" stroke="#c1dbb0" stroke-opacity=".05"/>
+ <g class="avatar-crash" fill="#fff" font-family="monospace" font-size="10"><text x="59" y="66">PHiLLiP.EXE</text><text x="59" y="86">THOUGHT_OVERFLOW</text><text x="59" y="108">mind = blown</text><text x="59" y="130">rebooting... :)</text></g>
+ <circle cx="184" cy="155" r="3" fill="#8baf70"/><path d="M63 155h32" stroke="#b8a989" stroke-width="3" stroke-linecap="round"/>
+ <g stroke="#a69778" stroke-width="3" stroke-linecap="round"><path d="M64 183h110M60 190h120"/></g>
+ </g>
+</svg>

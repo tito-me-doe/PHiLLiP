@@ -1,0 +1,15 @@
+{
+  "name": "phillip/phillip",
+  "description": "PHP Harness incorporating Large Language in PHP",
+  "license": "MIT",
+  "require": {
+    "php": ">=8.0",
+    "ext-curl": "*",
+    "ext-json": "*",
+    "ext-pdo": "*",
+    "erusev/parsedown": "^1.7",
+    "justinrainbow/json-schema": "^6.0"
+  },
+  "autoload": { "psr-4": { "Agent\\": "classes/Agent/" }, "files": ["bootstrap.php"] },
+  "config": { "sort-packages": true }
+}

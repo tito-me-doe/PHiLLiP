@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 220" role="img" aria-label="Sprout, a cheerful leafy companion">
+ <ellipse cx="120" cy="203" rx="60" ry="8" fill="#473e2a" opacity=".09"/>
+ <g class="avatar-body"><path d="M119 74Q61 48 76 13Q128 12 124 68" fill="#789c5c" stroke="#527b45" stroke-width="3"/><path d="M121 72Q123 24 169 29Q180 62 126 80" fill="#9cb777" stroke="#527b45" stroke-width="3"/>
+ <path d="M119 83V52" stroke="#527b45" stroke-width="5"/><path d="M65 117Q62 82 120 82Q178 82 175 117L165 178Q120 203 75 178Z" fill="#ddb695" stroke="#a87957" stroke-width="3"/>
+ <path d="M59 111Q120 124 181 111L178 131Q120 145 62 131Z" fill="#eac6a6" stroke="#a87957" stroke-width="3"/>
+ <g class="avatar-face" fill="none" stroke="#5b4a36" stroke-width="5" stroke-linecap="round"><g class="avatar-eyes"><path class="eye-left" d="M95 148v8"/><path class="eye-right" d="M145 148v8"/></g><path class="avatar-mouth" d="M106 168Q120 180 134 168"/><path class="avatar-brow brow-left" d="M85 138l15-3" opacity="0"/><path class="avatar-brow brow-right" d="M140 135l15 3" opacity="0"/></g>
+ <ellipse class="avatar-speaking-mouth" cx="120" cy="173" rx="12" ry="9" fill="#704731" stroke="#5b4a36" stroke-width="4"/>
+ <circle cx="82" cy="165" r="6" fill="#d48d7d" opacity=".5"/><circle cx="158" cy="165" r="6" fill="#d48d7d" opacity=".5"/>
+ <g class="avatar-crash" fill="#5b4a36" font-family="monospace" font-size="12"><text x="85" y="158">oh, wow!</text></g></g>
+</svg>

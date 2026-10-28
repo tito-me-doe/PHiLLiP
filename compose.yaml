@@ -1,0 +1,117 @@
+name: phillip
+services:
+  app:
+    image: phillip-app
+    hostname: ${APP_HOSTNAME:-phillip}
+    init: true
+    extra_hosts: &host_gateway
+      - "host.docker.internal:host-gateway"
+    build: .
+    env_file: .env
+    environment: &runtime_environment
+      DB_DSN: "pgsql:host=postgres;port=5432;dbname=${DB_NAME}"
+      CAMOUFOX_URL: "http://browser:8080"
+      SEARXNG_URL: "http://searxng:8080"
+    ports:
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8088}:8080"
+    volumes:
+      - .:/app
+    networks:
+      default:
+        aliases:
+          - phillip.internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8080/health') === false ? 1 : 0);"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  worker:
+    image: phillip-app
+    extra_hosts: *host_gateway
+    env_file: .env
+    environment: *runtime_environment
+    volumes:
+      - .:/app
+    command: ["php", "bin/phill-worker"]
+    depends_on:
+      app:
+        condition: service_healthy
+    stop_grace_period: 5s
+  indexer:
+    image: phillip-app
+    extra_hosts: *host_gateway
+    env_file: .env
+    environment: *runtime_environment
+    volumes:
+      - .:/app
+    command: ["php", "bin/phill-index-worker"]
+    depends_on:
+      app:
+        condition: service_healthy
+    stop_grace_period: 5s
+  projects:
+    image: phillip-app
+    extra_hosts: *host_gateway
+    init: true
+    restart: unless-stopped
+    env_file: .env
+    environment: *runtime_environment
+    volumes:
+      - .:/app
+    command: ["php", "bin/phill-project-worker"]
+    depends_on:
+      app:
+        condition: service_healthy
+    stop_grace_period: 5s
+  operations:
+    image: phillip-app
+    extra_hosts: *host_gateway
+    env_file: .env
+    environment: *runtime_environment
+    volumes:
+      - .:/app
+    command: ["php", "bin/phill-operations"]
+    depends_on:
+      app:
+        condition: service_healthy
+    stop_grace_period: 5s
+  browser:
+    build: ./docker/browser
+    extra_hosts: *host_gateway
+    ports:
+      - "127.0.0.1:${BROWSER_PORT:-18082}:8080"
+    environment:
+      BROWSER_TOKEN: ${BROWSER_TOKEN}
+    shm_size: 1gb
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+  searxng:
+    image: searxng/searxng:latest
+    ports:
+      - "127.0.0.1:${SEARCH_PORT:-18083}:8080"
+    volumes:
+      - ./docker/searxng/settings.yml:/etc/searxng/settings.yml:ro
+  postgres:
+    image: pgvector/pgvector:pg17
+    ports:
+      - "127.0.0.1:${DB_PORT:-15432}:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  postgres:

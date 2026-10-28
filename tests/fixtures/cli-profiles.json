@@ -1,0 +1,1 @@
+{"profiles":{"default":{"url":"http://127.0.0.1:18998/v1/chat/completions","model":"inspect","tools":["Agent\\Tools\\Fetch"],"stream":true},"inherited":{"preset":"default","body":{"tools":[{"type":"function"}],"messages":[{"role":"user","content":"UNWANTED PROFILE MESSAGE"}]}}}}

@@ -1,0 +1,190 @@
+.setup-wizard {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 54px 28px 160px;
+}
+.setup-heading {
+  margin-bottom: 30px;
+}
+.setup-heading .brand {
+  font-size: 29px;
+  margin-bottom: 40px;
+}
+.setup-heading .brand span {
+  color: #8b9679;
+}
+.setup-eyebrow {
+  font-size: 11px;
+  letter-spacing: .17em;
+  font-weight: 700;
+  color: #65765d;
+}
+.setup-heading h1 {
+  font-size: clamp(34px, 5vw, 52px);
+  line-height: 1.1;
+  letter-spacing: -.045em;
+  margin: 15px 0;
+}
+.setup-heading p {
+  color: #77796e;
+}
+.setup-steps {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 24px 0;
+}
+.setup-steps span {
+  font-size: 12px;
+  padding: 8px 13px;
+  border-radius: 20px;
+  background: #eeeee6;
+  color: #77796e;
+}
+.setup-steps .current {
+  background: #dce9d5;
+  color: #355c37;
+  font-weight: 700;
+}
+.setup-wizard .setup-card {
+  padding: 30px;
+  border: 1px solid #dedfd3;
+  border-radius: 18px;
+  box-shadow: 0 8px 25px #3c432b05;
+  margin-bottom: 18px;
+}
+.setup-card h2 {
+  font-size: 24px;
+  letter-spacing: -.025em;
+  margin: 12px 0;
+}
+.setup-card .muted {
+  line-height: 1.65;
+  margin-bottom: 24px;
+}
+.setup-card label {
+  margin-top: 10px;
+}
+.setup-wizard button {
+  min-height: 43px;
+}
+.setup-wizard .primary {
+  padding: 13px 22px;
+}
+.setup-custom {
+  border-top: 1px solid #e5e5da;
+  margin-top: 24px;
+  padding-top: 18px;
+}
+.setup-custom summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.setup-custom form {
+  margin-top: 18px;
+}
+.setup-finish {
+  padding: 30px;
+  border-radius: 18px;
+  background: #f0f4eb;
+}
+.setup-finish h2 {
+  letter-spacing: -.03em;
+  font-size: 28px;
+  margin: 18px 0 24px;
+}
+.setup-guide {
+  position: fixed;
+  right: 24px;
+  bottom: 20px;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  width: 350px;
+  z-index: 5;
+  pointer-events: none;
+}
+.setup-guide .avatar {
+  display: block;
+  flex: 0 0 105px;
+  height: 128px;
+}
+.setup-bubble {
+  position: relative;
+  background: #fffef7;
+  border: 1px solid #dedfd3;
+  border-radius: 15px 15px 15px 2px;
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  box-shadow: 0 8px 28px #33391c0c;
+  margin-bottom: 18px;
+}
+.setup-wizard [hidden] {
+  display: none !important;
+}
+#setup-progress {
+  margin-top: 22px;
+  font-size: 13px;
+  color: #65765d;
+}
+#setup-progress p {
+  border-left: 2px solid #b6c9a9;
+  padding-left: 10px;
+}
+.setup-wizard input:focus,
+.setup-wizard select:focus {
+  outline: 2px solid #7d9968;
+  outline-offset: 3px;
+}
+.setup-guide svg {
+  width: 100%;
+  height: 100%;
+}
+@media (min-width: 1250px) {
+  .setup-guide {
+    width: 390px;
+    right: 30px;
+  }
+  .setup-wizard {
+    margin-left: calc((100vw - 940px) / 2);
+    margin-right: auto;
+  }
+}
+@media (max-width: 800px) {
+  .setup-guide {
+    right: 12px;
+    bottom: 8px;
+    width: min(370px, calc(100vw - 24px));
+  }
+  .setup-guide .avatar {
+    flex-basis: 66px;
+    height: 83px;
+  }
+  .setup-bubble {
+    padding: 12px;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+  .setup-wizard {
+    padding: 30px 18px 170px;
+  }
+  .setup-heading .brand {
+    margin-bottom: 28px;
+  }
+  .setup-wizard .setup-card {
+    padding: 22px;
+  }
+  .setup-steps {
+    gap: 5px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .avatar * {
+    animation: none !important;
+    transition: none !important;
+  }
+  .setup-wizard {
+    scroll-behavior: auto;
+  }
+}

@@ -1,0 +1,7 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+// Pending uploads are recoverable for a day. Linked files are never removed here.
+$total = 0;
+do { $removed = Agent\Attachments::collectExpired(); $total += $removed; } while ($removed === 200);
+echo 'Removed ' . $total . " expired unattached uploads\n";

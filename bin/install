@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+# No host PHP required. Configuration is data, never sourced as executable shell.
+set -Eeuo pipefail
+umask 077
+PHILLIP_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$PHILLIP_ROOT"
+INSTALL_YES=false
+INSTALL_CHECK=false
+INSTALL_LOG_PRIORITY=${LOG_MIN_CONSOLE:--2}
+for argument in "$@"; do
+    case "$argument" in
+        --yes) INSTALL_YES=true ;;
+        --check) INSTALL_CHECK=true ;;
+        --debug) INSTALL_LOG_PRIORITY=-3 ;;
+        --verbose) INSTALL_LOG_PRIORITY=-4 ;;
+        --help|-h) printf 'Usage: ./bin/install [--yes] [--check] [--debug|--verbose]\n--yes accepts package installation and local-only defaults.\n--check reports prerequisites without changing the machine.\n'; exit 0 ;;
+        *) printf 'Unknown option: %s\n' "$argument" >&2; exit 2 ;;
+    esac
+done
+trap 'printf "\nInstallation stopped at line %s. Your existing data has been preserved. Resolve the error above and rerun ./bin/install.\n" "$LINENO" >&2' ERR
+confirm() {
+    $INSTALL_YES && return 0
+    local answer
+    read -r -p "$1 [y/N] " answer || return 1
+    [[ "$answer" == [yY] || "$answer" == [yY][eE][sS] ]]
+}
+elevate() { if [[ $(id -u) == 0 ]]; then "$@"; else command -v sudo >/dev/null || { printf 'sudo is required for this system change. Install it or rerun as root.\n' >&2; return 1; }; sudo -- "$@"; fi; }
+os_value() { awk -F= -v key="$1" '$1==key {sub(/^[^=]*=/, ""); gsub(/^"|"$/, ""); print; exit}' "${PHILLIP_OS_RELEASE:-/etc/os-release}" 2>/dev/null || true; }
+PHILLIP_OS=$(os_value ID)
+PHILLIP_CODENAME=$(os_value VERSION_CODENAME)
+printf '\n  PHiLLiP_\n  A little intelligence. A lot of character.\n\n'
+printf 'Platform: %s\n' "${PHILLIP_OS:-$(uname -s)}"
+if $INSTALL_CHECK; then
+    command -v docker >/dev/null && docker --version || printf 'Docker: installation required\n'
+    if command -v docker >/dev/null; then docker compose version || true; fi
+    printf 'Host PHP: not required\n'
+    exit 0
+fi
+install_packages() {
+    confirm 'Install the missing Docker/Compose dependencies? This may request administrator privileges.' || { printf 'No system packages changed. Install Docker with Compose, then rerun.\n'; exit 1; }
+    case "$PHILLIP_OS" in
+        ubuntu|debian)
+            [[ "$PHILLIP_CODENAME" =~ ^[a-z][a-z0-9-]+$ ]] || { printf 'Cannot identify the distribution release. See https://docs.docker.com/engine/install/\n' >&2; exit 1; }
+            elevate apt-get update
+            elevate apt-get install -y ca-certificates curl
+            # Docker's signed repository; never execute a downloaded convenience script.
+            elevate install -m 0755 -d /etc/apt/keyrings
+            elevate curl --fail --silent --show-error --location "https://download.docker.com/linux/$PHILLIP_OS/gpg" -o /etc/apt/keyrings/docker.asc
+            elevate chmod a+r /etc/apt/keyrings/docker.asc
+            local repository
+            repository=$(mktemp)
+            printf 'Types: deb\nURIs: https://download.docker.com/linux/%s\nSuites: %s\nComponents: stable\nArchitectures: %s\nSigned-By: /etc/apt/keyrings/docker.asc\n' "$PHILLIP_OS" "$PHILLIP_CODENAME" "$(dpkg --print-architecture)" > "$repository"
+            elevate install -m 0644 "$repository" /etc/apt/sources.list.d/docker.sources
+            unlink "$repository"
+            elevate apt-get update
+            if command -v docker >/dev/null; then elevate apt-get install -y docker-compose-plugin docker-buildx-plugin
+            else elevate apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; fi
+            ;;
+        *)
+            printf 'Using a best-effort package-manager fallback; Debian and Ubuntu are the validated targets.\n'
+            if command -v dnf >/dev/null; then elevate dnf install -y docker docker-compose
+            elif command -v yum >/dev/null; then elevate yum install -y docker docker-compose-plugin
+            elif command -v pacman >/dev/null; then elevate pacman -S --needed --noconfirm docker docker-compose
+            elif command -v zypper >/dev/null; then elevate zypper --non-interactive install docker docker-compose
+            elif command -v apk >/dev/null; then elevate apk add docker docker-cli-compose
+            elif command -v brew >/dev/null; then brew install --cask docker; printf 'Open Docker Desktop, finish its setup, then rerun ./bin/install.\n'; exit 0
+            else printf 'Install Docker Engine/Desktop and Compose: https://docs.docker.com/engine/install/\n' >&2; exit 1; fi
+            ;;
+    esac
+}
+if ! command -v docker >/dev/null || ! docker compose version >/dev/null 2>&1; then install_packages; fi
+DOCKER=(docker)
+if ! docker info >/dev/null 2>&1; then
+    if command -v systemctl >/dev/null && confirm 'Start the Docker service?'; then elevate systemctl start docker; fi
+    if ! docker info >/dev/null 2>&1; then
+        if elevate docker info >/dev/null 2>&1; then DOCKER=(sudo -- docker); [[ $(id -u) == 0 ]] && DOCKER=(docker)
+        else printf 'Docker is not reachable. Start Docker and rerun. No Docker-group membership was changed.\n' >&2; exit 1; fi
+    fi
+fi
+if [[ ! -f .env ]]; then
+    PHILLIP_BIND=${APP_BIND:-127.0.0.1}
+    PHILLIP_PORT=${APP_PORT:-8088}
+    if ! $INSTALL_YES; then
+        printf '\nWhere should the web interface be available?\n  1) This computer only (recommended)\n  2) This computer and my LAN\n'
+        read -r -p 'Choose [1]: ' exposure || true
+        if [[ ${exposure:-1} == 2 ]]; then PHILLIP_BIND=0.0.0.0; printf 'LAN access exposes HTTP on all interfaces. Use only a trusted network or an HTTPS reverse proxy.\n'; fi
+        read -r -p "Web port [$PHILLIP_PORT]: " chosen_port || true
+        PHILLIP_PORT=${chosen_port:-$PHILLIP_PORT}
+    fi
+    [[ "$PHILLIP_PORT" =~ ^[0-9]+$ && "$PHILLIP_PORT" -gt 0 && "$PHILLIP_PORT" -lt 65536 ]] || { printf 'Invalid web port.\n' >&2; exit 1; }
+    # Derive suggested LANs on the host, not the Docker bridge. The browser asks before scanning.
+    PHILLIP_RANGES=''
+    if command -v ip >/dev/null; then PHILLIP_RANGES=$(ip -o -4 addr show scope global | awk '$2 !~ /^(docker|br-|veth|virbr|tun|wg)/ {print $4}' | paste -sd, -); fi
+    PHILLIP_RANGES=${PHILLIP_RANGES:-192.168.1.0/24}
+    PHILLIP_DB_SECRET=$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')
+    PHILLIP_BROWSER_SECRET=$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')
+    PHILLIP_ENV_TMP=$(mktemp "$PHILLIP_ROOT/.env.install.XXXXXX")
+    awk -v bind="$PHILLIP_BIND" -v port="$PHILLIP_PORT" -v db="$PHILLIP_DB_SECRET" -v browser="$PHILLIP_BROWSER_SECRET" -v ranges="$PHILLIP_RANGES" '
+        /^APP_BIND=/ {$0="APP_BIND=" bind} /^APP_PORT=/ {$0="APP_PORT=" port}
+        /^DB_PASSWORD=/ {$0="DB_PASSWORD=" db} /^BROWSER_TOKEN=/ {$0="BROWSER_TOKEN=" browser}
+        /^SCAN_CIDRS=/ {$0="SCAN_CIDRS=" ranges} {print}
+    ' .env.example > "$PHILLIP_ENV_TMP"
+    # Atomic no-clobber publication protects concurrent installers and interrupted runs.
+    if ln "$PHILLIP_ENV_TMP" .env 2>/dev/null; then chmod 600 .env; fi
+    unlink "$PHILLIP_ENV_TMP"
+    unset PHILLIP_DB_SECRET PHILLIP_BROWSER_SECRET
+else printf 'Keeping your existing .env and database settings.\n'; fi
+# Keep the app's env_file and Compose's interpolated database credentials in agreement,
+# even when the invoking terminal has unrelated exported application variables.
+for key in APP_BIND APP_PORT DB_NAME DB_USER DB_PASSWORD BROWSER_TOKEN DB_PORT BROWSER_PORT SEARCH_PORT; do unset "$key"; done
+PHILLIP_RESOLVED_ENV=$("${DOCKER[@]}" compose --project-directory "$PHILLIP_ROOT" --env-file "$PHILLIP_ROOT/.env" config --environment)
+while IFS= read -r line; do
+    key=${line%%=*}; value=${line#*=}
+    case "$key" in APP_BIND|APP_PORT|DB_NAME|DB_USER|DB_PASSWORD|BROWSER_TOKEN|DB_PORT|BROWSER_PORT|SEARCH_PORT) export "$key=$value";; esac
+done <<< "$PHILLIP_RESOLVED_ENV"
+unset PHILLIP_RESOLVED_ENV
+PHILLIP_PORT=${APP_PORT:-8088}
+PHILLIP_BIND=${APP_BIND:-127.0.0.1}
+PHILLIP_USERNAME=$(id -un)
+[[ $(id -u) == 0 ]] && PHILLIP_USERNAME='admin'
+if ! $INSTALL_YES; then
+    read -r -p "Administrator username [$PHILLIP_USERNAME]: " chosen_username || true
+    PHILLIP_USERNAME=${chosen_username:-$PHILLIP_USERNAME}
+fi
+COMPOSE=("${DOCKER[@]}" compose --project-directory "$PHILLIP_ROOT" --env-file "$PHILLIP_ROOT/.env")
+printf '\nStarting the web interface and database. The first build may take a few minutes…\n'
+"${COMPOSE[@]}" up -d --build app postgres
+PHILLIP_APP_ID=$("${COMPOSE[@]}" ps -a -q app)
+printf 'Waiting for the web interface…\n'
+PHILLIP_READY=false
+for ((attempt=0; attempt<120; attempt++)); do
+    if "${COMPOSE[@]}" exec -T app php -r 'exit(@file_get_contents("http://127.0.0.1:8080/health") === false ? 1 : 0);' >/dev/null 2>&1; then PHILLIP_READY=true; break; fi
+    PHILLIP_APP_STATE=$("${DOCKER[@]}" inspect --format '{{.State.Status}}' "$PHILLIP_APP_ID")
+    if [[ "$PHILLIP_APP_STATE" == exited || "$PHILLIP_APP_STATE" == dead ]]; then printf 'The web container stopped during initialization. Inspect: docker compose logs app\n' >&2; exit 1; fi
+    sleep 2
+done
+$PHILLIP_READY || { printf 'The web service is not ready. Inspect: docker compose logs app postgres\n' >&2; exit 1; }
+"${COMPOSE[@]}" up -d worker indexer operations projects
+PHILLIP_BOOTSTRAP_INFO=$("${COMPOSE[@]}" exec -T -e "LOG_MIN_CONSOLE=$INSTALL_LOG_PRIORITY" app php bin/phill-bootstrap --username "$PHILLIP_USERNAME")
+PHILLIP_URL_HOST=127.0.0.1
+if [[ "$PHILLIP_BIND" != 127.0.0.1 && "$PHILLIP_BIND" != localhost ]]; then
+    PHILLIP_URL_HOST=$PHILLIP_BIND
+    if [[ "$PHILLIP_BIND" == 0.0.0.0 ]]; then PHILLIP_URL_HOST=$(hostname -I 2>/dev/null | awk '{print $1}'); PHILLIP_URL_HOST=${PHILLIP_URL_HOST:-localhost}; fi
+fi
+printf '\nYour web interface is ready: http://%s:%s/\n%s\n\nSign in, replace the temporary password, and finish model setup in your browser.\n' "$PHILLIP_URL_HOST" "$PHILLIP_PORT" "$PHILLIP_BOOTSTRAP_INFO"
+unset PHILLIP_BOOTSTRAP_INFO
+if [[ "$PHILLIP_BIND" == 127.0.0.1 ]]; then printf 'Remote server? Forward this port over SSH to open it safely on your computer.\n'; fi
+printf '\nStarting the bundled search and browser services; you can open setup now…\n'
+PHILLIP_ADDON_LOG=$(mktemp /tmp/phillip-addons.XXXXXX.log)
+if "${COMPOSE[@]}" up -d --build browser searxng > "$PHILLIP_ADDON_LOG" 2>&1; then unlink "$PHILLIP_ADDON_LOG"
+else printf 'Optional services did not finish starting. Basic chat still works. Details: %s\n' "$PHILLIP_ADDON_LOG" >&2; fi
+printf '\nContinue at http://%s:%s/\n' "$PHILLIP_URL_HOST" "$PHILLIP_PORT"

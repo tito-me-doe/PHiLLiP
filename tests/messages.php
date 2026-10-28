@@ -1,0 +1,58 @@
+<?php
+require __DIR__ . '/helpers.php';
+
+check(Agent\Message::normalize(" USER \n", '  untouched content  ') === ['role'=>'user','content'=>'  untouched content  '], 'Role tokens normalize whitespace and case without trimming message content');
+use Agent\Message;
+
+check(Message::normalize('Hello') === ['content' => 'Hello', 'role' => 'user'], 'Plain text has canonical content and default user role');
+check(Message::normalize('system', 'Be concise') === Message::normalize('Be concise', 'system'), 'Role/content arguments work in either unambiguous order');
+check(Message::normalize('user')['content'] === 'user', 'A single role-like string remains literal user content');
+check(Message::normalize([]) === ['content' => null, 'role' => 'user'], 'An empty explicit message retains the existing default role and null content');
+check(Message::normalize(['role' => 'assistant'])['content'] === null, 'Contentless assistant payload retains canonical null content');
+$payload = ['role' => 'developer', 'content' => 'Instructions', 'settings' => ['profile' => 'small'], '_internal' => true, 'submission_key' => 'opaque'];
+check(Message::normalize($payload) === $payload, 'Message metadata is preserved, not reduced to role and content');
+check(Message::normalize((object)$payload) === $payload, 'Database/API object payloads share the message contract');
+check(Message::normalize(json_encode($payload)) === $payload, 'Recognized JSON message objects share the same contract');
+check(Message::normalize('{"business":"data"}')['content'] === '{"business":"data"}', 'Arbitrary JSON text is not mistaken for message metadata');
+$row = ['id' => '42', 'thread_id' => '9', 'role' => 'developer', 'raw' => json_encode($payload), 'author_id' => 'private-author'];
+$canonical = Message::normalize($row);
+check($canonical['_id'] === '42' && $canonical['settings'] === $payload['settings'] && !isset($canonical['author_id']), 'Stored rows unwrap raw metadata and preserve source identity without leaking row columns');
+check(Message::text($row) === 'Instructions' && Message::forModel($row) === ['role' => 'developer', 'content' => 'Instructions'], 'Text and model projection accept stored rows directly and filter private metadata');
+$row['raw'] = $payload + ['_id' => 'source-42'];
+check(Message::fromRow($row)['_id'] === '42', 'Stored row identity overrides stale or caller-supplied raw identity');
+$parts = [['type' => 'text', 'text' => 'Look'], ['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,fixture']]];
+check(Message::normalize($parts)['content'] === $parts && count(Message::many($parts)) === 1, 'Native multipart content remains one message instead of multiple turns');
+$objectParts = json_decode(json_encode(['role' => 'user', 'content' => $parts]));
+check(Message::normalize($objectParts)['content'] === $parts && Message::normalize($objectParts->content)['content'] === $parts, 'Nested decoded JSON objects become canonical native content parts');
+$calls = [['id' => 'call-1', 'type' => 'function', 'function' => ['name' => 'lookup', 'arguments' => '{"id":42}']]];
+$objectCalls = json_decode(json_encode(['role' => 'assistant', 'content' => null, 'tool_calls' => $calls]));
+check(Message::normalize($objectCalls)['tool_calls'] === $calls && Message::forModel($objectCalls)['tool_calls'] === $calls, 'Nested decoded JSON tool calls retain their argument strings and become canonical arrays');
+check(Message::many(json_encode([$payload, ['content' => 'Next']]))[1]['role'] === 'user', 'JSON message lists normalize each entry');
+check(Message::many('One turn')[0]['content'] === 'One turn' && Message::many([]) === [], 'Single input and empty conversation use the collection contract');
+check(Message::many(['First', 'Second'])[1]['content'] === 'Second', 'Lists of text are accepted without caller-side role/content wrapping');
+$file = tmpfile(); $path = stream_get_meta_data($file)['uri'];
+Agent\Log::with(['user' => Agent\Log::OFF, 'admin' => Agent\Log::OFF, 'console' => Agent\Log::OFF, 'file' => Agent\Log::WARNING, 'path' => $path], function () {
+    check(Message::normalize(42)['content'] === '42', 'Safely inferred scalar message content becomes text');
+});
+check(strpos(stream_get_contents($file), 'Converting scalar message content') !== false, 'Scalar inference emits a shared warning');
+fclose($file);
+expectException(function () { Message::normalize('assistant', 'user'); }, 'exactly one role');
+expectException(function () { Message::normalize('hello', 'world'); }, 'exactly one role');
+expectException(function () { Message::normalize(['role' => 'unknown', 'content' => 'x']); }, 'Invalid message role');
+expectException(function () { Message::normalize(['content' => ['ambiguous', 'data']]); }, 'native content parts');
+expectException(function () { Message::normalize(['arbitrary' => 'data']); }, 'Message requires');
+expectException(function () { Message::normalize(new DateTime()); }, 'Message requires');
+expectException(function () { Message::normalize(['content' => [new stdClass()]]); }, 'native content parts');
+expectException(function () { Message::normalize(['content' => [new DateTime()]]); }, 'JSON-compatible');
+expectException(function () { Message::normalize(['tool_calls' => 'not a list']); }, 'tool_calls must be an array');
+$cycle = new stdClass(); $cycle->self = $cycle;
+expectException(function () use ($cycle) { Message::normalize(['content' => $cycle]); }, 'circular or too deeply nested');
+expectException(function () { Message::normalize(['id' => 1, 'role' => 'user', 'raw' => '{bad']); }, 'JSON message object');
+expectException(function () { Message::normalize(['id' => 1, 'role' => 'user', 'raw' => ['role' => 'assistant', 'content' => 'conflict']]); }, 'role conflicts');
+expectException(function () { Message::many([2 => 'not a sequential list']); }, 'sequential list');
+$config = ['url' => 'http://127.0.0.1:1/v1/chat/completions', 'model' => 'fixture'];
+$request = new Agent\Request($config + ['body' => ['messages' => json_encode([$payload])]]);
+$request->addMessage('Next', 'user')->addMessages(['Third', ['role' => 'assistant', 'content' => null, 'tool_calls' => []]])->addMessage($row);
+$messages = $request->request['body']['messages'];
+check(count($messages) === 5 && $messages[0]['settings'] === $payload['settings'] && $messages[1]['content'] === 'Next', 'Constructor and incremental request paths use the same canonical message contract');
+check($messages[1]['_id'] === 'e:1' && $messages[4]['_id'] === '42', 'Request assigns ephemeral identity only when a source identity is absent');
