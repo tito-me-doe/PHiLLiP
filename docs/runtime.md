@@ -1,72 +1,6 @@
 # Runtime reference
 
-Start with the [README](../README.md) for installation and everyday use, the [engineering guide](engineering-team.md) for durable CLI agents, or the [project guide](projects.md) for recursive ToDos.
-
-## Initialization and input contracts
-
-Every executable, worker, HTTP entry point, and PHP integration uses `bootstrap.php`. Composer's `vendor/autoload.php` invokes the same initializer. Initialization is idempotent and lazy: loading classes alone does not open a database connection or session. Composer resolves classes when installed, with a project-class fallback when vendor dependencies are absent; features requiring those dependencies still need them installed.
-
-Public interfaces normalize recognized input shapes before entering stricter internals. Callers should pass the data they already have rather than each implementing their own conversions:
-
-```php
-$request = new \Agent\Request($registry->profile('default')); // A complete profile row
-$request->addMessage('user', 'Hello');                       // Either role/content order
-$request->addMessages($thread->messages());                  // Stored message rows
-
-$user = \Agent\Identity::user($userRow);                     // ID, username, row/object, reference JSON
-$user = \Agent\Identity::authenticate($credentials);        // Payload or username/password arguments
-$thread = new \Agent\Thread($threadRow);                    // ID, row/object, JSON row, or Thread
-$files = \Agent\Attachments::normalize($attachmentIds);     // ID/row, list, CSV, or JSON
-```
-
-Hydration is not authentication or authorization. Identity, thread, persona, and attachment references reload database state. Frontend profile selection resolves an administrator-enabled profile reference, not supplied execution configuration. Thread titles are not unique lookup keys; ambiguous visible persona names require an ID. Direct application calls remain trusted.
-
-`Message::normalize()` returns an array with `role` and `content`, preserving additional raw metadata. It accepts text, message arrays/decoded objects, recognized message JSON, database rows, and native multimodal content parts. `Message::many()` accepts one message or a list. With two arguments, exactly one must be a recognized role; use an explicit payload for ambiguous text such as the literal word `assistant`. Ordinary JSON that is not a message stays text. Model projection excludes application metadata.
-
-`Config::profile()` extracts configuration from a profile reference or row. `Config::resolve()` also applies inheritance and private credentials. Profiles resolve database-first, then from optional private JSON. A minimal database-free configuration file is:
-
-```json
-{
-  "profiles": {
-    "default": {
-      "url": "http://127.0.0.1:8000/v1/chat/completions",
-      "model": "your-model-id",
-      "temperature": 0.65
-    }
-  }
-}
-```
-
-Save it as `config/profiles.local.json`, substitute your server URL/model ID, or set `PROFILE_JSON` to a private file. Inline arrays/JSON also work. Database-dependent features still require PostgreSQL.
-
-`Profiles::save()` accepts a named payload or positional arguments. Profile configuration, capability overrides, service maps, and attachment-parser maps accept their JSON textarea forms. `Thread::options()` is the creation-options contract shared by application and frontend callers.
-
-`Config::boolean()` recognizes explicit form/JSON booleans, including `false`, `off`, `no`, and `0`. Ambiguous values throw before a setting or permission changes. Numeric IDs and ports are validated, not stripped or truncated into different identifiers. Password bytes and message content are not trimmed or HTML-escaped; output escaping belongs to the destination sink.
-
-`Utilities::cleanup($input, $contract)` performs best-effort normalization. It logs permitted guesses as warnings and failures as errors, returning the current, possibly partially cleaned input without throwing. Callers check their own requirements. JSON decoding adopts a temporary result only when it is a usable nonempty array, unless the contract permits empty arrays. See [cleanup contracts](cleanup.md).
-
-Reflected tools use shared normalization for boolean, integer, and float arguments, including variadics. Ambiguous booleans, fractional integer IDs, overflow, and nonfinite numbers return tool feedback without executing the callable.
-
-`Database::row($sql, $params)`, `rows()`, and `execute()` reuse up to 32 prepared statements per PDO connection. They return one associative row or `false`, all rows, or an affected-row count. Calls execute against current transaction state and release cursors; query results and permissions are not cached.
-
-## Requests, personas, and tools
-
-```php
-$request = new \Agent\Request([
-    'preset' => 'default',
-    'persona' => 'Reviewer', // A saved ID/name or trusted inline definition
-]);
-$request->addMessage('Review this design.');
-$answer = $request->send();
-```
-
-A persona contains a name, freeform system prompt, optional named tools, and optional response contract, with owner/visibility fields. It does not select a model. Selection copies its defaults into conversation settings; editing or deleting the original does not rewrite conversations. Explicit request settings can override defaults. Avatars are separate user preferences.
-
-`registerTool()` makes a callable available; registering a class reflects its public static methods. CLI registration accepts names, not executable expressions. Frontend adapters and CLI contexts impose their authority boundaries; registration is not itself permission approval.
-
-`registerContract()` accepts an array, decoded object, JSON, or a schema file. Self-contained schemas and local `#` references are supported; external file/network references are rejected. Tool-free requests can use native structured output. With tools enabled, generation remains unconstrained for tool calls, followed by local final-answer validation and bounded correction.
-
-`max_rounds` defaults to 10 and bounds agent/model rounds separately from transport retries and contract corrections. `send($maxRounds)` overrides that limit. Exhausted output-token limits preserve partial output in request details and report an error rather than spending correction attempts on truncated JSON. `$request->response` contains execution details; `send()` returns the final answer only.
+This guide covers context-aware logging, attachment representation/lifecycle, and durable workflow state. For application-facing class contracts and examples, use the [PHP class guide](php-classes.md). Installation/operations belong in the [administration guide](administration.md); prerequisites and caveats are in [REQUIREMENTS.md](../REQUIREMENTS.md).
 
 ## Logging and terminal output
 
@@ -155,15 +89,6 @@ Frontend message POSTs require a stable `submission_key`. Retrying the same user
 
 UI preferences and panel state stay in browser-local storage, not PostgreSQL. Small cookies mirror appearance preferences for immediate PHP rendering. Unacknowledged submission keys survive browser reloads locally; API callers must retain their own keys across retries.
 
-## Focused tests
+## Testing
 
-Use the shared runner with the services needed by each selected suite:
-
-```sh
-docker compose exec -T app php tests/run.php logging runtime runtime_cli_options
-docker compose exec -T app php tests/run.php messages row_contracts input_contracts utilities
-docker compose exec -T app php tests/run.php attachments attachment_media attachment_fallbacks
-docker compose exec -T app php tests/run.php submissions state views threads worker
-```
-
-Browser suites additionally require Python Playwright, Chromium, and their documented account/model fixtures. `tests/ui_followups.py` checks repeated turns, Stop, queued messages, tool activity, editing, fragment replacement, and duplicate/mixed-stream detection. `tests/onboarding.php --browser` combines isolated onboarding fixtures with browser checks.
+See [CONTRIBUTING.md](../CONTRIBUTING.md#test-a-focused-change) for suite selection and prerequisites. Runtime changes should exercise diagnostics across CLI/HTTP contexts, attachment fallbacks, durable state/idempotency, and repeated frontend follow-ups as applicable.
