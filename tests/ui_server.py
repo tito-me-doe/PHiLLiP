@@ -13,12 +13,13 @@ with sync_playwright() as p:
     page.locator('#login-form button').click();page.locator('#message-form').wait_for()
     assert 'password=' not in page.url
     print('PASS: Sign in using a CSRF-protected PHP form with JavaScript disabled',flush=True)
-    page.locator('#persona').select_option(label='Thought partner')
+    page.get_by_role('button', name='Thought partner', exact=False).click()
+    page.locator('#message-form').wait_for()
     fixture=subprocess.check_output(['php','-r','require "tests/fixtures/media.php"; echo fixturePdf("INVOICE 8127 - Total 49 dollars");'],cwd=Path(__file__).resolve().parents[1])
     page.locator('#files').set_input_files({'name':'invoice.pdf','mimeType':'application/pdf','buffer':fixture})
     page.locator('#prompt').fill('Read the attached invoice. Reply SERVER_FORM_READY followed by the invoice number.')
     page.get_by_role('button',name='Send message',exact=True).click()
-    page.wait_for_url('**/?thread=*');url=page.url
+    page.wait_for_url('**/chat?thread=*');url=page.url
     assert page.locator('.message.user').count()==1
     deadline=time.monotonic()+120
     while time.monotonic()<deadline:

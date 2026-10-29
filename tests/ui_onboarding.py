@@ -72,8 +72,8 @@ with sync_playwright() as p:
     page.locator('#message-form').wait_for()
     assert page.locator('.tabs a[href*="tab=team"]').count() == 0
     assert page.locator('[data-suggestion], #persona').count() == 0
-    assert page.locator('.persona-card').filter(has_text='Thoughtful teammate').count() == 1
-    assert page.locator('.persona-card').filter(has_text='Fixture researcher').count() == 1
+    assert page.locator('.persona-card[title="Thoughtful teammate"]').count() == 1
+    assert page.locator('.persona-card[title="Fixture researcher"]').count() == 1
     disabled=page.locator('.persona-card').evaluate_all('nodes=>nodes.map(n=>n.disabled)')
     assert disabled==sorted(disabled) and any(disabled) and not all(disabled)
     assert page.get_by_role('button',name='AAA unavailable persona').is_disabled()
@@ -126,7 +126,7 @@ with sync_playwright() as p:
             page.wait_for_timeout(100 if mode=='REDUCED' else 90)
         assert len(set(samples))>1 and mouth.is_visible(),samples
         await_refresh=page.evaluate("""async()=>{const n=document.querySelector('.chat-companion .avatar');await PHiLLiP.refreshMessages();return n===document.querySelector('.chat-companion .avatar')&&n.classList.contains('is-talking');}""")
-        assert await_refresh
+        assert await_refresh, {'mode':mode,'runs':page.evaluate('PHiLLiP.current.runs')}
         if mode=='STOP':
             page.get_by_role('button',name='Stop agent',exact=True).click()
             page.get_by_role('button',name='Stop agent',exact=True).click()
@@ -186,7 +186,7 @@ with sync_playwright() as p:
     page.locator(f'.thread-row:has([data-thread="{thread_id}"])').hover()
     page.once('dialog', lambda dialog: dialog.accept())
     page.locator(f'.thread-row:has([data-thread="{thread_id}"]) .thread-delete').click()
-    page.wait_for_url('**/?new=1')
+    page.wait_for_url('**/chat?new=1')
     assert page.locator(f'[data-thread="{thread_id}"]').count() == 0
     page.get_by_role('button', name='Fixture researcher').click()
     page.wait_for_function("() => !!PHiLLiP.current")

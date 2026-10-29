@@ -221,7 +221,7 @@ class Run
     {
         return self::synchronized($id, function () use ($id, $reason) {
         $run = self::get($id);
-        if ($run['status'] !== 'running') return;
+        if (!in_array($run['status'], ['queued', 'running'], true)) return;
         $q = Database::connection()->prepare('SELECT type, data FROM events WHERE run_id = ? ORDER BY id');
         $q->execute([$id]);
         $partial = '';

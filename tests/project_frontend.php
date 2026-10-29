@@ -33,9 +33,14 @@ try {
     $html = Agent\Views::render('projects', ['state' => $state, 'projectId' => $project->id]);
     $document = new DOMDocument(); @$document->loadHTML($html); $xpath = new DOMXPath($document);
     check(strpos($html, '<script>fixture') === false && strpos($html, '&lt;script&gt;fixture') !== false && strpos($html, '<img src=x') === false, 'Projects render stored titles and Todo content as safe server HTML');
-    check($xpath->query('//form[@data-project-form]')->length >= 8 && $xpath->query('//form[@data-project-form and not(input[@name="csrf"])]')->length === 0, 'Project actions render ordinary POST forms with CSRF fallbacks');
+    check($xpath->query('//form[@data-project-form]')->length >= 4 && $xpath->query('//form[@data-project-form and not(input[@name="csrf"])]')->length === 0, 'Project actions render ordinary POST forms with CSRF fallbacks');
     check($xpath->query('//form[@data-project-form="start:"]/button[@disabled]')->length === 1, 'Start is disabled until current plan validation and preflight both pass');
     check(strpos($html, 'Add child ToDo') !== false && strpos($html, 'Child fixture') !== false && strpos($html, 'Acceptance gates') !== false, 'Project view renders child creation, nested drafts, and explicit acceptance gates');
+    check($xpath->query('//table[contains(@class,"todo-table")]//input[not(@type="hidden")]')->length===0,'ToDo rows display read-only values');
+    $_GET=['todo'=>(string)$parent['id']];
+    $editorHtml=Agent\Views::render('projects',['state'=>$state,'projectId'=>$project->id,'todoEditor'=>true]);
+    check(strpos($editorHtml,'data-project-form="todo:'.$parent['id'].'"')!==false,'Project modal editor shares the ordinary PHP form contract');
+    $_GET=[];
     check(strpos($html, '?thread=' . $project->get()['thread_id']) !== false && strpos($html, 'data-thread=') === false, 'Planning chat uses normal navigation that initializes the existing chat workflow');
     $list = Agent\Views::render('projects', ['state' => $state]);
     check(strpos($list, 'data-project-form="create"') !== false && strpos($list, 'project-create') !== false && strpos($list, 'creation_key') !== false, 'Project list includes a server-rendered idempotent creation form');

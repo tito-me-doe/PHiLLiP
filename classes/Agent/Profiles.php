@@ -3,6 +3,40 @@ namespace Agent;
 
 class Profiles
 {
+    const DEFAULT_TASKS = ['embed', 'rerank', 'classify', 'extract', 'generate_titles', 'summarize', 'score'];
+
+    /** Explicit task selection only. Pass the current configuration as fallback; otherwise use 'default'. */
+    public static function defaultFor($task, $fallback = 'default')
+    {
+        $row = self::assignment($task);
+        return Config::resolve($row ?: $fallback);
+    }
+
+    public static function assignment($task)
+    {
+        if (!in_array($task, self::DEFAULT_TASKS, true)) throw new \InvalidArgumentException('Unknown profile default concept');
+        try {
+            $row = Database::row('SELECT p.* FROM profile_defaults d JOIN profiles p ON p.id=d.profileid WHERE d.default_for=?', [$task]);
+            if ($row) {
+                Log::writeDebug('Using configured task profile', ['default_for' => $task, 'profileid' => $row['id']]);
+                return $row;
+            }
+        } catch (\PDOException $e) {
+            // Embedded, database-free requests still summarize using their current configuration.
+            Log::writeDebug('Task defaults unavailable; retaining current model', ['default_for' => $task]);
+        }
+        return null;
+    }
+
+    public static function setDefault($task, $profile = null)
+    {
+        if (!in_array($task, self::DEFAULT_TASKS, true)) throw new \InvalidArgumentException('Unknown profile default concept');
+        $row = $profile === null ? null : (new Registry())->profile($profile);
+        if ($profile !== null && !$row) throw new \InvalidArgumentException('Select a saved profile');
+        Database::execute('UPDATE profile_defaults SET profileid=? WHERE default_for=?', [$row ? $row['id'] : null, $task]);
+        Log::writeSuccess('Task profile default saved', ['default_for' => $task, 'profileid' => $row ? $row['id'] : null]);
+    }
+
     /** Save either the traditional arguments or a profile row/form payload. Enabling still probes it. */
     public static function save($name, $config = null, $enable = false, $overrides = [])
     {
@@ -104,16 +138,13 @@ class Profiles
                 return stripos($request->send(), 'red') !== false;
             });
         }
-        $url = isset($config['url']) ? $config['url'] : '';
-        $model = isset($config['model']) ? $config['model'] : $config['body']['model'];
-        $headers = isset($config['headers']) ? $config['headers'] : (isset($config['head']) ? $config['head'] : []);
-        $probe('supports_embeddings', function () use ($url, $model, $headers) {
-            $response = Http::request(preg_replace('~/v1/chat/completions$~', '/v1/embeddings', $url), ['model' => $model, 'input' => ['PHiLLiP capability test']], $headers, 60);
-            return $response['status'] === 200 && !empty($response['json']['data'][0]['embedding']);
+        $probe('supports_embeddings', function () use ($config) {
+            $response = Models::native('embed',['texts'=>['PHiLLiP capability test']],array_replace($config,['timeout'=>60]));
+            return !empty($response['data']['vectors'][0]);
         });
-        $probe('supports_rerank', function () use ($url, $model, $headers) {
-            $response = Http::request(preg_replace('~/v1/chat/completions$~', '/v1/rerank', $url), ['model' => $model, 'query' => 'PHP', 'documents' => ['PHP is a programming language.', 'The sky is blue.']], $headers, 60);
-            return $response['status'] === 200 && isset($response['json']['results'][0]['relevance_score']);
+        $probe('supports_rerank', function () use ($config) {
+            $response = Models::native('rerank',['query'=>'PHP','documents'=>['PHP is a programming language.','The sky is blue.']],array_replace($config,['timeout'=>60]));
+            return !empty($response['data']);
         });
         return $result;
     }

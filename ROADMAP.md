@@ -2,7 +2,7 @@
 
 These are discussed but unfinished capabilities, not available commands or release promises. Order follows the principle of validating one useful end-to-end layer at a time. Individual designs may change as real use exposes better solutions; no dates are committed here.
 
-Existing foundations—standalone onboarding, registry/discovery, chat, `ok-phill`, durable engineering agents, personas, recursive projects, shared logging/state, and initial attachment pipelines—are not future features. Their present boundaries are documented in [REQUIREMENTS.md](REQUIREMENTS.md), the [project guide](docs/projects.md), and the [engineering guide](docs/engineering-team.md).
+Existing foundations—standalone onboarding, registry/discovery, chat, `ok-phill`, durable engineering agents, personas, recursive projects, benchmarks, explicit task-profile defaults, shared logging/state, and initial attachment pipelines—are not future features. Their present boundaries are documented in [REQUIREMENTS.md](REQUIREMENTS.md), the [benchmark guide](docs/benchmarks.md), the [project guide](docs/projects.md), and the [engineering guide](docs/engineering-team.md).
 
 ## Conversational PHP TUI
 
@@ -30,47 +30,30 @@ The current Project tool ceiling deliberately excludes Source, Workspace, SQL, a
 
 ## Benchmarks and model exploration
 
-Build a benchmark editor, durable runner, results views, and leaderboard on top of the registry and saved threads.
-
-### Data and scoring
-
-- A **Question** contains an input and scoring definition. A **Test** is a named collection of questions.
-- Validators return a boolean or a numeric score in `[0, 1]`.
-- Planned `scoring_type` values: `matches`, `contains`, `starts_with`, `ends_with`, `pcre`, and `llm_score`.
-- `scoring_criteria` accepts the data appropriate to the validator. An LLM judge is not interchangeable with deterministic validation; make the evaluation configuration inspectable.
-- Persist raw conversations and profile/model settings so a score can be investigated and reproduced.
-
-### Dashboard
-
-- Speed-versus-score plot with a Pareto frontier.
-- Global play/pause and force-stop controls.
-- A table surfacing all registry profiles, including those not currently loaded/available locally: model name, metadata, model-card link, parameter count, disk size where known, and separate score columns per test.
-- Clickable scores opening raw test threads, plus per-profile enqueue/pause controls.
-- An editor for tests and questions. Unknown metadata must remain unknown, not fabricated.
+The single-run command, durable runner, administrator report/Pareto chart, process controls, test/question editor, six scorers, and three ten-question suites are implemented. See the [operator guide](docs/benchmarks.md). Definitions/configuration are snapshotted, question conversations remain inspectable, and known-incompatible profile/test pairs are skipped.
 
 ### Runner and discovery extensions
 
-- Run profile by profile, then test by test, with durable progress, pause/resume, bounded cancellation, and independently configurable evaluation profiles.
-- A `phill-bench -p PROFILE -b TEST` command for one profile/test and a `phill-bench-run` orchestration command. These interfaces are planned; the executables do not exist yet.
 - `phill-scan-hf` to refresh known Hugging Face models from the current top 100 results, defaulting to trending, with `-s` selecting another sort such as modified. Catalog entries must remain distinct from locally runnable models.
 - If an Unsloth Studio endpoint is available, request permission to load a selected nonlocal Hugging Face model and automate load/unload/configuration through its API.
 - A model-assisted step recommending suitable loading settings for the target server, with validation and operator control rather than unbounded arbitrary configuration.
 
-The LAN scanner and capability verification already exist; Hugging Face synchronization, Unsloth orchestration, benchmark scheduling/scoring, and the benchmark UI do not.
+Hugging Face synchronization and Unsloth orchestration remain unimplemented. Add real-engine coverage beyond the currently validated local chat/embedding paths; fixture coverage for a schema is not a guarantee for every provider implementing it. Expand evaluation quality and repeatability before treating short-suite scores as model-quality claims.
 
 ## Task-specific routing and privacy policy
 
-- Separate configured profiles for summarization, title generation, classification, document parsing, and other background work where useful. Some task/parser configuration already exists; general routing is incomplete. Conversation compaction and automatic titles currently use the conversation's model in ephemeral requests.
-- Prefer a configured capable model when the selected model cannot handle an input/capability, with explicit failure when no useful route exists. Existing attachment fallbacks are not a universal delegation/router implementation.
+Fixed `profile_defaults` assignments now cover embedding, reranking, classification, extraction, title generation, summarization, and evaluation. Callers explicitly request the operation; an unassigned task falls back to the current/general-purpose model. Document parsing retains its MIME/extension mappings. **Do not infer a model choice from prompt content.**
+
+- Extend explicit operation/capability fallbacks where genuinely useful, with an actionable error when no valid route exists. A chat-only model cannot fabricate embeddings. Existing attachment fallbacks are not a universal delegation/router implementation.
 - Administrator-enforced restrictions preventing specified data categories from leaving the organization, regardless of user-selected endpoints.
 - A local obfuscate → external processing → local recovery workflow, with inspectable mappings and failure behavior. This is an intended privacy aid, not a present protection or a guarantee that anonymization is safe.
 - Continue supporting hosted/premium endpoints without displacing the local/self-hostable default path.
 
 ## Broader PHP service interfaces
 
-The existing `Request` loop uses chat completions; embedding and rerank capability probes exist, and vector/knowledge operations serve conversation retrieval. Broader public service interfaces remain incremental work:
+`Request` supports chat completions and native embedding/rerank operations. `Models` and the opt-in Tasks tools expose embedding similarity, reranking, classification, and extraction through explicit defaults. Broader public service interfaces remain incremental work:
 
-- Provider-specific Responses APIs, SystemOne requests, classification, and general rerank requests where useful; do not present these as existing standalone request classes.
+- Provider-specific Responses APIs and SystemOne requests where useful; do not present these as existing standalone request classes.
 - General-purpose vector collection creation, filling, management, and search beyond the current message-vector workflow.
 - A reusable graph/entity API for disambiguation, node/edge management, traversal, and evidence beyond current source-backed knowledge claims.
 - Redis integration if a concrete need justifies it. Redis is not a current runtime requirement.

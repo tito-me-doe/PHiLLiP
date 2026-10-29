@@ -30,6 +30,8 @@ try {
     check($credentials['created'] && strlen($credentials['password']) >= 24, 'Bootstrap creates a strong temporary password');
     check(Agent\Onboarding::bootstrap('different_admin') === ['created' => false] && count(Agent\Identity::users()) === 1, 'Rerunning bootstrap preserves credentials and creates no extra users');
     $user = Agent\Identity::authenticate('first_admin', $credentials['password']);
+    check($user['is_admin'] && $user['is_developer'], 'CLI bootstrap assigns both operator groups before first login');
+    check(count(Agent\Mappings::rows('teams'))===3 && !Agent\Mappings::rows('memberships',['team_id'=>'0']), 'Bootstrap creates three built-in groups without duplicating implicit Everyone memberships');
     expectException(function () use ($user) { Agent\Onboarding::scan($user, '127.0.0.1'); }, 'Change your temporary password');
     $address = $reserve(); $engine = $reserve();
     putenv('PHP_CLI_SERVER_WORKERS'); putenv('APP_BASE_PATH='); putenv('SCAN_CIDRS=127.0.0.1/32'); putenv('SCAN_PORTS=' . explode(':', $engine)[1]);
@@ -122,11 +124,12 @@ try {
     foreach (['Blocked A' => ['Source'], 'Allowed Z' => ['Fetch::fetch'], 'Blocked B' => ['Workspace'], 'Allowed Y' => []] as $name => $tools) $cardState['personas'][] = ['id' => count($cardState['personas']) + 1, 'name' => $name, 'prompt' => 'A test persona.', 'tools' => $tools];
     $cards = new DOMDocument(); @$cards->loadHTML(Agent\Views::render('messages', ['state' => $cardState, 'current' => null]));
     $buttons = (new DOMXPath($cards))->query('//button'); $names = []; $disabled = [];
-    foreach ($buttons as $button) { $names[] = $button->getElementsByTagName('strong')->item(0)->textContent; $disabled[] = $button->hasAttribute('disabled'); }
-    check($names === ['Allowed Z', 'Allowed Y', 'Blocked A', 'Blocked B'] && $disabled === [false, false, true, true], 'Persona cards put usable choices first while preserving order within both groups');
+    foreach ($buttons as $button) { $names[] = $button->getAttribute('title'); $disabled[] = $button->hasAttribute('disabled'); }
+    check($names === ['Allowed Z', 'Allowed Y', 'Blocked A', 'Blocked B'] && $disabled === [false, false, true, true], 'Persona table puts usable choices first while preserving order within both groups');
+    foreach ($buttons as $button) check(trim($button->textContent)==='Start Conversation','Persona action uses one consistent label');
     if (in_array('--browser', $argv, true)) {
         // Repeat from a clean state, without touching public tables or this installation's data.
-        $tables = ['users', 'settings', 'teams', 'memberships', 'tool_permissions', 'threads', 'profiles', 'models', 'endpoints', 'operations'];
+        $tables = ['users', 'settings', 'teams', 'memberships', 'permissions', 'threads', 'profiles', 'models', 'endpoints', 'operations'];
         $db->exec('TRUNCATE ' . implode(',', array_map(function ($name) use ($schema) { return $schema . '.' . $name; }, $tables)) . ' CASCADE');
         $credentials = Agent\Onboarding::bootstrap('browser_admin');
         $browserAdmin = Agent\Identity::authenticate('browser_admin', $credentials['password']);

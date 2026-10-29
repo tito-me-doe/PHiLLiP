@@ -69,6 +69,9 @@ try {
     $savedRows[] = $row['id'];
     Agent\Database::execute('UPDATE profiles SET enabled = TRUE, supports_tools = TRUE, supports_vision = FALSE WHERE id = ?', [$row['id']]);
     profileCommand([], 0, $environment);
+    $defaults=profileCommand(['defaults'],0,$environment);
+    check(array_column($defaults,'default_for')===['classify','embed','extract','generate_titles','rerank','score','summarize'],'CLI exposes only fixed task-default concepts');
+    foreach([['defaults','extra'],['default'],['default','unknown-task','none']] as $invalid)profileCommand($invalid,2,$environment);
     profileCommand(['help'], 0, $offline);
     foreach ([['unknown'], ['show'], ['list', 'extra'], ['show', 'x', 'extra'], ['list', '--compact'], ['help', 'extra'], ['save'], ['save', 'x', '{}', '--unknown'], ['unknown', '-p', json_encode($probeConfig)], ['list', '-p', json_encode($probeConfig)], ['show', json_encode($probeConfig)]] as $invalid) profileCommand($invalid, 2, $environment);
     $list = profileCommand(['list'], 0, $environment);

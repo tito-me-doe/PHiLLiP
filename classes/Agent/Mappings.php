@@ -3,7 +3,7 @@ namespace Agent;
 
 class Mappings
 {
-    const TABLES = ['users' => 'users', 'teams' => 'teams', 'memberships' => 'memberships', 'permissions' => 'tool_permissions'];
+    const TABLES = ['users' => 'users', 'teams' => 'teams', 'memberships' => 'memberships', 'permissions' => 'permissions'];
     const COLUMNS = ['users' => ['id', 'username', 'password_hash', 'display_name', 'is_admin', 'active'], 'teams' => ['id', 'name'],
         'memberships' => ['user_id', 'team_id'], 'permissions' => ['scope_type', 'scope_id', 'tool', 'allowed']];
 
@@ -33,7 +33,11 @@ class Mappings
         if (!isset(self::TABLES[$entity])) throw new \InvalidArgumentException('Unknown identity mapping');
         $installation = Installation::get() ?: [];
         $spec = isset($installation['mappings'][$entity]) ? $installation['mappings'][$entity] : [];
-        if (empty($spec['table'])) return [Database::connection(), ['table' => self::TABLES[$entity], 'columns' => array_combine(self::COLUMNS[$entity], self::COLUMNS[$entity]), 'writable' => true]];
+        if (empty($spec['table'])) {
+            $columns = array_combine(self::COLUMNS[$entity], self::COLUMNS[$entity]);
+            if ($entity === 'permissions') $columns['tool'] = 'resource'; // Legacy ERP mapping key, not a tool-only policy.
+            return [Database::connection(), ['table' => self::TABLES[$entity], 'columns' => $columns, 'writable' => true]];
+        }
         return [self::connection(isset($spec['connection']) ? $spec['connection'] : $installation['connection']), $spec];
     }
 

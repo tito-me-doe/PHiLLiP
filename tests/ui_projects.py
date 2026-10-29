@@ -66,9 +66,8 @@ with sync_playwright() as playwright:
         return result
 
     def edit(todo_id, changes):
-        panel = page.locator('[data-project-panel="edit:' + str(todo_id) + '"]')
-        if not panel.get_attribute('open') == '':
-            panel.locator('summary').first.click()
+        if not page.locator('#dialog form[data-project-form="todo:' + str(todo_id) + '"]').is_visible():
+            page.locator('#todo-' + str(todo_id)).get_by_role('link',name='Edit ToDo',exact=True).click()
         form = page.locator('form[data-project-form="todo:' + str(todo_id) + '"]')
         for name, value in changes.items():
             if name == 'persona_id':
@@ -81,7 +80,7 @@ with sync_playwright() as playwright:
         for role in ['Architect', 'Code Researcher']:
             persona = api('/api/personas', {'name': MARKER + ' ' + role, 'prompt': 'You are a concise ' + role + '. Solve the supplied elementary arithmetic task precisely. Return the requested answer tokens and one short calculation. No external tools or research are needed.', 'tools': [], 'visibility': 'private'})['persona']
             personas.append(persona['id'])
-        page.get_by_role('link', name='Projects', exact=False).first.click()
+        page.get_by_role('link', name='Project', exact=True).click()
         page.locator('form[data-project-form=create]').wait_for()
         profiles = page.locator('form[data-project-form=create] [name=profile] option').evaluate_all('(nodes)=>nodes.map(node=>node.value)')
         profile = os.environ.get('PHILLIP_PROFILE') or next((candidate for candidate in ['nemotron-vl-fast', 'nemotron-vl-work'] if candidate in profiles), None)
@@ -95,7 +94,8 @@ with sync_playwright() as playwright:
         # Bound actual task replies while keeping all model calls real.
         api('/api/projects/' + str(project_id) + '/settings', {'settings': {'parameters': {'temperature': 0, 'max_tokens': 1024, 'stream': True}}})
         page.reload()
-        parent_form = page.locator('form[data-project-form="add:root"]')
+        page.get_by_role('link',name='New ToDo',exact=True).click()
+        parent_form = page.locator('#dialog form[data-project-form="add:root"]')
         parent_form.locator('[name=title]').fill('Architect: double the child result')
         submit(parent_form)
         parent_id = int(snapshot()['todos'][0]['id'])
@@ -106,7 +106,7 @@ with sync_playwright() as playwright:
         print('PASS: Browser creates a project; incomplete drafts show gaps and disabled Start', flush=True)
 
         # A focused unsaved editor must survive at least two server-fragment replacements.
-        page.locator('[data-project-panel="edit:' + str(parent_id) + '"] > summary').click()
+        page.locator('#todo-' + str(parent_id)).get_by_role('link',name='Edit ToDo',exact=True).click()
         draft = page.locator('form[data-project-form="todo:' + str(parent_id) + '"] [name=goal]')
         draft.fill('Unsaved goal survives polling')
         draft.focus()
@@ -116,7 +116,7 @@ with sync_playwright() as playwright:
         assert draft.input_value() == 'Unsaved goal survives polling'
         edit(parent_id, {'goal': 'Double the completed child sum to get 24.', 'requirements': 'Use the child result 12. Compute 2 * 12 = 24. Include the exact token PROJECT_TOTAL=24 in your final answer.', 'context': 'This is a self-contained arithmetic exercise. A child ToDo computes 7 + 5 = 12 first. The parent uses that completed result; no external inputs or tools are required.', 'gates': 'The final answer contains PROJECT_TOTAL=24.\nThe final answer states the calculation 2 * 12 = 24 or an equivalent doubling calculation.', 'persona_id': personas[0]})
         # Add a nested child through a handler installed before the previous replacement.
-        page.locator('[data-project-panel="add:' + str(parent_id) + '"] > summary').click()
+        page.locator('#todo-' + str(parent_id)).get_by_role('link',name='Add child ToDo',exact=True).click()
         child_form = page.locator('form[data-project-form="add:' + str(parent_id) + '"]')
         for name, value in {'title': 'Code Researcher: add seven and five', 'goal': 'Compute the elementary sum 7 + 5.', 'requirements': 'Compute 7 + 5 = 12. Include the exact token PROJECT_CHILD=12 in the final answer. State the arithmetic briefly.', 'context': 'All input is given: the integers 7 and 5. Their sum supplies the parent task. No tools, files, networking, or external facts are needed.', 'gates': 'The final answer contains PROJECT_CHILD=12.\nThe final answer correctly gives 7 + 5 = 12.'}.items():
             child_form.locator('[name=' + name + ']').fill(value)
@@ -124,7 +124,8 @@ with sync_playwright() as playwright:
         submit(child_form)
         child_id = int(next(todo['id'] for todo in snapshot()['todos'] if todo['parent_id']))
         edit(child_id, {'context': 'Inputs are precisely the decimal integers 7 and 5. Add them to obtain 12 for the parent task. No tools or outside context are needed.'})
-        assert page.locator('#todo-' + str(parent_id) + ' .project-children #todo-' + str(child_id)).count() == 1
+        assert page.locator('table.todo-table #todo-' + str(child_id)).count() == 1
+        assert int(next(todo['parent_id'] for todo in snapshot()['todos'] if int(todo['id'])==child_id))==parent_id
         assert not snapshot()['issues']
         print('PASS: Dirty draft and focus survive two polls; multiple edited PHP forms and nested child remain interactive', flush=True)
 

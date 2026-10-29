@@ -25,6 +25,7 @@ The installer starts the application and its services, creates an administrator,
 - **Tools and knowledge:** search, fetching, browser interaction, conversation retrieval, and source-backed memory.
 - **Durable agents:** queued assignments, separate conversations, progress events, and scoped tools for research and engineering work.
 - **Projects:** planning conversations and recursive ToDos with readiness checks, explicit Start, escalation, and independently reviewed completion gates.
+- **Benchmarks:** saved test suites, single-run and queued CLI execution, a Pareto report, process controls, and a test editor.
 - **PHP classes and CLI:** use the same capabilities inline in application code or through `ok-phill`.
 
 The web UI is server-rendered PHP; JavaScript handles streaming and interactivity. See the guides below for each feature's current boundaries and usage.
@@ -36,6 +37,7 @@ The web UI is server-rendered PHP; JavaScript handles streaming and interactivit
 | Check dependencies, caveats, and tested coverage | [Requirements](REQUIREMENTS.md) |
 | Install, configure models/services, or operate the system | [Installation and administration](docs/administration.md) |
 | Ask questions or manage work from the terminal | [Command-line guide](docs/cli.md) |
+| Evaluate model profiles and manage benchmark runs | [Benchmarks](docs/benchmarks.md) |
 | Use PHiLLiP inside PHP code or write tools | [PHP class guide](docs/php-classes.md) |
 | Coordinate engineering agents and personas | [Engineering agents and workflows](docs/engineering-team.md) |
 | Plan and execute nested ToDos | [Projects](docs/projects.md) |

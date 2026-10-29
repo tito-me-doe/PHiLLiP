@@ -35,15 +35,17 @@ class Identity
     /** Canonical public rows without per-row lookups or exposing password hashes. */
     public static function users(array $criteria = [])
     {
-        $installation = Installation::get() ?: [];
-        return array_map(function ($row) use ($installation) { return self::publicUser($row, $installation); }, Mappings::rows('users', $criteria));
+        $groups = [];
+        foreach (Mappings::rows('memberships') as $row) $groups[(string)$row['user_id']][] = (string)$row['team_id'];
+        return array_map(function ($row) use ($groups) { return self::publicUser($row, $groups[(string)$row['id']] ?? []); }, Mappings::rows('users', $criteria));
     }
 
-    private static function publicUser(array $user, $installation = null)
+    private static function publicUser(array $user, $groups = null)
     {
         unset($user['password_hash']);
-        if ($installation === null) $installation = Installation::get() ?: [];
-        if (in_array((string)$user['id'], isset($installation['admin_ids']) ? $installation['admin_ids'] : [], true)) $user['is_admin'] = true;
+        if ($groups === null) $groups = array_map('strval',array_column(Mappings::rows('memberships',['user_id'=>(string)$user['id']]),'team_id'));
+        $user['is_admin'] = in_array('1',$groups,true);
+        $user['is_developer'] = in_array('2',$groups,true);
         return $user;
     }
 
@@ -90,19 +92,22 @@ class Identity
         $isAdmin = Config::boolean($isAdmin, 'is_admin');
         $id = bin2hex(random_bytes(16));
         $id = Mappings::insert('users', ['id' => $id, 'username' => $username, 'password_hash' => password_hash($password, PASSWORD_DEFAULT), 'display_name' => $displayName, 'is_admin' => $isAdmin ? 'true' : 'false', 'active' => 'true']);
+        if ($isAdmin) Mappings::insert('memberships', ['user_id'=>(string)$id,'team_id'=>'1']);
         return self::user(['id' => $id]);
     }
 
     public static function teams($userId)
     {
-        $ids = array_map('strval', array_column(Mappings::rows('memberships', ['user_id' => (string)$userId]), 'team_id'));
+        $user = self::user(['id'=>(string)$userId]);
+        if (!$user || !$user['active']) return [];
+        $ids = array_merge(['0'], array_map('strval', array_column(Mappings::rows('memberships', ['user_id' => (string)$userId]), 'team_id')));
         return array_values(array_filter(Mappings::rows('teams'), function ($team) use ($ids) { return in_array((string)$team['id'], $ids, true); }));
     }
 
     /** UI choices only. Authorization continues to use every real membership, including singleton teams. */
     public static function sharedTeams($userId)
     {
-        $teams = self::teams($userId);
+        $teams = array_values(array_filter(self::teams($userId), function($group) { return (string)$group['id'] !== '0'; }));
         if (!$teams) return [];
         $config = Installation::get() ?: [];
         if (empty($config['mappings']['users']['table']) && empty($config['mappings']['memberships']['table'])) {
@@ -117,8 +122,19 @@ class Identity
         return array_values(array_filter($teams, function ($team) use ($members) { return isset($members[(string)$team['id']]); }));
     }
 
-    public static function grant($scopeType, $scopeId, $tool, $allowed)
+    public static function grant($scopeType, $scopeId, $tool, $allowed = true)
     {
-        Mappings::upsert('permissions', ['scope_type' => $scopeType, 'scope_id' => (string)$scopeId, 'tool' => ltrim($tool, '\\')], ['allowed' => Config::boolean($allowed, 'Permission allowed')]);
+        $aliases = ['group' => 'team', 'global' => 'organization'];
+        $scopeType = isset($aliases[$scopeType]) ? $aliases[$scopeType] : $scopeType;
+        if ($scopeType === 'organization' && $scopeId === '*') { $scopeType = 'team'; $scopeId = '0'; }
+        if (!in_array($scopeType, ['user', 'team', 'organization'], true) || ($scopeType === 'organization' && $scopeId !== '*')) {
+            throw new \InvalidArgumentException('Choose a user, group, or global scope');
+        }
+        if (!is_string($tool) || trim($tool) === '' || strlen($tool) > 200) throw new \InvalidArgumentException('Permission resource is required');
+        $key = ['scope_type' => $scopeType, 'scope_id' => (string)$scopeId, 'tool' => ltrim($tool, '\\')];
+        // Administrators are inherently allowed; never store redundant per-resource grants.
+        if ($scopeType === 'team' && (string)$scopeId === '1') Mappings::delete('permissions', $key);
+        elseif (Config::boolean($allowed, 'Permission granted')) Mappings::upsert('permissions', $key, ['allowed'=>true]);
+        else Mappings::delete('permissions', $key); // Compatibility: false revokes a grant; it cannot block another grant.
     }
 }

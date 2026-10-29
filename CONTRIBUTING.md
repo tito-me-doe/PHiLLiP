@@ -67,10 +67,12 @@ Select additional suites for the code you changed. These are starting points, no
 | Input contracts | `utilities`, `utilities_adversarial`, `messages`, `row_contracts`, `input_contracts` | Row/hydration suites may need database fixtures |
 | Runtime/logging | `logging`, `runtime`, `runtime_cli_options`, `log_events`, `user_actions` | Some exercise HTTP subprocesses or persisted events |
 | Onboarding/document root | `install`, `onboarding`, `public_boundary` | `install` stubs dependency commands; the others use isolated PostgreSQL schemas |
+| Navigation/management/access | `access_migration`, `navigation`, `permissions` | Disposable schemas/identities; legacy upgrade, implicit Everyone, additive grants, roles, real routes/forms/APIs, and project frontend boundaries |
 | Queues/state | `submissions`, `state`, `worker`, `workflow_tightening` | Inspect database and identity prerequisites |
 | Attachments | `attachments`, `attachment_media`, `attachment_fallbacks` | Converters and database fixtures are needed |
 | Projects | `projects`, `project_workflow`, `project_recursive`, `project_runner`, `project_frontend`, `project_cli` | Some project integration suites require demo identities |
 | Engineering agents | `engineering`, `source_tools`, `workspace`, `database_research` | Identity, filesystem, and restricted research-role requirements vary |
+| Benchmarks/model operations | `benchmarks`, `models`, `benchmark_frontend` | Isolated PostgreSQL schemas and local fixture engines; no live model required |
 
 For an actual disposable Compose installation, run the opt-in host test after inspecting its setup:
 
@@ -81,6 +83,10 @@ php tests/install_compose.php --run
 It creates its own project, ports, and volume, then removes those fixtures. It requires host PHP dependencies and Docker access. It is not a package-manager validation on a clean OS.
 
 Browser tests need Python Playwright and Chromium. `tests/onboarding.php --browser` coordinates isolated setup fixtures with its browser test. Other `tests/ui_*.py` suites commonly expect a running demo installation and, for live generation, an enabled model. Inspect each file for `PHILLIP_URL`, `PHILLIP_PROFILE`, and account requirements. Demo credentials are for disposable development environments only.
+
+`php tests/navigation.php --browser` also uses a disposable schema, HTTP server, fixture model, and worker. It walks every menu page, tests mixed history and four chat follow-ups across navigation/content replacement, manages users and overlapping memberships, checks group grants/denied routes, and exercises mobile/dark mode and ordinary no-JavaScript management forms. It does not reset real installation accounts.
+
+`php tests/benchmark_frontend.php --browser` also coordinates its own database, engine, HTTP server, and worker fixtures. It tests report refresh, repeated process controls after fragment replacement, and test/question editing. Restart idle long-running workers after shared PHP changes; mounted files alone do not reload their already-loaded classes.
 
 When changing chat interactivity, explicitly test multiple follow-up messages after PHP fragment replacement. Include Stop, queued messages, tool activity, navigation, and delayed event replies where relevant. One successful first response does not establish that listeners or stream cursors survive subsequent turns.
 

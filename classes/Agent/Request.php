@@ -7,7 +7,8 @@ class Request
     public $response = [];
     protected $options = ['max_retries' => 2, 'max_contract_corrections' => 2, 'timeout' => 180, 'on_event' => null, 'before_tool' => null, 'before_round' => null,
         'native_contract' => true, 'control' => null, 'context_window' => 4096, 'context_reserve' => 1024, 'compaction_enabled' => true, 'capabilities' => null, 'tools_enabled' => true,
-        'system_prompt' => null, 'assistant_name' => null, 'max_rounds' => 10, 'max_tool_repeats' => 3];
+        'system_prompt' => null, 'assistant_name' => null, 'max_rounds' => 10, 'max_tool_repeats' => 3,
+        'request_type' => 'chat', 'request_schema' => 'openai', 'task_input' => null];
     protected $tools;
     private $historyRegistered = false;
     private $attachmentFallback = false;
@@ -99,6 +100,7 @@ class Request
             $this->response['events'][] = $event;
             if ($this->options['on_event']) call_user_func($this->options['on_event'], $event);
         }, function () use ($maxRounds, $repeatLimit) {
+          if ($this->options['request_type'] !== 'chat') return $this->native();
           $corrections = 0;
           $failedCalls = [];
           for ($round = 0; $round < $maxRounds; $round++) {
@@ -248,6 +250,10 @@ class Request
         unset($config['messages'], $config['tools'], $config['tool_choice'], $config['response_format']);
         $config['url'] = $this->request['url'];
         $config['headers'] = $this->request['head'];
+        $config = Profiles::defaultFor('summarize', $config);
+        $config['request_type'] = 'chat';
+        foreach (['messages', 'tools', 'tool_choice', 'contract', 'persona', 'system_prompt', 'on_event', 'before_round', 'before_tool'] as $key) { unset($config[$key]); if (isset($config['body'])) unset($config['body'][$key]); }
+        $config['tools_enabled'] = false;
         $config['stream'] = false;
         $config['max_tokens'] = max(128, min(1024, (int)($budget / 2)));
         $config['compaction_enabled'] = false;
@@ -283,6 +289,28 @@ class Request
             $summary = trim($request->send());
         }
         return $summary;
+    }
+
+    private function native()
+    {
+        if($this->tools->definitions())throw new \InvalidArgumentException('Native embedding/rerank requests cannot execute tools');
+        $this->control();
+        $config=array_replace($this->request['body'],['url'=>$this->request['url'],'headers'=>$this->request['head'],'timeout'=>$this->options['timeout'],'request_schema'=>$this->options['request_schema'],'control'=>function(){return $this->control();}]);
+        $transport=null;
+        try {$result=Models::native($this->options['request_type'],Config::object($this->options['task_input'],'Native task input'),$config,$transport);}
+        finally {
+            if($transport!==null)$this->response=array_replace($this->response,['parsed'=>$transport['json'],'status'=>$transport['status'],'errno'=>$transport['errno'],'error'=>$transport['error'],
+                'rounds'=>[['response'=>['native'=>$transport['json'],'body'=>$transport['body'],'usage'=>isset($transport['json']['usage'])?$transport['json']['usage']:null]]]]);
+        }
+        $this->response['native']=$result['data'];
+        if($this->request['contract']){
+            $errors=Schema::errors($result['content'],$this->request['contract']);
+            if($errors)throw new \RuntimeException('Native response contract failed: '.implode('; ',$errors));
+            $this->response['validated']=json_decode($result['content'],true);
+        }
+        $message=['role'=>'assistant','content'=>$result['content'],'_engine'=>'native.'.$this->options['request_type']];
+        $this->addMessage($message);$this->response['messages'][]=$message;Events::emit('message',$message);
+        return $this->response['content']=$result['content'];
     }
 
     protected function complete(array $payload)

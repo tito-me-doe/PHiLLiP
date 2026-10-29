@@ -5,29 +5,12 @@ class Vectors
 {
     public static function profile()
     {
-        $q = Database::connection()->query("SELECT value FROM settings WHERE key = 'tasks.embedding'");
-        $name = $q->fetchColumn();
-        if ($name !== false) return Config::resolve($name);
-        $row = Database::connection()->query("SELECT p.config FROM profiles p JOIN models m ON m.id = p.model_id JOIN endpoints e ON e.id = m.endpoint_id
-            WHERE m.supports_embeddings = TRUE AND e.status = 'online' ORDER BY p.id LIMIT 1")->fetch();
-        if (!$row) throw new \RuntimeException('Configure an embedding profile to enable vector retrieval; SQL search remains available');
-        return Config::resolve($row);
+        return Profiles::defaultFor('embed');
     }
 
     public static function embed(array $texts)
     {
-        $config = self::profile();
-        $url = preg_replace('~/v1/(chat/completions|responses)$~', '/v1/embeddings', $config['url']);
-        $response = Http::request($url, ['model' => $config['model'], 'input' => $texts], isset($config['headers']) ? $config['headers'] : [], 90);
-        if ($response['status'] !== 200 || !isset($response['json']['data']) || count($response['json']['data']) !== count($texts)) throw new \RuntimeException('Embedding service unavailable or returned an invalid batch. Configure a working embedding profile.');
-        $vectors = [];
-        foreach ($response['json']['data'] as $index => $row) {
-            if (empty($row['embedding']) || !is_array($row['embedding'])) throw new \RuntimeException('Invalid embedding vector');
-            foreach ($row['embedding'] as $value) if (!is_numeric($value) || !is_finite((float)$value)) throw new \RuntimeException('Invalid embedding coordinate');
-            $vectors[isset($row['index']) ? $row['index'] : $index] = $row['embedding'];
-        }
-        ksort($vectors);
-        return ['model' => sha1($url . '/' . $config['model']), 'vectors' => array_values($vectors)];
+        return Models::embed($texts);
     }
 
     public static function search($query, $threadId = null, $userId = null, $limit = 5)

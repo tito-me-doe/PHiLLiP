@@ -66,6 +66,8 @@ class Indexer
         $config = $snapshot['config'];
         if (isset($snapshot['credentials'])) $config['credentials_ref'] = $snapshot['credentials'];
         $config = Config::resolve($config);
+        $config = Profiles::defaultFor('extract', $config);
+        $config['request_type'] = 'chat';
         $config['stream'] = false;
         $config['max_tokens'] = 4096;
         $lastHeartbeat = 0;

@@ -93,7 +93,12 @@ class ToolRegistry
             $definition = ['description' => isset($docs[$key]) ? $docs[$key]['description'] : ''];
             if (in_array($type, ['string', 'integer', 'number', 'boolean', 'array', 'object'])) $definition['type'] = $type;
             if ($parameter->hasType() && $parameter->allowsNull() && isset($definition['type'])) $definition['type'] = [$type, 'null'];
-            if ($type === 'array') $definition['items'] = new \stdClass();
+            if ($type === 'array') {
+                $definition['items'] = new \stdClass();
+                if (isset($docs[$key]) && preg_match('/^(string|int|float|bool|integer|number|boolean)\[\]$/D',$docs[$key]['type'],$item)) {
+                    $definition['items'] = ['type'=>isset(self::$types[$item[1]])?self::$types[$item[1]]:$item[1]];
+                }
+            }
             if ($parameter->isVariadic()) {
                 $items = $definition; unset($items['description']);
                 $definition = ['description' => $definition['description'], 'type' => 'array', 'items' => (object)$items];

@@ -49,6 +49,13 @@ class Controller
                 }
             }
             if (!$user) { http_response_code(401); return self::output(['error' => 'Authentication required']); }
+            Pages::api($user['id'], $path, $body);
+            if (preg_match('~^/api/manage/(users|groups|memberships|permissions|navigation|tools)$~D', $path, $management)) {
+                $admin = new Administration($user);
+                if ($method === 'GET') return self::output($admin->data($management[1]));
+                if ($method === 'POST') return self::output($admin->action($management[1], $body), 'Changes saved');
+                throw new \RuntimeException('Method not allowed');
+            }
             $frontend = new Frontend($user);
             if ($path === '/api/projects') {
                 $projects = new ProjectFrontend($user);
@@ -144,7 +151,9 @@ class Controller
                 return self::output(['ok' => true], !empty($matches[2]) ? 'Memory deleted' : 'Memory updated');
             }
             if (strpos($path, '/api/admin/') === 0) {
-                Access::admin($user['id']);
+                // Pages::api enforces each concept's policy, including delegated administrators.
+                if ($path === '/api/admin/benchmarks' && $method === 'GET') return self::output((new BenchmarkFrontend($user))->report(isset($_GET['test']) ? $_GET['test'] : null));
+                if ($path === '/api/admin/benchmarks' && $method === 'POST') return self::output((new BenchmarkFrontend($user))->action(isset($body['action']) ? $body['action'] : '', $body), 'Benchmark action accepted');
                 if ($path === '/api/admin/registry' && $method === 'GET') return self::output(['profiles' => (new Registry())->profiles(), 'models' => (new Registry())->models(), 'endpoints' => (new Registry())->endpoints()]);
                 if ($path === '/api/admin/attachment-parsers' && $method === 'GET') return self::output(['parsers' => (object)AttachmentParser::configuration()]);
                 if ($path === '/api/admin/attachment-parsers' && $method === 'POST') {
@@ -159,21 +168,16 @@ class Controller
                 }
                 if ($path === '/api/admin/operations' && $method === 'GET') return self::output(['operations' => isset($_GET['id']) ? Database::rows('SELECT * FROM operations WHERE id = ?', [(int)$_GET['id']]) : Database::rows('SELECT * FROM operations ORDER BY id DESC LIMIT 5')]);
                 if ($path === '/api/admin/access' && $method === 'GET') {
-                    return self::output(['users' => Identity::users(), 'teams' => Mappings::rows('teams'), 'memberships' => Mappings::rows('memberships'), 'permissions' => Mappings::rows('permissions')]);
+                    return self::output(['users' => Identity::users(), 'teams' => Mappings::rows('teams'), 'memberships' => Mappings::rows('memberships')]);
                 }
                 if ($path === '/api/admin/permission' && $method === 'POST') {
-                    if (!in_array($body['tool'], Frontend::TOOLS, true)) throw new \InvalidArgumentException('Unknown tool');
-                    Identity::grant($body['scope_type'], $body['scope_id'], $body['tool'], $body['allowed']); return self::output(['ok' => true], 'Tool permission updated');
+                    return self::output((new Administration($user))->action('permissions',['scope'=>$body['scope_type'].':'.$body['scope_id'],'resource'=>$body['tool'],'allowed'=>$body['allowed']]),'Permission updated');
                 }
-                if ($path === '/api/admin/user' && $method === 'POST') return self::output(['user' => Identity::createUser($body)], 'User created');
+                if ($path === '/api/admin/user' && $method === 'POST') return self::output((new Administration($user))->action('users',$body), 'User saved');
                 if ($path === '/api/admin/membership' && $method === 'POST') {
-                    if (!Identity::user(['id' => $body['user_id']]) || !Mappings::rows('teams', ['id' => $body['team_id']])) throw new \InvalidArgumentException('Select an existing user and team');
-                    $criteria = ['user_id' => (string)$body['user_id'], 'team_id' => (string)$body['team_id']];
-                    if (!empty($body['remove'])) Mappings::delete('memberships', $criteria);
-                    elseif (!Mappings::rows('memberships', $criteria)) Mappings::insert('memberships', $criteria);
-                    return self::output(['ok' => true], !empty($body['remove']) ? 'Team membership removed' : 'Team membership saved');
+                    return self::output((new Administration($user))->action('memberships',$body),'Membership saved');
                 }
-                if ($path === '/api/admin/team' && $method === 'POST') return self::output(['id' => Mappings::insert('teams', ['id' => bin2hex(random_bytes(8)), 'name' => $body['name']])], 'Team created');
+                if ($path === '/api/admin/team' && $method === 'POST') return self::output((new Administration($user))->action('groups',$body),'Group saved');
                 if ($path === '/api/admin/services' && $method === 'GET') {
                     $services = []; foreach (['searxng', 'camoufox'] as $name) { try { $services[$name] = Config::service($name); } catch (\Exception $e) { $services[$name] = ['error' => $e->getMessage()]; } }
                     return self::output(['services' => $services]);

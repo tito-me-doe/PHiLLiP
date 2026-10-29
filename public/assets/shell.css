@@ -1,0 +1,325 @@
+/* Shared shell and read-only record tables; editors live in PHP-rendered dialogs. */
+.persona-table .persona-card {
+  min-height: 0;
+  display: inline-flex;
+  padding: 7px 10px;
+  margin: 0;
+  font-size: 0.8rem;
+}
+.persona-table {
+  font-size: 0.83rem;
+}
+.brand {
+  color: inherit;
+  text-decoration: none;
+}
+.brand-cursor {
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 400;
+}
+.sidebar-header {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  column-gap: 12px;
+  flex-shrink: 0;
+  margin-bottom: 16px;
+}
+.sidebar-header .brand {
+  grid-area: 1 / 2;
+  align-self: start;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  font-size: 1.3rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+.sidebar-header .brand-cursor {
+  align-self: center;
+  padding-left: 2px;
+  color: var(--accent);
+}
+.route-menu {
+  grid-area: 1 / 1 / 2 / -1;
+  min-width: 0;
+}
+.route-menu > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+.route-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.menu-toggle {
+  border: 1px solid transparent;
+  background: transparent;
+  transition:
+    box-shadow 0.15s,
+    background 0.15s;
+}
+.menu-toggle:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.menu-toggle:focus-visible,
+.sidebar-header .brand:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.route-menu[open] > .menu-toggle {
+  background: var(--accent-bg);
+  border-color: var(--line);
+  color: var(--accent);
+  box-shadow:
+    inset 2px 2px 5px #0003,
+    inset -1px -1px 3px #fff5,
+    0 0 7px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.page-navigation {
+  margin-top: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.menu-table,
+.history-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.menu-table td,
+.history-table td {
+  border: 0;
+  padding: 0;
+}
+.page-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: var(--ink);
+  text-decoration: none;
+  border: 0;
+  background: transparent;
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 0.81rem;
+}
+.page-link:hover,
+.page-link.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.page-link.active {
+  font-weight: 600;
+}
+.sidebar > .tabs {
+  margin: 0 0 10px;
+  flex-shrink: 0;
+}
+.create-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  flex-shrink: 0;
+  margin-bottom: 10px;
+}
+.create-actions .button {
+  justify-content: center;
+  width: 100%;
+  padding: 9px 6px;
+  gap: 6px;
+}
+.history {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 100px;
+  overflow: hidden;
+}
+.history .thread-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.history-table .history-date td {
+  color: var(--muted);
+  font-size: 0.67rem;
+  padding: 10px 10px 3px;
+}
+.history-table .thread-row {
+  display: table-row;
+}
+.history-table .history-actions {
+  width: 30px;
+  vertical-align: middle;
+}
+.history-table .thread-item {
+  width: 100%;
+  min-width: 0;
+  padding-right: 4px;
+}
+.history-table .delete-thread-form {
+/*position: static;*/
+}
+.history-table .delete-thread-form:hover button {
+  background-color:rgba(255, 255, 255, 0.25);
+}
+.history-table .thread-delete {
+
+}
+.thread-item small {
+  text-transform: capitalize;
+}
+.thread-row[data-work-kind="project"] .thread-item small {
+  color: var(--accent);
+}
+.sidebar-bottom {
+  flex-shrink: 0;
+}
+.sidebar-bottom .name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar-bottom .name small {
+  display: block;
+}
+.page-header {
+  flex-shrink: 0;
+}
+.page-header h1 {
+  font-size: 1.12rem;
+  margin: 0;
+}
+.page-content {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 30px;
+}
+.page-inner {
+  width: min(100%, 1100px);
+  margin: 0 auto;
+  display: grid;
+  gap: 22px;
+  padding-bottom: 90px;
+}
+.page-inner .card {
+  margin: 0;
+}
+.page-inner .row label {
+  flex: 1;
+  min-width: 130px;
+}
+.page-inner button.primary {
+  justify-self: start;
+}
+.access-links {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.row-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  margin: 2px;
+}
+.row-action svg {
+  width: 14px;
+  height: 14px;
+}
+.registry td {
+  vertical-align: top;
+}
+.registry td:last-child {
+  white-space: nowrap;
+}
+.registry tfoot td {
+  text-align: left;
+}
+.todo-table td:last-child .row-action {
+  display: inline-flex;
+  margin: 0 3px 3px 0;
+}
+.registry .row-action svg {
+  flex-shrink: 0;
+}
+.todo-table td {
+  white-space: normal !important;
+}
+.todo-table td:last-child .button {
+  display: flex;
+  margin: 0 0 5px;
+  font-size: 0.75rem;
+}
+.todo-table .project-todo {
+  padding: 0;
+  margin: 0;
+}
+.registry .avatar-preview {
+  display: table-cell;
+  background: transparent;
+  border: 0;
+  padding: 12px;
+}
+.registry .avatar-preview .avatar {
+  width: 90px;
+  height: 90px;
+}
+.history-table .delete-thread-form {
+/*transform: none;*/
+}
+.registry small {
+  display: block;
+  color: var(--muted);
+  max-width: 55ch;
+  overflow-wrap: anywhere;
+}
+.registry td p {
+  margin: 0;
+}
+.form-stack fieldset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.form-stack fieldset .check-label {
+  margin: 8px 0;
+}
+.benchmarks {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+.benchmark-editor {
+  display: grid;
+  gap: 18px;
+}
+.benchmark-editor textarea {
+  min-height: 130px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+@media (max-width: 720px) {
+  .page-content {
+    padding: 16px 12px;
+  }
+  .page-navigation {
+    max-height: 42vh;
+  }
+}

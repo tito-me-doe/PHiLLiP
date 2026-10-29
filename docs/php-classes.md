@@ -18,6 +18,8 @@ Application code is trusted. A class reference or a supplied user ID does not au
 
 | Class | Expected use |
 | --- | --- |
+| `Models` | Explicit embedding, reranking, classification, and extraction operations using fixed task defaults |
+| `Benchmarks`, `BenchmarkRunner` | Saved benchmark definitions, isolated question runs, scoring, and queue control |
 | `Request` | Synchronous ephemeral model/tool loop, with optional output validation and events |
 | `Message` | Normalize text, role/content, raw payloads, stored rows, and multimodal parts |
 | `Config`, `Profiles`, `Registry` | Resolve configuration, save/test profiles, inspect discovered endpoints/models |
@@ -228,6 +230,29 @@ $answer = $request->send();
 Attachments require PostgreSQL even for ephemeral requests. `Attachments::normalize()` accepts IDs/rows, lists, CSV, or JSON references and reloads metadata. Native input, configured parser profiles, and local conversion are selected centrally; see [formats and limits](runtime.md#attachments). File paths in trusted application code are not safe upload authorization by themselves.
 
 Use `History` for stored-message retrieval, `Vectors::embed(array $texts)` for a batch of text embeddings, and `Vectors::search($query, $threadId, $userId, $limit)` for indexed message search. `Knowledge::remember()` requires source messages; `recall()` and `graph()` retrieve facts and evidence-linked relationships. These are current conversation/knowledge APIs, not general vector collections or a generic graph engine. Pass an explicit permitted audience for user-facing retrieval: trusted null-audience calls can be unrestricted. Model-facing History/Memory tools derive their scope from the active tool context; do not forge that context from user input.
+
+## Explicit task profiles and model operations
+
+`profile_defaults` maps fixed `default_for` concepts to saved `profileid` values: `embed`, `rerank`, `classify`, `extract`, `generate_titles`, `summarize`, and `score`. Use `Profiles::defaultFor($task, $currentConfig)` to retain the current model if no assignment exists. `Profiles::setDefault()` changes the explicit assignment; it does not infer anything from a prompt.
+
+`Models::embed($texts)`, `rerank($query, $documents)`, `classify($text, $labels)`, and `extract($text, $contract)` use those task defaults. Unassigned classification/extraction/ranking can use the current chat model; embeddings still require a capable endpoint. `Agent\\Tools\\Tasks` exposes bounded specialist operations to agents. Native embedding/rerank profiles can select `request_schema` as `openai`, `ollama` (embedding only), or `tei`. See the [benchmark/model guide](benchmarks.md) for supported inputs and measurements. The ordinary `Request` accepts explicit `request_type` (`chat`, `embed`, or `rerank`) and native `task_input`; these are harness settings, not provider parameters.
+
+## Frontend authorization and navigation
+
+Trusted PHP class calls do not implicitly acquire frontend permissions. Authenticate incoming requests and use the shared boundary classes when acting for a user:
+
+```php
+\Agent\Pages::authorize($userId, 'models');
+$menu = \Agent\Pages::navigation($userId);
+$href = \Agent\Pages::link('models'); // Uses its current database route.
+$canSearch = \Agent\Access::allows($userId, 'Agent\\Tools\\SearchWeb');
+```
+
+`Pages` reads the `pages` table for routes and menu presentation, sorted by path. It authorizes before resolving an allowlisted view. A row-like argument to `Pages::allowed()` is a reference only: its ID is reloaded, so supplied defaults cannot establish authority. `Access::allows()` automatically permits active members of Administrators (group 1); other users require an additive user/group grant. `Access::decisions($userId, $resources)` batches checks with associative resource keys; legacy default values are ignored, not permission fallbacks. No mutable authorization is cached between actions. These permission checks do not override separate ownership, team-content visibility, or execution approvals.
+
+`Administration($userIdOrUsernameOrRow)` provides the same authorized `data($page)` and `action($page, $input)` boundary for management forms and APIs. User/group/membership/permission operations share the `access` page grant; navigation uses its own grant. User saves can include a `groups` array; group saves can include a `members` array. Route saves accept `allowed_users` and `allowed_groups`, replacing that page's direct grants in the shared permissions table. Omitted arrays retain assignments; empty arrays clear that editor's selections. Everyone (0) is implicit. There are no route enabled/visibility flags. Core `Identity`/`Mappings` methods remain trusted integration APIs, not replacements for this boundary.
+
+Standalone grants live in `permissions.resource`; `allowed` is constrained to true. The `tool_permissions` compatibility view and `Mappings` contract's `tool` key remain for older integrations. `Identity::grant('group', '0', $resource)` grants Everyone; user/group scopes are additive. Legacy global scope maps to group 0, and passing false revokes that exact grant—it never creates a denial. Grants targeting group 1 remove any redundant row instead of storing a grant; they cannot restrict implicit administrator permissions. `Identity::user()` derives `is_admin` and `is_developer` from groups 1 and 2. See [administration](administration.md#pages-navigation-and-permissions) for installation defaults and delegation caveats.
 
 ## Projects, local agents, and infrastructure
 

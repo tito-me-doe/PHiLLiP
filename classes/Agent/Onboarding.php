@@ -22,7 +22,9 @@ class Onboarding
             // Establish local mappings before creating the identity; never inherit external identity defaults.
             $config = ['auth' => 'standalone', 'mappings' => [], 'onboarding' => ['stage' => 'password', 'auth_epoch' => bin2hex(random_bytes(16))]];
             self::save($config);
+            Installation::defaults();
             $user = Identity::createUser($username, $password, $username, true);
+            Installation::defaults($user['id']);
             $config['admin_ids'] = [$user['id']];
             $config['onboarding']['owner_id'] = $user['id'];
             self::save($config);
@@ -37,6 +39,7 @@ class Onboarding
         Access::admin($user['id']);
         $config = Installation::get();
         if (!$config) throw new \RuntimeException('Run ./bin/install to create your initial administrator');
+        Pages::authorize($user['id'], 'models');
         if (self::pending() && (string)$config['onboarding']['owner_id'] !== (string)$user['id']) throw new \RuntimeException('Only the initial administrator may finish setup');
         if (self::pending() && $config['onboarding']['stage'] === 'password' && !$passwordChange) throw new \RuntimeException('Change your temporary password before continuing');
     }

@@ -212,8 +212,9 @@ class Thread
         $config = $snapshot['config'];
         if (isset($snapshot['credentials'])) $config['credentials_ref'] = $snapshot['credentials'];
         $config = Config::resolve($config);
+        $config = Profiles::defaultFor('generate_titles', $config);
         foreach (['tools', 'tool_choice', 'contract', 'response_format', 'messages', 'system_prompt', 'before_round', 'on_event', 'control', 'assistant_name'] as $key) { unset($config[$key]); if (isset($config['body'])) unset($config['body'][$key]); }
-        $config['tools_enabled'] = false; $config['stream'] = false; $config['timeout'] = 45; $config['max_retries'] = 0;
+        $config['request_type'] = 'chat'; $config['tools_enabled'] = false; $config['stream'] = false; $config['timeout'] = 45; $config['max_retries'] = 0;
         $conversation = [];
         foreach ($this->messages($runId) as $message) {
             if (!in_array($message['role'], ['user', 'assistant'], true) || !empty($message['raw']['_internal'])) continue;

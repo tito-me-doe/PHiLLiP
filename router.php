@@ -52,13 +52,20 @@ if ($path === '/health') {
     }
     return;
 }
-if ($path === '/') {
+$route = $path === '/' ? null : \Agent\Database::row('SELECT id FROM pages WHERE path=?', [$path]);
+if ($path === '/' || $route) {
+    if ($route) $_GET['view'] = $route['id'];
     $pageError = null;
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $state = \Agent\Views::state();
             if (\Agent\Onboarding::pending() && isset($_POST['action']) && strpos($_POST['action'], 'project-') === 0) throw new \RuntimeException('Finish setup before using projects');
-            if (isset($_POST['action']) && strpos($_POST['action'], 'project-') === 0) \Agent\ProjectFrontend::form($state);
+            if (isset($_POST['action']) && strpos($_POST['action'], 'manage-') === 0) {
+                if (\Agent\Onboarding::pending()) throw new \RuntimeException('Finish setup first');
+                \Agent\Administration::form($state);
+            }
+            elseif (isset($_POST['action']) && strpos($_POST['action'], 'benchmark-') === 0) { if (\Agent\Onboarding::pending()) throw new \RuntimeException('Finish setup first'); \Agent\BenchmarkFrontend::form($state); }
+            elseif (isset($_POST['action']) && strpos($_POST['action'], 'project-') === 0) \Agent\ProjectFrontend::form($state);
             else \Agent\PageActions::handle($state);
             return;
         }

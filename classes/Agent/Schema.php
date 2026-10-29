@@ -24,7 +24,15 @@ class Schema
     public static function normalize($schema)
     {
         $schema = self::input($schema);
-        return isset($schema['type']) || isset($schema['$ref']) ? $schema : [
+        if(isset($schema['type']) || isset($schema['$ref'])) return $schema;
+        foreach($schema as &$field) if(is_string($field)) {
+            $aliases=['int'=>'integer','float'=>'number','bool'=>'boolean'];
+            $type=isset($aliases[$field])?$aliases[$field]:$field;
+            if(!in_array($type,['string','integer','number','boolean','array','object','null'],true))throw new \InvalidArgumentException('Contract shorthand needs known JSON types');
+            $field=['type'=>$type];
+        }
+        unset($field);
+        return [
             'type' => 'object', 'properties' => (object)$schema, 'required' => array_keys($schema), 'additionalProperties' => false
         ];
     }

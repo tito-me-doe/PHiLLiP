@@ -15,14 +15,14 @@
 }
 .setup-eyebrow {
   font-size: 11px;
-  letter-spacing: .17em;
+  letter-spacing: 0.17em;
   font-weight: 700;
   color: #65765d;
 }
 .setup-heading h1 {
   font-size: clamp(34px, 5vw, 52px);
   line-height: 1.1;
-  letter-spacing: -.045em;
+  letter-spacing: -0.045em;
   margin: 15px 0;
 }
 .setup-heading p {
@@ -55,7 +55,7 @@
 }
 .setup-card h2 {
   font-size: 24px;
-  letter-spacing: -.025em;
+  letter-spacing: -0.025em;
   margin: 12px 0;
 }
 .setup-card .muted {
@@ -89,7 +89,7 @@
   background: #f0f4eb;
 }
 .setup-finish h2 {
-  letter-spacing: -.03em;
+  letter-spacing: -0.03em;
   font-size: 28px;
   margin: 18px 0 24px;
 }

@@ -1,5 +1,12 @@
 <?php
 require __DIR__ . '/helpers.php';
+require __DIR__ . '/fixtures/WebFixture.php';
+$web = new WebFixture();
+try {
+Agent\Installation::install(['auth'=>'standalone'],'admin','phillip-demo','Administrator');
+foreach (['alice','bob','carol','visitor'] as $name) Agent\Identity::createUser($name,'phillip-demo',ucfirst($name));
+Agent\Mappings::insert('teams',['id'=>'engineering','name'=>'Engineering']);
+foreach (['admin','alice','bob'] as $name) Agent\Mappings::insert('memberships',['user_id'=>Agent\Identity::user($name)['id'],'team_id'=>'engineering']);
 $users = [];
 foreach (['admin', 'alice', 'bob', 'carol', 'visitor'] as $username) $users[$username] = Agent\Identity::authenticate($username, 'phillip-demo');
 expectException(function () { Agent\Identity::authenticate('alice', 'incorrect'); }, 'Invalid username');
@@ -23,10 +30,11 @@ try {
     $messages = $threads['team']->messages();
     foreach ($messages as $message) if ($message['role'] === 'assistant') expectException(function () use ($users, $threads, $message) { Agent\Access::editMessage($users['alice']['id'], $threads['team'], $message['id']); }, 'Only the message author');
     check(Agent\Access::tool($users['alice']['id'], 'Agent\\Tools\\SearchWeb'), 'Team tool permission inherited');
-    check(!Agent\Access::tool($users['visitor']['id'], 'Agent\\Tools\\SearchWeb'), 'Unconfigured tool permission defaults to deny');
+    check(Agent\Access::tool($users['visitor']['id'], 'Agent\\Tools\\SearchWeb'), 'Everyone receives the baseline web tools');
     check(Agent\Access::tool($users['alice']['id'], 'Agent\\Tools\\BrowseWeb'), 'Explicit user tool permission');
-    check(!Agent\Access::tool($users['bob']['id'], 'Agent\\Tools\\BrowseWeb'), 'Explicit user denial');
-    check(Agent\Access::tools($users['bob']['id'], $threads['team'], ['Agent\\Tools\\BrowseWeb']) === [], 'Thread tools constrained by owner and sender permissions');
+    check(Agent\Access::tool($users['bob']['id'], 'Agent\\Tools\\BrowseWeb'), 'Group 0 applies without a stored membership row');
+    Agent\Identity::grant('user',$users['alice']['id'],'Agent\\Tools\\Tasks');
+    check(Agent\Access::tools($users['bob']['id'], $threads['team'], ['Agent\\Tools\\Tasks']) === [], 'Additional tools require both owner and sender grants');
     expectException(function () use ($users) { Agent\Access::personaEdit($users['admin']['id'], ['owner_id' => $users['alice']['id'], 'visibility' => 'private', 'is_default' => false]); }, 'Private persona');
     Agent\Access::personaEdit($users['admin']['id'], ['owner_id' => $users['alice']['id'], 'visibility' => 'team', 'is_default' => false]);
     check(true, 'Administrator may manage shared personas');
@@ -35,3 +43,4 @@ try {
     check(!Agent\Access::visible($users['bob']['id'], $threads['team']->get()), 'Removing team membership immediately revokes visibility');
     $db->prepare('INSERT INTO memberships (user_id, team_id) VALUES (?, ?)')->execute([$users['bob']['id'], 'engineering']);
 } finally { foreach ($threads as $thread) $thread->delete(); }
+} finally { $web->close(); }

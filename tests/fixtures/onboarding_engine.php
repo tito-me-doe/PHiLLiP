@@ -36,7 +36,7 @@ if (!empty($body['stream'])) {
         for ($i = 0; $i < 24; $i++) {
             echo 'data: ' . json_encode(['choices' => [['delta' => ['content' => 'watermelon '], 'finish_reason' => null]]]) . "\n\n";
             if (ob_get_level()) ob_flush(); flush(); usleep(200000);
-            if (strpos($text, 'FAIL') !== false && $i === 5) { echo "data: {\"error\":\"Avatar fixture stream failed\"}\n\n"; flush(); return; }
+            if (strpos($text, 'FAIL') !== false && $i === 12) { echo "data: {\"error\":\"Avatar fixture stream failed\"}\n\n"; flush(); return; }
         }
         echo "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n";
         return;

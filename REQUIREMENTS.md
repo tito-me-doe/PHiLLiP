@@ -44,11 +44,12 @@ Inline `Agent\Request` configuration can perform ephemeral text requests without
 | Agent tools | Working model tool calling, selected tools, and applicable grants |
 | Web search | SearXNG or the configured search service |
 | Browser interaction | Camoufox service; vision is needed to interpret screenshot images |
-| Vector retrieval | Reachable embedding profile and pgvector-backed indexing |
+| Vector retrieval | `embed` task default (or capable current model) and pgvector-backed indexing |
 | Knowledge extraction | Working chat model/profile and background indexer; extraction is asynchronous |
 | Native images/PDF | Corresponding verified model/transport capability; not every engine supports these |
 | Local PDF/text/OCR fallback | Poppler and English Tesseract, included in the application image |
 | Projects | PostgreSQL, run worker, project scheduler, and a working chat profile |
+| Benchmarks | PostgreSQL and a saved model profile; persistent queue execution uses the `benchmarks` worker |
 | Engineering SQL research | Operator-provisioned restricted research role and curated views |
 
 The registry recognizes vLLM, Ollama, llama.cpp, and generic OpenAI-compatible endpoint shapes. Compatibility depends on the actual server, model, chat template, parameters, and enabled features. Metadata alone is not verification. Profiles must pass capability tests before frontend enablement; a single working chat probe does not imply vision, tools, or every request parameter is supported.
@@ -90,6 +91,9 @@ Coverage is layered. The following describes development paths and regression co
 | Engines | Metadata fixtures cover vLLM/Ollama/llama.cpp shapes; live endpoint/model testing is selective, not exhaustive |
 | Web UI | Browser regressions cover desktop/mobile onboarding, no-JS forms, repeated follow-ups, fragment replacement, queue/Stop behavior, tools, appearance, and attachments under their fixtures |
 | Permissions/state/projects | PHP suites cover authorization, submissions, revisions, recursive decomposition, escalation, review, and recovery; some integration suites need demo fixtures |
+| Navigation/management | Isolated legacy-upgrade and HTTP/browser coverage for grants-only user/group policy, implicit Everyone, fixed operator groups, overlapping memberships, revocation, readonly tables/modal editors, and mixed history |
 | ERP/mapped identities | Configuration hooks exist; external ERP/session/table mappings are not an end-to-end validated integration |
+
+Native embedding schemas (`openai`, `ollama`, `tei`) and native rerank schemas (`openai`, `tei`) have fixture coverage. A local Ollama Nomic endpoint has been exercised live through the OpenAI-style embedding adapter; classification/extraction/semantic-ranking tools have live Nemotron coverage. This does not certify every native engine/schema combination. Benchmark HTTP/browser checks use isolated fixtures.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md#test-a-focused-change) for commands and prerequisites. Read test setup before execution: some suites create their own schemas, some need seeded identities/services, and live tests can incur real model calls. No production security audit, performance SLO, exhaustive browser matrix, or cross-platform compatibility certification is claimed.

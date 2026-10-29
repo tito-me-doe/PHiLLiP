@@ -34,7 +34,7 @@ Discovery/verification are background jobs with progress and reload-safe results
 
 ## Profiles, discovery, and services
 
-Use **Settings → Models** for model/profile administration. Profiles bind a model, endpoint, and parameters. Saving an enabled profile tests its actual capabilities; disabled discovered profiles remain inspectable and usable by trusted code. Arbitrary frontend clients may not substitute their own execution configuration for an enabled reference.
+Use **Models** for model/profile administration. Profiles bind a model, endpoint, and parameters. Saving an enabled profile tests its actual capabilities; disabled discovered profiles remain inspectable and usable by trusted code. Arbitrary frontend clients may not substitute their own execution configuration for an enabled reference.
 
 ```sh
 # Substitute your endpoint; host.docker.internal refers to the Docker host.
@@ -48,7 +48,31 @@ docker compose exec -T app ./bin/phill-models --help
 
 `phill-models --save` accepts inline JSON, a file, or `-` for stdin. A payload contains a name/configuration and optional enabling/overrides. `--test` probes without changing the saved profile. Use private stdin/files for credentials, not shared shell history. Profile resolution is database-first, then optional private JSON; see [PHP configuration](php-classes.md#profiles-and-personas).
 
-Configure tool services and per-file-type parser profiles under **Settings → Services**. Compose supplies SearXNG and Camoufox. Custom database service URLs remain authoritative unless explicitly configured to use runtime environment URLs. Inside a container, `localhost` is that container, not the host or browser service.
+Configure tool services on **Services** and per-file-type profiles on **Attachment parsing**. Compose supplies SearXNG and Camoufox. Custom database service URLs remain authoritative unless explicitly configured to use runtime environment URLs. Inside a container, `localhost` is that container, not the host or browser service.
+
+Task defaults are configured on **Models** or through `ok-phill profiles defaults` / `ok-phill profiles default TASK PROFILE_OR_none`. Fixed concepts map to a saved profile, never prompt-based routing. Missing assignments retain the current model. See [benchmarks and typed model operations](benchmarks.md).
+
+## Pages, navigation, and permissions
+
+The sidebar combines conversations and projects in one activity-ordered history. Visibility tabs sit above equal-width **+ Chat** / **+ Project** buttons. The top-left hamburger toggles a flat menu sorted by route path; the logo is on its right and the local badge sits beside the profile. Personas, Memory, Benchmarks, Test Suites, Appearance, and administrative concepts have their own pages.
+
+**Access control** combines Users, Groups, and Permissions on one screen. Lists are read-only tables; icon actions open PHP-rendered modal forms (ordinary editor pages without JavaScript). Creation actions sit in left-aligned table footers. Edit a user's groups in the user editor, or a group's members in the group editor. There is no separate memberships page. Memberships remain many-to-many. **Navigation & routes** shows each page's allowed users and groups and edits those same global permission rows alongside labels and paths. There are no menu sections, manual positions, enabled flags, or menu-visibility flags.
+
+Every standalone install creates fixed groups **0 Everyone**, **1 Administrators**, and **2 Developers**. Everyone is implicit for each active, signed-in user. It starts with only `/chat` and SearchWeb, Fetch, BrowseWeb, and Memory availability—not other pages or tools. Tool availability still requires explicit selection by the user/agent configuration. The first administrator joins both 1 and 2. Active Administrators automatically have all permissions, including future pages and tools; no explicit grants are needed or stored for group 1. Developers identifies the logging/console audience and does not itself grant other pages. Built-in IDs/names cannot be edited or deleted. Everyone is not offered as a team-sharing folder; use organization visibility for that audience.
+
+The `pages` table is the source for both the menu and HTML routes. A forbidden page is omitted from navigation and rejected before its view runs. Related APIs, fragments, and legacy query links enforce the same page policy. Handlers are a fixed PHP allowlist, not database-supplied executable paths. Additional routes can reuse a registered concept, but require both their own permission and the original concept's permission.
+
+Permissions are additive grants for a resource (`page.models` or a tool class), assigned to a user or group. Except for active Administrators, a matching grant from the user or any group is required; otherwise access is denied. Everyone is simply group 0. There are no deny rules or default-allow pages. Removing one grant does not cancel another. Content visibility separately requires ownership, group membership, or organization visibility; administrator permissions do not expose private or unjoined-group conversations or override message ownership and execution approvals. A permitted page is both routed and shown in the menu. Removing all grants removes access and its menu entry for ordinary users; Administrators retain access automatically. Route editors display this non-editable administrator access explicitly.
+
+Granting Access control or Navigation delegates trusted administrative capabilities. Delegated non-administrator access managers cannot create, modify, or reset administrator accounts. Accounts are deactivated rather than deleted; the current administrator cannot deactivate or demote themselves. User/group editors replace only the memberships shown by that editor, not unrelated users' memberships.
+
+Changes take effect on subsequent requests, including existing sessions. Permission decisions are not held in a long-lived cache. See the [PHP authorization contracts](php-classes.md#frontend-authorization-and-navigation) before extending a frontend boundary.
+
+Migration 028 removes stored deny rules and legacy global rules, establishes Everyone's minimal grants, and transfers existing administrators into the built-in groups. Other positive user/group grants are retained. Review any existing installation's intended grants after upgrading from the earlier precedence-based policy.
+
+Migration 029 removes the old route flags. Previously disabled pages become pages without grants; previously hidden but permitted pages appear in the menu. Subsequent access changes are made only through grants.
+
+Migration 030 removes redundant group 1 permission rows. Administrator access derives from active membership in group 1, not stored grant rows or supplied privilege flags. Removing membership revokes implicit permissions on subsequent checks, including existing sessions.
 
 ## Users, sharing, and tool authority
 
@@ -74,7 +98,7 @@ docker compose up -d --build
 
 `stop` leaves containers and data in place. The PostgreSQL named volume holds durable application data; removing it erases the database. Back up that volume/database along with private configuration and any needed runtime files. A Git clone is not a data backup. Backups can contain credentials and conversations and need appropriate access protection.
 
-The run worker handles queued chat work, the indexer handles background retrieval/knowledge work, operations handles deferred jobs such as discovery/titles/cleanup, and the project scheduler coordinates readiness/tasks/review. A closed browser does not cancel accepted work. Investigate uncertain/interrupted runs rather than blindly replaying possible external side effects.
+The run worker handles queued chat work, the indexer handles background retrieval/knowledge work, operations handles deferred jobs such as discovery/titles/cleanup, the benchmark worker handles its durable evaluation queue, and the project scheduler coordinates readiness/tasks/review. A closed browser does not cancel accepted work. Investigate uncertain/interrupted runs rather than blindly replaying possible external side effects.
 
 Projection recovery and attachment cleanup do not require handwritten model commands:
 

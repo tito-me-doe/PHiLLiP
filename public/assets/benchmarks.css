@@ -1,0 +1,79 @@
+.benchmarks {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.benchmarks .chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.benchmarks h1 {
+  font-size: 1.3rem;
+  margin: 0;
+}
+.benchmark-content {
+  padding: 24px;
+  overflow: auto;
+  display: grid;
+  gap: 20px;
+}
+.benchmark-content .card {
+  margin: 0;
+}
+.benchmark-chart {
+  width: 100%;
+  max-height: 300px;
+  color: var(--ink);
+  font-size: 12px;
+}
+.benchmark-chart text {
+  fill: currentColor;
+}
+.benchmark-content table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.benchmark-content td,
+.benchmark-content th {
+  text-align: left;
+  vertical-align: top;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.benchmark-content td small {
+  display: block;
+  margin-top: 5px;
+}
+.benchmark-content pre {
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.benchmark-content details {
+  padding: 8px 0;
+}
+.benchmark-content td form {
+  display: inline-block;
+}
+.benchmark-content textarea {
+  min-height: 100px;
+}
+.benchmark-content .benchmark-editor {
+  display: grid;
+  gap: 16px;
+}
+@media (max-width: 700px) {
+  .benchmark-content {
+    padding: 12px;
+  }
+  .benchmarks .chat-header {
+    flex-wrap: wrap;
+  }
+}

@@ -236,7 +236,7 @@ class Log
     {
         $user = Runtime::identity(); $admin = $user && !empty($user['is_admin']);
         $developerIds = array_filter(explode(',', getenv('APP_DEVELOPER_IDS') ?: ''));
-        $developer = $user && in_array((string)$user['id'], $developerIds, true);
+        $developer = $user && (!empty($user['is_developer']) || in_array((string)$user['id'], $developerIds, true));
         return ['visible' => $admin ? min(self::$minUserPriority, self::$minAdminPriority) : self::$minUserPriority,
             'console' => $admin || $developer ? self::$minConsolePriority : self::OFF, 'admin' => (bool)$admin, 'developer' => (bool)$developer];
     }
@@ -256,7 +256,7 @@ class Log
     {
         $current = Runtime::identity();
         $user = $current && (string)$current['id'] === (string)$viewerId ? $current : Identity::user(['id' => $viewerId]); $admin = $user && $user['is_admin'];
-        $developer = $user && in_array((string)$user['id'], array_filter(explode(',', getenv('APP_DEVELOPER_IDS') ?: '')), true);
+        $developer = $user && (!empty($user['is_developer']) || in_array((string)$user['id'], array_filter(explode(',', getenv('APP_DEVELOPER_IDS') ?: '')), true));
         $route = $data['routes'];
         $visible = $route['user'] || ($admin && $route['admin']); $console = ($admin || $developer) && $route['console'];
         return $visible || $console ? $data['record'] + ['visible' => (bool)$visible, 'console' => (bool)$console] : null;

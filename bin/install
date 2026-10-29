@@ -135,7 +135,7 @@ for ((attempt=0; attempt<120; attempt++)); do
     sleep 2
 done
 $PHILLIP_READY || { printf 'The web service is not ready. Inspect: docker compose logs app postgres\n' >&2; exit 1; }
-"${COMPOSE[@]}" up -d worker indexer operations projects
+"${COMPOSE[@]}" up -d worker indexer operations projects benchmarks
 PHILLIP_BOOTSTRAP_INFO=$("${COMPOSE[@]}" exec -T -e "LOG_MIN_CONSOLE=$INSTALL_LOG_PRIORITY" app php bin/phill-bootstrap --username "$PHILLIP_USERNAME")
 PHILLIP_URL_HOST=127.0.0.1
 if [[ "$PHILLIP_BIND" != 127.0.0.1 && "$PHILLIP_BIND" != localhost ]]; then
