@@ -16,18 +16,70 @@ class BenchmarkFrontend
     {
         Pages::authorize($this->userId, 'benchmarks');
         $tests = Benchmarks::tests();
-        if ($testId === null && $tests) {
-            $testId = $tests[0]['id'];
-        }
         $selected = null;
-        foreach ($tests as $test) {
-            if ((string) $test['id'] === (string) $testId) {
-                $selected = $test;
-            }
+        if ($testId !== null && $testId !== '' && $testId !== 'all') {
+            foreach ($tests as $test) if ((string)$test['id'] === (string)$testId) $selected = $test;
+            if (!$selected) throw new \InvalidArgumentException('Test not found');
         }
-        if ($testId !== null && !$selected) {
-            throw new \InvalidArgumentException('Test not found');
+        $where = $selected ? ' AND r.testid=?' : '';
+        $params = $selected ? [$selected['id']] : [];
+        $columns = "r.id,r.profileid,r.testid,r.status,r.score,r.elapsed_seconds,r.error,r.created_at,r.finished_at,
+            r.snapshot#>>'{profile,name}' AS profile_name,r.snapshot#>>'{test,name}' AS test_name,r.snapshot#>>'{test,revision}' AS test_revision,
+            (SELECT count(*) FROM benchmark_results x WHERE x.benchmark_runid=r.id) AS recorded,
+            jsonb_array_length(r.snapshot->'questions') AS questions";
+        $latest = Database::rows('SELECT DISTINCT ON(r.profileid,r.testid) '.$columns.' FROM benchmark_runs r WHERE r.testid IS NOT NULL'.$where.' ORDER BY r.profileid,r.testid,r.id DESC',$params);
+        // Keep the last completed score while a new run is queued/running, or definitions evolve.
+        $completed = Database::rows('SELECT DISTINCT ON(r.profileid,r.testid) '.$columns." FROM benchmark_runs r WHERE r.status='completed' AND r.testid IS NOT NULL".$where.' ORDER BY r.profileid,r.testid,r.id DESC',$params);
+        $aggregates = [];
+        foreach ($completed as $run) {
+            if ($run['score'] === null || !(int)$run['recorded']) continue;
+            $id = $run['profileid'];
+            if (!isset($aggregates[$id])) $aggregates[$id] = ['correct'=>0.0,'seen'=>0,'elapsed_seconds'=>0.0,'timed'=>true,'runs'=>[]];
+            $count = (int)$run['recorded'];
+            $aggregates[$id]['correct'] += (float)$run['score']*$count;
+            $aggregates[$id]['seen'] += $count;
+            $aggregates[$id]['timed'] = $aggregates[$id]['timed'] && $run['elapsed_seconds'] !== null;
+            $aggregates[$id]['elapsed_seconds'] += (float)$run['elapsed_seconds'];
+            $aggregates[$id]['runs'][] = $run;
         }
+        $active = Database::rows("SELECT s.profileid,s.testid,s.status,COUNT(*) AS count FROM (
+            SELECT r.profileid,r.testid,CASE WHEN r.status<>'running' AND NOT (".BenchmarkRunner::RUNNABLE.") THEN 'paused' ELSE r.status END AS status
+            FROM benchmark_runs r WHERE r.dispatch_mode='queue' AND r.status IN ('queued','running','paused')".$where.") s GROUP BY s.profileid,s.testid,s.status",$params);
+        $counts = ['queued'=>0,'running'=>0,'paused'=>0];
+        $byProfile = [];
+        foreach ($active as $run) {
+            $status = $run['status'];
+            $counts[$status] += (int)$run['count'];
+            $byProfile[$run['profileid']][$status] = ($byProfile[$run['profileid']][$status] ?? 0)+(int)$run['count'];
+        }
+        $profiles = $this->profiles(); $points = [];
+        $lastRuns = [];
+        foreach ($latest as $run) if (!isset($lastRuns[$run['profileid']]) || $run['id']>$lastRuns[$run['profileid']]['id']) $lastRuns[$run['profileid']]=$run;
+        foreach ($profiles as &$profile) {
+            $aggregate = $aggregates[$profile['id']] ?? ['correct'=>0.0,'seen'=>0,'elapsed_seconds'=>0.0,'timed'=>false,'runs'=>[]];
+            $aggregate['score'] = $aggregate['seen'] ? $aggregate['correct']/$aggregate['seen'] : null;
+            if (!$aggregate['timed'] || !$aggregate['seen']) $aggregate['elapsed_seconds'] = null;
+            unset($aggregate['timed']);
+            $profile['benchmark'] = $aggregate;
+            $profile['activity'] = $byProfile[$profile['id']] ?? [];
+            $profile['last_run'] = $lastRuns[$profile['id']] ?? null;
+            if ($aggregate['score'] !== null && $aggregate['elapsed_seconds'] !== null) $points[] = [
+                'profileid'=>$profile['id'],'profile_name'=>$profile['name'],'score'=>$aggregate['score'],'elapsed_seconds'=>$aggregate['elapsed_seconds']
+            ];
+        }
+        unset($profile);
+        usort($profiles,function($a,$b) {
+            return (($b['benchmark']['score'] ?? -1) <=> ($a['benchmark']['score'] ?? -1))
+                ?: (($a['benchmark']['elapsed_seconds'] ?? INF) <=> ($b['benchmark']['elapsed_seconds'] ?? INF))
+                ?: strnatcasecmp($a['name'],$b['name']) ?: ($a['id'] <=> $b['id']);
+        });
+        return ['profiles'=>$profiles,'tests'=>$tests,'selected'=>$selected,'latest'=>$latest,'completed'=>$completed,
+            'points'=>$points,'frontier'=>self::frontier($points),'counts'=>$counts,
+            'paused'=>BenchmarkRunner::paused(null,$selected ? $selected['id'] : null)];
+    }
+
+    private function profiles()
+    {
         $profiles = (new Registry())->profiles();
         $models = (new Registry())->models();
         foreach ($profiles as &$profile) {
@@ -50,40 +102,14 @@ class BenchmarkFrontend
             unset($profile['config'], $profile['test_results'], $profile['overrides']);
         }
         unset($profile);
-        $columns = "r.id,r.profileid,r.testid,r.status,r.score,r.elapsed_seconds,r.error,r.created_at,r.finished_at,
-            r.snapshot#>>'{profile,name}' AS profile_name,r.snapshot#>>'{test,name}' AS test_name,r.snapshot#>>'{test,revision}' AS test_revision,
-            (SELECT count(*) FROM benchmark_results x WHERE x.benchmark_runid=r.id) AS recorded,
-            jsonb_array_length(r.snapshot->'questions') AS questions,
-            (SELECT CASE WHEN SUM(elapsed_seconds)>0 THEN CASE WHEN r.snapshot#>>'{test,model_type}' IN ('embed','rerank') THEN COUNT(*)/SUM(elapsed_seconds) WHEN count(completion_tokens)=count(*) THEN SUM(completion_tokens)/SUM(elapsed_seconds) END END FROM benchmark_results x WHERE x.benchmark_runid=r.id) AS speed";
-        $latest = Database::rows(
-            'SELECT DISTINCT ON(r.profileid,r.testid) ' . $columns . ' FROM benchmark_runs r ORDER BY r.profileid,r.testid,r.id DESC'
-        );
-        $recent = Database::rows('SELECT ' . $columns . ' FROM benchmark_runs r ORDER BY r.id DESC LIMIT 40');
-        $points = !$selected
-            ? []
-            : Database::rows(
-                'SELECT DISTINCT ON(r.profileid) ' .
-                    $columns .
-                    " FROM benchmark_runs r WHERE r.status='completed' AND r.testid=? AND r.snapshot#>>'{test,revision}'=? ORDER BY r.profileid,r.id DESC",
-                [$selected['id'], (string) $selected['revision']]
-            );
-        $points = array_values(
-            array_filter($points, function ($point) {
-                return $point['speed'] !== null && $point['score'] !== null;
-            })
-        );
-        return [
-            'profiles' => $profiles,
-            'tests' => $tests,
-            'selected' => $selected,
-            'latest' => $latest,
-            'recent' => $recent,
-            'points' => $points,
-            'frontier' => self::frontier($points),
-            'paused' => BenchmarkRunner::paused(null),
-            'controls' => Database::rows('SELECT * FROM benchmark_controls'),
-            'defaults' => Database::rows('SELECT * FROM profile_defaults ORDER BY default_for')
-        ];
+        return $profiles;
+    }
+
+    public function metadata($profileId)
+    {
+        Pages::authorize($this->userId, 'benchmarks');
+        foreach ($this->profiles() as $profile) if ((string)$profile['id'] === (string)$profileId) return $profile;
+        throw new \InvalidArgumentException('Profile not found');
     }
 
     public static function frontier(array $points)
@@ -93,9 +119,9 @@ class BenchmarkFrontend
             $dominated = false;
             foreach ($points as $other) {
                 if (
-                    $other['speed'] >= $point['speed'] &&
+                    $other['elapsed_seconds'] <= $point['elapsed_seconds'] &&
                     $other['score'] >= $point['score'] &&
-                    ($other['speed'] > $point['speed'] || $other['score'] > $point['score'])
+                    ($other['elapsed_seconds'] < $point['elapsed_seconds'] || $other['score'] > $point['score'])
                 ) {
                     $dominated = true;
                     break;
@@ -106,7 +132,7 @@ class BenchmarkFrontend
             }
         }
         usort($front, function ($a, $b) {
-            return $a['speed'] <=> $b['speed'];
+            return $a['elapsed_seconds'] <=> $b['elapsed_seconds'];
         });
         return $front;
     }
@@ -123,9 +149,7 @@ class BenchmarkFrontend
             $this->userId,
             $action === 'default'
                 ? 'models'
-                : (in_array($action, ['save-test', 'save-question', 'remove-question'], true)
-                    ? 'test-suites'
-                    : 'benchmarks')
+                : 'benchmarks'
         );
         if ($action === 'save-test') {
             if (!empty($body['testid']) && !isset($body['revision'])) {
@@ -173,24 +197,18 @@ class BenchmarkFrontend
         if ($profileId === false) {
             throw new \InvalidArgumentException('Invalid profile ID');
         }
+        $testId = !empty($body['testid']) && $body['testid'] !== 'all' ? filter_var($body['testid'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : null;
+        if ($testId === false) throw new \InvalidArgumentException('Invalid test ID');
+        if ($testId !== null) Benchmarks::test($testId);
         if ($action === 'play') {
-            return State::transaction(function () use ($profileId) {
+            return State::transaction(function () use ($profileId, $testId) {
                 Database::row("SELECT scope FROM benchmark_controls WHERE scope='global' FOR UPDATE");
-                $params = $profileId === null ? [] : [$profileId];
-                $where = $profileId === null ? '' : ' AND profileid=?';
-                $existing = Database::row(
-                    "SELECT id FROM benchmark_runs WHERE dispatch_mode='queue' AND status IN ('queued','paused','running')" .
-                        $where .
-                        ' LIMIT 1',
-                    $params
-                );
-                $jobs = $existing ? [] : BenchmarkRunner::enqueue($profileId === null ? null : [$profileId], null, $this->userId);
-                BenchmarkRunner::control('resume', $profileId);
-                // Global pause remains authoritative; per-profile Play must not launch unrelated models.
+                $jobs = BenchmarkRunner::enqueue($profileId === null ? null : [$profileId],$testId === null ? null : [$testId],$this->userId,true);
+                BenchmarkRunner::control('resume', $profileId, $testId);
                 return ['queued' => count($jobs), 'resumed' => true];
             });
         }
-        return BenchmarkRunner::control($action, $profileId);
+        return BenchmarkRunner::control($action, $profileId, $testId);
     }
 
     public static function form(array $state)
@@ -205,7 +223,7 @@ class BenchmarkFrontend
         $target =
             isset($_POST['return_to']) && $_POST['return_to'] === 'models'
                 ? '?view=settings&tab=models'
-                : '?view=benchmarks' . (isset($result['testid']) ? '&edit_test=' . (int) $result['testid'] : '');
+                : '?view=benchmarks' . (!empty($result['testid']) || !empty($_POST['testid']) ? '&test='.(int)($result['testid'] ?? $_POST['testid']) : '') . (isset($_POST['return_to']) && $_POST['return_to']==='questions' ? '&questions=1' : '');
         header('Location: ' . Views::url($target), true, 303);
     }
 }

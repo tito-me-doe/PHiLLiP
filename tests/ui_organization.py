@@ -49,7 +49,7 @@ with sync_playwright() as p:
     assert abs(chat["width"]-project["width"])<1 and abs(chat["y"]-project["y"])<1
     assert page.locator(".sidebar-bottom .badge").inner_text()=="local"
 
-    for name in ["access","appearance","models","navigation","personas","knowledge","benchmarks","test-suites","services","parsers"]:
+    for name in ["access","appearance","models","navigation","personas","knowledge","benchmarks","tools-services"]:
         navigate(name)
         expect(page.locator("main h1").first).to_be_visible()
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth+1"),name
@@ -59,8 +59,29 @@ with sync_playwright() as p:
             assert button.inner_text().strip()=="New"
     print("PASS: Flat alphabetic top menu, equal creation buttons, readonly tables and isolated pages",flush=True)
 
+    navigate("models")
+    expect(page.locator("main h1")).to_have_text("Models & Profiles")
+    assert page.locator("#task-defaults").count()==0
+    expect(page.locator("#profiles")).to_contain_text("DEFAULT FOR")
+    expect(page.locator("#profiles")).to_contain_text("Missing profile: Embeddings")
+    page.get_by_role("link",name="Edit defaults for default",exact=True).click()
+    defaults=page.locator("#dialog form[data-profile-defaults]")
+    defaults.locator('[name="tasks[]"][value=generate_titles]').check()
+    defaults.locator('[name="tasks[]"][value=summarize]').check()
+    defaults.get_by_role("button",name="Save defaults",exact=True).click()
+    expect(page.locator("#profiles tbody tr").filter(has_text="default")).to_contain_text("Conversation titles, Summaries")
+    page.get_by_role("link",name="Edit defaults for default",exact=True).click()
+    defaults=page.locator("#dialog form[data-profile-defaults]")
+    expect(defaults.locator('[name="tasks[]"][value=summarize]')).to_be_checked()
+    defaults.locator('[name="tasks[]"][value=summarize]').uncheck()
+    defaults.locator('[name="tasks[]"][value=generate_titles]').uncheck()
+    defaults.get_by_role("button",name="Save defaults",exact=True).click()
+    print("PASS: Per-profile DEFAULT FOR modal replaces task-default tables and reports missing dependencies",flush=True)
+
     navigate("access")
-    assert page.locator("#access-users table,#access-groups table,#access-grants table").count()==3
+    assert page.locator("#access-users table,#access-groups table").count()==2
+    assert page.locator("#access-grants").count()==0
+    expect(page.locator("main h1")).to_have_text("Users & Groups")
     assert page.locator("main form").count()==0
     page.screenshot(path=str(captures/"access.png"))
     form=editor("New user","users")
@@ -88,14 +109,32 @@ with sync_playwright() as p:
     expect(row).to_contain_text("Browser group")
     expect(row).not_to_contain_text("Finance")
 
-    form=editor("New permission","permissions")
-    assert form.locator("[name=allowed]").count()==0
-    assert form.locator('[name=scope] option[value="group:1"]').count()==0
-    expect(form).to_contain_text("Administrators (1) always have all permissions")
-    form.locator("[name=scope]").select_option("group:"+group_id)
-    form.locator("[name=resource]").select_option("page.benchmarks")
+    navigate("tools-services")
+    expect(page.locator("main h1")).to_have_text("Tools & Services")
+    form=editor("Edit tool access Tasks","tools")
+    assert form.locator('[name="allowed_groups[]"][value="1"]').count()==0
+    form.locator('[name="allowed_groups[]"][value="'+group_id+'"]').check()
     form.get_by_role("button",name="Save",exact=True).click()
-    expect(page.locator("#access-grants tr").filter(has_text="Browser group")).to_contain_text("Benchmarks")
+    expect(page.locator("#tools tr").filter(has_text="Tasks")).to_contain_text("Browser group")
+    page.get_by_role("link",name="New mapping",exact=True).click()
+    parser=page.locator('#dialog #attachment-parsers-form')
+    parser.locator('[name=parsers]').fill('{"text/plain":"default"}')
+    parser.get_by_role('button',name='Save parsing profiles',exact=True).click()
+    expect(page.locator('#attachment-parsing tbody')).to_contain_text('text/plain')
+    page.get_by_role("link",name="Edit parsing text/plain",exact=True).click()
+    parser=page.locator('#dialog #attachment-parsers-form')
+    parser.locator('[name=parsers]').fill('{}')
+    parser.get_by_role('button',name='Save parsing profiles',exact=True).click()
+    expect(page.locator('#attachment-parsing')).to_contain_text('Local conversion defaults')
+    page.get_by_role("link",name="Edit service searxng",exact=True).click()
+    service=page.locator('#dialog #services-form')
+    service.get_by_role('button',name='Save services',exact=True).click()
+    expect(page.locator('#dialog')).not_to_be_visible()
+    navigate("navigation")
+    form=editor("Edit route Benchmarks","navigation")
+    form.locator('[name="allowed_groups[]"][value="'+group_id+'"]').check()
+    form.get_by_role("button",name="Save",exact=True).click()
+    navigate("access")
     expect(page.locator("#access-groups tr").filter(has_text="Everyone")).to_contain_text("automatic")
     assert page.get_by_role("link",name="Edit group Everyone",exact=True).count()==0
 

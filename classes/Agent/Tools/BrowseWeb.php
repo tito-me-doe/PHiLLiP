@@ -3,6 +3,9 @@ namespace Agent\Tools;
 
 class BrowseWeb
 {
+    /** Offered only when the service is configured; see Agent\Requirements. */
+    const REQUIRES = ['service:camoufox'];
+
     /**
      * Open a web page in the remote Camoufox browser. Returns a session ID, rendered text, links, and visible controls with usable selectors. Use returned selectors instead of guessing IDs. Supports JavaScript. Browser network is remote: localhost/127.0.0.1/::1 in $url refers to the remote browser machine or container, not the PHP host; use a URL reachable from the remote browser.
      * @param string $url Absolute HTTP or HTTPS URL

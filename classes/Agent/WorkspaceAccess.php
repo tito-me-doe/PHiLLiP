@@ -81,6 +81,21 @@ class WorkspaceAccess
         });
     }
 
+    /** Current grants for this worker's own thread and local workspace; never grants authority. */
+    public static function currentGrants($threadId)
+    {
+        $root = self::root();
+        $uid = Runtime::unixIdentity()['uid'];
+        $state = State::thread($threadId)->read()['value'];
+        $grants = [];
+        foreach (($state['approvals'] ?? []) as $grant) {
+            if (($grant['workspace'] ?? null) !== $root || ($grant['unix_uid'] ?? null) !== $uid) continue;
+            if (!in_array($grant['kind'] ?? null, ['read', 'patch', 'command'], true)) continue;
+            $grants[] = ['kind' => $grant['kind'], 'target' => $grant['target']];
+        }
+        return $grants;
+    }
+
     public static function requireGrant($kind, $target)
     {
         $threadId = ToolContext::get('thread_id');

@@ -8,7 +8,8 @@
 }
 .avatar .eye-right, .avatar-heart-eyes > path + path { animation-delay: 45ms; }
 .avatar-pupil { animation: avatar-glance 11s ease-in-out infinite; }
-.avatar[data-avatar="terminal"] .avatar-eyes { transform-origin: 120px 80px; }
+/* Every shipped character keeps its eyes at the same coordinates except the sprout. */
+.avatar:not([data-avatar="sprout"]) .avatar-eyes { transform-origin: 120px 80px; }
 .avatar[data-avatar="sprout"] .avatar-eyes { transform-origin: 120px 150px; }
 .avatar-mouth { fill: transparent; transform-box: fill-box; transform-origin: center; }
 .avatar-brow { transition: opacity .3s, transform .3s; }

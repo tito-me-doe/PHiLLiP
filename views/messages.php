@@ -1,24 +1,46 @@
 <?php use Agent\Views as V; ?>
 <?php if (!$current): ?>
-<div class="eyebrow">Your thoughtful little sidekick</div><h1>Who shall we talk to?</h1>
-<p>Choose a persona to begin, or just send a message as yourself.</p>
+<h1>Who shall we talk to?</h1>
 <?php if (!$state['profiles']): ?><div class="error-panel">No chat models are enabled. Ask an administrator to configure a working profile.</div><?php endif; ?>
 <form method="post" id="persona-start">
 <?= V::csrf($state,'persona-start') ?><input type="hidden" name="creation_key" value="<?= bin2hex(random_bytes(16)) ?>">
-<div class="table-wrap"><table class="persona-table registry"><thead><tr><th>Persona</th><th>About</th><th></th></tr></thead><tbody>
+<div class="persona-cards">
 <?php
-$personas = [[],[]];
-foreach ($state['personas'] as $persona) {
-    $persona['available'] = $state['profiles'] && !array_diff(Agent\ToolRegistry::policies($persona['tools']),$state['tools']);
-    $personas[$persona['available'] ? 0 : 1][] = $persona;
-}
-foreach (array_merge($personas[0],$personas[1]) as $persona): ?>
-<tr><td><strong><?= V::h($persona['name']) ?></strong></td>
-<td><?= V::h(mb_strimwidth(preg_replace('/\s+/u',' ',$persona['prompt']),0,145,'…')) ?>
-<?php if (!$persona['available']): ?><small><?= $state['profiles'] ? 'Requires tools not available to your account' : 'A chat model must be enabled first' ?></small><?php endif; ?></td>
-<td><button class="persona-card" name="persona_id" value="<?= $persona['id'] ?>" title="<?= V::h($persona['name']) ?>" aria-label="Start conversation as <?= V::h($persona['name']) ?>" <?= $persona['available'] ? '' : 'disabled' ?>>Start Conversation</button></td></tr>
+// Characters only (a persona built from a sheet). PHiLLiP leads, then the shipped cast, then everyone else's, each alphabetical.
+$adultOn = !empty($state['adult_personas']);
+$characters = array_values(array_filter($state['personas'], function ($persona) use ($adultOn) { return !empty($persona['sheet']) && ($persona['enabled'] ?? true) && ($adultOn || ($persona['maturity'] ?? 'everyone') !== 'adult'); }));
+usort($characters, function ($a, $b) {
+    $rank = function ($p) { return ($p['slug'] ?? null) === 'phillip' ? 0 : (!empty($p['is_default']) ? 1 : 2); };
+    return [$rank($a), mb_strtolower($a['name'])] <=> [$rank($b), mb_strtolower($b['name'])];
+});
+foreach ($characters as $persona):
+    $pronouns = trim((string)($persona['pronouns'] ?? ''));
+    $tagline = trim((string)($persona['tagline'] ?? ''));
+    $mine = (string)($persona['owner_id'] ?? '') === (string)$state['user']['id'];
+    $editable = $mine || (!empty($state['user']['is_admin']) && ($persona['visibility'] ?? 'private') !== 'private');
+?>
+<div class="persona-slot">
+<?php if ($editable): ?><?= V::iconAction('edit', 'Edit ' . $persona['name'], ['data-dialog' => 'persona', 'data-id' => $persona['id']]) ?><?php endif; ?>
+<button class="persona-card" name="persona_id" value="<?= $persona['id'] ?>" title="<?= V::h($persona['name']) ?>" aria-label="Start a conversation with <?= V::h($persona['name']) ?><?= $pronouns !== '' ? ' (' . V::h($pronouns) . ')' : '' ?>. <?= V::h($tagline) ?>" <?= $state['profiles'] ? '' : 'disabled' ?>>
+<?= V::avatar($state, 'persona-avatar', !empty($persona['avatar']) ? $persona['avatar'] : 'terminal') ?>
+<span class="persona-tagline"><?= V::h($tagline) ?></span>
+<span class="persona-line"><strong><?= V::h($persona['name']) ?></strong><?php if ($pronouns !== ''): ?><em class="persona-pronouns"><?= V::h($pronouns) ?></em><?php endif; ?></span>
+<span class="persona-flags"><?php if (($persona['maturity'] ?? 'everyone') === 'adult'): ?><small class="persona-badge">18+</small><?php endif; ?>
+<?php if ($mine): ?><small class="persona-owner">Yours</small><?php elseif (empty($persona['is_default'])): ?><small class="persona-owner">Shared</small><?php endif; ?></span>
+</button>
+<?php if (!$state['profiles']): ?><small>A chat model must be enabled first</small><?php endif; ?>
+</div>
 <?php endforeach; ?>
-</tbody></table></div></form>
+<?php if (!$characters): ?><p class="hint persona-empty">No personas are installed yet. Run <code>bin/phill-bootstrap</code> to add the shipped cast, or make your own.</p><?php endif; ?>
+<?php if (Agent\Pages::allowed($state['user']['id'], 'personas')): ?>
+<div class="persona-slot">
+<button type="button" class="persona-card persona-new" data-dialog="persona" aria-label="Create a new persona">
+<span class="persona-plus" aria-hidden="true"><?= V::icon('plus') ?></span>
+<strong>New Persona</strong>
+</button>
+</div>
+<?php endif; ?>
+</div></form>
 <?php else:
     $calls = [];
     foreach ($current['messages'] as $message):

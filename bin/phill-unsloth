@@ -1,0 +1,48 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+
+try {
+    $action = isset($argv[1]) ? $argv[1] : '';
+    if ($action === 'settings') {
+        echo json_encode(['url_env' => 'UNSLOTH_STUDIO_URL', 'api_key_env' => 'UNSLOTH_STUDIO_API_KEY',
+            'read_endpoint' => 'GET /v1/models', 'load_unload' => 'Use Studio UI or documented unsloth run CLI'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+        exit(0);
+    }
+    if (!in_array($action, ['status', 'load', 'unload'], true)) throw new InvalidArgumentException('Usage: phill-unsloth settings | status | load --model MODEL_ID | unload --model MODEL_ID');
+    $opts = [];
+    for ($index = 2; $index < count($argv); $index++) {
+        $arg = $argv[$index];
+        if ($arg === '--help') { $opts['help'] = true; continue; }
+        $parts = explode('=', $arg, 2);
+        if ($parts[0] !== '--model' || isset($opts['model'])) throw new InvalidArgumentException('Unknown option or repeated model: ' . $parts[0]);
+        if (isset($parts[1])) $value = $parts[1];
+        else {
+            if (!isset($argv[$index + 1]) || strpos($argv[$index + 1], '--') === 0) throw new InvalidArgumentException('--model requires a value');
+            $value = $argv[++$index];
+        }
+        $opts['model'] = $value;
+    }
+    if (isset($opts['help'])) {
+        echo "Usage: phill-unsloth settings | status | load --model MODEL_ID | unload --model MODEL_ID\n\n"
+            . "Set UNSLOTH_STUDIO_URL and optionally UNSLOTH_STUDIO_API_KEY. Status reads the documented /v1/models endpoint.\n";
+        exit(0);
+    }
+    if ($action === 'status') {
+        if (isset($opts['model'])) throw new InvalidArgumentException('status does not accept model options');
+        $studio = new Agent\UnslothStudio();
+        $result = $studio->status();
+    } elseif ($action === 'unload') {
+        if (!isset($opts['model'])) throw new InvalidArgumentException('unload requires --model');
+        Agent\UnslothStudio::validateModelId($opts['model']);
+        throw Agent\UnslothStudio::controlUnavailable('unload');
+    } else {
+        if (!isset($opts['model'])) throw new InvalidArgumentException('load requires --model');
+        Agent\UnslothStudio::validateModelId($opts['model']);
+        throw Agent\UnslothStudio::controlUnavailable('load');
+    }
+    echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+} catch (Throwable $e) {
+    fwrite(STDERR, '[Error] ' . $e->getMessage() . "\n");
+    exit($e instanceof InvalidArgumentException ? 2 : 1);
+}

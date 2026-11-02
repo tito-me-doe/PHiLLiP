@@ -9,50 +9,68 @@ foreach ($data['memberships'] as $membership) {
     $byUser[$membership['user_id']][] = $groups[$membership['team_id']] ?? $membership['team_id'];
     $byGroup[$membership['team_id']][] = $users[$membership['user_id']] ?? $membership['user_id'];
 }
+// Who is granted what: resource => ['users' => [...], 'groups' => [...]].
+$granted = [];
+foreach ($data['permissions'] as $grant) {
+    if ($grant['scope_type'] !== 'user' && (string)$grant['scope_id'] === '1') continue; // Administrators always have access.
+    $kind = $grant['scope_type'] === 'user' ? 'users' : 'groups';
+    $names = $kind === 'users' ? $users : $groups;
+    $granted[$grant['tool']][$kind][] = $names[$grant['scope_id']] ?? $grant['scope_id'];
+}
+$who = function ($resource) use ($granted) {
+    return V::h(implode(', ', array_merge($granted[$resource]['groups'] ?? [], $granted[$resource]['users'] ?? [])) ?: 'Administrators only');
+};
+$descriptions = [
+    'SearchWeb' => 'Search the web',
+    'Fetch' => 'Read pages and files',
+    'BrowseWeb' => 'Use a web browser',
+    'Memory' => 'Search and keep knowledge',
+    'Tasks' => 'Classify, extract and compare'
+];
 if (isset($_GET['edit'])):
 ?>
 <section class="card"><?= V::render('management-form', ['state'=>$state]) ?></section>
 <?php else: ?>
-<nav class="access-links" aria-label="Access control tables"><a href="#access-users">Users</a><a href="#access-groups">Groups</a><a href="#access-grants">Permissions</a></nav>
-<section class="card" id="access-users">
-    <h2>Users</h2>
-    <p class="hint">Edit a user to manage their groups and account. Memberships are additive; every signed-in user belongs to Everyone.</p>
-    <div class="table-wrap"><table class="registry"><thead><tr><th>Username</th><th>Name</th><th>Groups</th><th>Status</th><th></th></tr></thead><tbody>
+<section class="card">
+    <div class="card-head"><h2>Users</h2><?= V::editor('users', null, 'New user') ?></div>
+    <div class="table-wrap"><table class="registry"><thead><tr><th></th><th>Username</th><th>Name</th><th>Groups</th><th></th></tr></thead><tbody>
     <?php foreach ($data['users'] as $person): ?>
-        <tr><td><?= V::h($person['username']) ?></td><td><?= V::h($person['display_name']) ?></td>
+        <?php $manage = !$person['is_admin'] || $state['user']['is_admin']; ?>
+        <tr<?= $person['active'] ? '' : ' class="is-off"' ?>><td class="switch-cell"><?php if ($manage && (string)$person['id'] !== (string)$state['user']['id']): ?><form method="post" class="switch-form" data-user-active="<?= V::h($person['id']) ?>" data-username="<?= V::h($person['username']) ?>" data-display-name="<?= V::h($person['display_name']) ?>"><input type="checkbox" role="switch" <?= $person['active'] ? 'checked' : '' ?> aria-label="<?= V::h(($person['active'] ? 'Deactivate ' : 'Activate ').$person['username']) ?>"></form><?php endif; ?></td><td><?= V::h($person['username']) ?></td><td><?= V::h($person['display_name']) ?></td>
             <td><?= V::h(implode(', ', array_merge(['Everyone'], $byUser[$person['id']] ?? []))) ?></td>
-            <td><span class="badge <?= $person['active'] ? '' : 'error' ?>"><?= $person['active'] ? 'Active' : 'Inactive' ?></span></td>
-            <td><?php if (!$person['is_admin'] || $state['user']['is_admin']): ?><?= V::editor('users', $person['id'], 'Edit user '.$person['username']) ?><?php else: ?><span class="muted">Administrator only</span><?php endif; ?></td></tr>
+            <td class="actions"><?php if ($manage): ?><?= V::editor('users', $person['id'], 'Edit user '.$person['username']) ?><?php endif; ?></td></tr>
     <?php endforeach; ?>
-</tbody><tfoot><tr><td colspan="5"><?= V::editor('users', null, 'New user') ?></td></tr></tfoot></table></div>
+    </tbody></table></div>
 </section>
-<section class="card" id="access-groups">
-    <h2>Groups</h2>
-    <p class="hint">Edit a group to manage its members. Built-in group IDs and names are fixed.</p>
-    <div class="table-wrap"><table class="registry"><thead><tr><th>ID</th><th>Group</th><th>Members</th><th></th></tr></thead><tbody>
-    <?php foreach ($data['groups'] as $group): ?>
-        <tr><td><?= V::h($group['id']) ?></td><td><?= V::h($group['name']) ?><?php if ((string)$group['id'] === '1'): ?><small>All permissions automatically</small><?php endif; ?></td>
-            <td><?= V::h((string)$group['id'] === '0' ? 'All signed-in users (automatic)' : implode(', ', $byGroup[$group['id']] ?? [])) ?></td>
-            <td><?php if ((string)$group['id'] === '0'): ?><span class="muted">Automatic</span>
-                <?php elseif ((string)$group['id'] !== '1' || $state['user']['is_admin']): ?><?= V::editor('groups', $group['id'], 'Edit group '.$group['name']) ?>
-                <?php else: ?><span class="muted">Administrator only</span><?php endif; ?>
-                <?php if (!in_array((string)$group['id'], ['0','1','2'], true)): ?>
-                    <?= V::editor('groups', $group['id'], 'Remove group '.$group['name'], ['remove'=>1]) ?>
-                <?php endif; ?></td></tr>
+<section class="card">
+    <div class="card-head"><h2>Groups</h2><?= V::editor('groups', null, 'New group') ?></div>
+    <div class="table-wrap"><table class="registry"><thead><tr><th>Group</th><th>Members</th><th></th></tr></thead><tbody>
+    <?php foreach ($data['groups'] as $group): $id = (string)$group['id']; ?>
+        <tr><td><?= V::h($group['name']) ?></td>
+            <td><?= V::h($id === '0' ? 'Everyone signed in' : ($id === '1' ? 'Full access' : (implode(', ', $byGroup[$group['id']] ?? []) ?: '—'))) ?></td>
+            <td><?php if ($id !== '0' && ($id !== '1' || $state['user']['is_admin'])): ?><?= V::editor('groups', $group['id'], 'Edit group '.$group['name']) ?><?php endif; ?>
+                <?php if (!in_array($id, ['0','1','2'], true)): ?><?= V::editor('groups', $group['id'], 'Remove group '.$group['name'], ['remove'=>1]) ?><?php endif; ?></td></tr>
     <?php endforeach; ?>
-</tbody><tfoot><tr><td colspan="4"><?= V::editor('groups', null, 'New group') ?></td></tr></tfoot></table></div>
+    </tbody></table></div>
 </section>
-<section class="card" id="access-grants">
-    <h2>Permissions</h2>
-    <p class="hint">Administrators (1) automatically have all permissions. Other users need a grant directly or through any of their groups; otherwise access is denied. Everyone (0) applies to all signed-in users.</p>
-    <div class="table-wrap"><table class="registry"><thead><tr><th>Applies to</th><th>Resource</th><th></th></tr></thead><tbody>
-    <?php foreach ($data['permissions'] as $grant):
-        $scope = ($grant['scope_type'] === 'user' ? 'user:' : 'group:').$grant['scope_id'];
-        $subject = $grant['scope_type'] === 'user' ? ($users[$grant['scope_id']] ?? $grant['scope_id']) : ($groups[$grant['scope_id']] ?? $grant['scope_id']); ?>
-        <tr><td><?= V::h(($grant['scope_type'] === 'user' ? 'User · ' : 'Group · ').$subject) ?></td>
-            <td><?= V::h($data['resources'][$grant['tool']] ?? $grant['tool']) ?></td>
-            <td><?= V::editor('permissions', null, 'Remove permission', ['scope'=>$scope,'resource'=>$grant['tool'],'remove'=>1]) ?></td></tr>
+<section class="card">
+    <div class="card-head"><h2>Pages</h2><?= V::editor('navigation', null, 'New page') ?></div>
+    <div class="table-wrap"><table class="registry"><thead><tr><th>Page</th><th>Route</th><th>Who can open it</th><th></th></tr></thead><tbody>
+    <?php foreach ($data['pages'] as $page): ?>
+        <tr><td><?= V::h($page['title']) ?><?php if ($page['id'] !== $page['handler']): ?><small>Also needs <?= V::h($page['handler']) ?></small><?php endif; ?></td>
+            <td><code><?= V::h($page['path']) ?></code></td><td><?= $who('page.'.$page['id']) ?></td>
+            <td><?= V::editor('navigation', $page['id'], 'Edit page '.$page['title']) ?></td></tr>
     <?php endforeach; ?>
-</tbody><tfoot><tr><td colspan="3"><?= V::editor('permissions', null, 'New permission') ?></td></tr></tfoot></table></div>
+    </tbody></table></div>
+</section>
+<section class="card">
+    <div class="card-head"><h2>Tools</h2></div>
+    <div class="table-wrap"><table class="registry"><thead><tr><th>Tool</th><th>Who can use it</th><th></th></tr></thead><tbody>
+    <?php foreach (Agent\Frontend::TOOLS as $tool): $name = substr($tool, strrpos($tool, '\\') + 1); ?>
+        <tr><td><strong><?= V::h(Agent\ToolRegistry::label($name)) ?></strong><small><?= V::h($descriptions[$name] ?? '') ?></small></td>
+            <td><?= $who($tool) ?></td>
+            <td><?= V::editor('tools', null, 'Edit tool access '.$name, ['resource'=>$tool]) ?></td></tr>
+    <?php endforeach; ?>
+    </tbody></table></div>
 </section>
 <?php endif; ?>

@@ -99,7 +99,7 @@ $editor = function ($todo = null, $parentId = null) use ($state, $hidden, $proje
         </div>
         <div class="row"><button type="submit" class="primary"><?= $isNew
             ? 'Add ToDo'
-            : 'Save ToDo' ?></button><small class="muted">Drafts may be incomplete while planning.</small></div>
+            : 'Save ToDo' ?></button></div>
         <div class="form-error" role="alert"></div>
     </form>
     <?php
@@ -145,15 +145,15 @@ $editor = function ($todo = null, $parentId = null) use ($state, $hidden, $proje
     return;
 endif; ?>
 <section class="projects-page" data-project-root data-project-id="<?= $project ? V::h($project->id) : '' ?>">
-<header class="topbar"><div class="row"><button type="button" class="icon mobile-menu" data-action="menu" aria-label="Open navigation"><?= V::icon(
+<header class="topbar"><div class="row"><button type="button" class="icon mobile-menu" data-action="menu" aria-label="Open navigation" aria-controls="primary-navigation" aria-expanded="false"><?= V::icon(
     'menu'
 ) ?></button><span class="title"><?= V::h(
     $row ? $row['title'] : 'New project'
 ) ?></span></div><button class="icon" data-action="theme" aria-label="Toggle light or dark mode"><?= V::icon('theme') ?></button></header>
-<div class="projects-content">
+<div class="page-content projects-content">
 <?php if (!$project): ?>
-    <div class="project-heading"><div class="eyebrow">Plan, check, execute</div><h1>A clear goal. A workable plan.</h1><p class="muted">Start a project, flesh out its ToDos together, then explicitly start the work. Existing projects live alongside conversations in Recent work.</p></div>
-    <section class="card" id="create-project"><h2>Create a project</h2>
+    
+    <section class="card" id="create-project">
     <form class="form-stack" method="post" action="<?= V::url(
         '?view=projects'
     ) ?>" data-project-form="create" data-project-api="/api/projects">
@@ -201,7 +201,7 @@ if ($row['status'] === 'running') {
     $button('pause', 'Pause project');
 }
 ?></div>
-        <p class="hint">Readiness checks never start work. Start Project requires your explicit action for the current plan.</p>
+        
         <div class="project-readiness" role="status"><strong>Readiness: <?= V::h($row['preflight_status']) ?></strong>
         <?php if ($snapshot['issues']): ?><table class="registry"><thead><tr><th>ToDo</th><th>Required before start</th></tr></thead><tbody>
         <?php foreach ($snapshot['issues'] as $issue): ?><tr><td><?php if (!empty($issue['todo_id'])): ?><a href="#todo-<?= V::h($issue['todo_id']) ?>">ToDo <?= V::h($issue['todo_id']) ?></a><?php else: ?>Project<?php endif; ?></td><td><?= V::h($issue['message']) ?></td></tr><?php endforeach; ?>
@@ -228,7 +228,7 @@ if ($row['status'] === 'running') {
     <?php endforeach; ?>
     </tbody></table></div></section>
     <?php endif; ?>
-    <section class="project-plan card"><h2>ToDos</h2><p class="hint">Children complete before their parent. Every task must pass its acceptance gates.</p>
+    <section class="project-plan card"><h2>ToDos</h2>
     <div class="table-wrap"><table class="registry todo-table"><thead><tr><th>ToDo</th><th>Status</th><th>Specification and result</th><th></th></tr></thead><tbody>
     <?php
     $renderTodos = function($parentId = null,$depth = 0) use (&$renderTodos,$snapshot,$editable,$project,$button) {

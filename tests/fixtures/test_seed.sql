@@ -1,0 +1,4 @@
+-- Test seed data for the PHiLLiP test database template.
+-- This file holds demo/edge-case data applied to the template after migrations.
+-- Any change to this file changes the fingerprint, which auto-rebuilds the template.
+-- Tests must never depend on production records; this seed is the only data source.

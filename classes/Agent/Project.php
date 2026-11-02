@@ -325,6 +325,26 @@ class Project
         });
     }
 
+    /** Reopen is an explicit local-owner action and starts a fresh execution revision. */
+    public function reopen()
+    {
+        if (!Runtime::isCli() || ToolContext::get('run_id') !== null || ToolContext::get('agent_id') !== null || ToolContext::get('frontend')) throw new \RuntimeException('Reopen requires the local owner');
+        $identity = ProjectAccess::local($this);
+        if ($identity['unix']['root'] || $identity['unix']['uid'] === null) throw new \RuntimeException('Reopen requires an unprivileged local owner');
+        return State::transaction(function () use ($identity) {
+            $row = $this->lock();
+            if ($row['status'] !== 'completed') throw new \RuntimeException('Only a completed project can be reopened');
+            $this->requireInactive();
+            Database::row('SELECT id FROM threads WHERE id = ? FOR UPDATE', [$row['thread_id']]);
+            if (Database::row("SELECT id FROM runs WHERE thread_id = ? AND status IN ('queued','running') LIMIT 1", [$row['thread_id']])) throw new \RuntimeException('Finish planning work before reopening');
+            $this->event('project.reopened', ['actor_id' => (string)$identity['owner'], 'previous_revision' => (int)$row['revision'], 'previous_todos' => $this->todos()]);
+            Database::execute("UPDATE project_todos SET status = 'pending', attempts = 0, result = '', evidence = '{}'::jsonb, review = '{}'::jsonb, revision = revision + 1, run_id = NULL, run_revision = NULL, ready_revision = NULL, readiness = '{}'::jsonb, wait_reason = NULL, continuations = 0, updated_at = NOW() WHERE project_id = ?", [$this->id]);
+            Database::execute("UPDATE projects SET status = 'planning', started_by = NULL, started_at = NULL WHERE id = ?", [$this->id]);
+            $this->invalidate();
+            return $this->get();
+        });
+    }
+
     public function retryTodo($id)
     {
         if (ToolContext::get('run_id')) throw new \RuntimeException('Only a human may retry a ToDo');

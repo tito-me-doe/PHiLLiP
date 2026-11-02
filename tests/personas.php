@@ -60,6 +60,9 @@ try {
     $draft = $frontend->persona($persona['id']);
     check($draft['tools'] === [] && $draft['assistant_name'] === $marker . '-edited', 'Frontend persona preparation returns the current authorized defaults');
     check($frontend->persona($persona['id'], ['tools' => 'Fetch::fetch'])['tools'] === ['Agent\\Tools\\Fetch::fetch'], 'Named static tool methods share the same frontend class policy as class toolsets');
+    // Permissions are allow-only and the built-in Everyone group (team 0) is granted these tools by the product; this test
+    // asserts denials, so it removes those two allows from its OWN isolated database first.
+    Agent\Database::execute("DELETE FROM permissions WHERE scope_type = 'team' AND scope_id = '0' AND resource IN (?, ?)", ['Agent\\Tools\\SearchWeb', 'Agent\\Tools\\BrowseWeb']);
     expectException(function () use ($persona, $carol) { (new Agent\Frontend($carol))->persona($persona['id'], ['tools' => ['Agent\\Tools\\SearchWeb']]); }, 'not permitted');
     $restricted = Agent\Personas::save($alice['id'], ['name' => $marker . '-restricted', 'prompt' => 'Browser required', 'tools' => ['BrowseWeb'], 'visibility' => 'organization']); $personas[] = $restricted;
     expectException(function () use ($restricted, $bob) { (new Agent\Frontend($bob))->persona($restricted['id']); }, 'not permitted');

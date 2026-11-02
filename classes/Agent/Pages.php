@@ -5,17 +5,13 @@ namespace Agent;
 class Pages
 {
     const VIEWS = [
-        'conversations' => 'chat',
-        'projects' => 'projects',
-        'personas' => 'personas',
-        'knowledge' => 'knowledge',
-        'benchmarks' => 'benchmarks',
-        'test-suites' => 'test-suites',
-        'appearance' => 'appearance',
-        'models' => 'models',
-        'tools-services' => 'tools-services',
-        'access' => 'access',
-        'navigation' => 'navigation',
+        'conversations'  => 'chat',
+        'projects'       => 'projects',
+        'personas'       => 'personas',
+        'knowledge'      => 'knowledge',
+        'benchmarks'     => 'benchmarks',
+        'models'         => 'models',
+        'access'         => 'access',
     ];
 
     public static function all()
@@ -44,8 +40,7 @@ class Pages
     public static function allowed($userId, $page)
     {
         $page = self::get($page); // Supplied rows are identifiers, not permission authority.
-        return Access::allows($userId, 'page.' . $page['id']) &&
-            ($page['id'] === $page['handler'] || self::allowed($userId, $page['handler']));
+        return Access::allows($userId, 'page.' . $page['id']) && ($page['id'] === $page['handler'] || self::allowed($userId, $page['handler']));
     }
 
     public static function authorize($userId, $id)
@@ -58,17 +53,11 @@ class Pages
     public static function current(array $query)
     {
         $page = isset($query['view']) ? $query['view'] : 'conversations';
-        if ($page === 'settings') {
-            $page = isset($query['tab']) ? $query['tab'] : 'appearance';
-        }
-        if (in_array($page, ['users','groups','memberships'], true)) $page = 'access';
-        if (in_array($page, ['permissions','services','parsers'], true)) $page = 'tools-services';
-        if ($page === 'benchmarks' && isset($query['edit_test'])) {
-            $page = 'test-suites';
-        }
-        if (!empty($query['project'])) {
-            $page = 'projects';
-        }
+        if ($page === 'settings') $page = isset($query['tab']) ? $query['tab'] : 'personas';
+        if (in_array($page, ['users','groups','memberships','navigation','permissions','tools-services'], true)) $page = 'access';
+        if (in_array($page, ['services','parsers'], true)) $page = 'models';
+        if ($page === 'test-suites') $page = 'benchmarks';
+        if (!empty($query['project'])) $page = 'projects';
         return self::get($page)['id'];
     }
 
@@ -85,9 +74,9 @@ class Pages
 
     public static function permitted($userId)
     {
-        $rows = self::all();
+        $rows     = self::all();
         $defaults = [];
-        $byId = [];
+        $byId     = [];
         foreach ($rows as $row) {
             $defaults['page.' . $row['id']] = false;
             $byId[$row['id']] = $row;
@@ -98,7 +87,7 @@ class Pages
                 return $grants['page.' . $row['id']] &&
                     isset($byId[$row['handler']]) &&
                     $grants['page.' . $row['handler']];
-            }),
+            })
         );
     }
 
@@ -108,18 +97,13 @@ class Pages
         $page = null;
         if ($path === '/api/admin/benchmarks') {
             $action = isset($body['action']) ? $body['action'] : '';
-            $page =
-                $action === 'default'
-                    ? 'models'
-                    : (in_array($action, ['save-test', 'save-question', 'remove-question'], true)
-                        ? 'test-suites'
-                        : 'benchmarks');
+            $page = $action === 'default' ? 'models' : 'benchmarks';
         } elseif (preg_match('~^/api/manage/(users|groups|memberships|permissions|navigation|tools)$~D', $path, $m)) {
             $page = Administration::page($m[1], $body);
-        } elseif (preg_match('~^/api/admin/(registry|profile|scan|operations)$~D', $path)) {
+        } elseif (preg_match('~^/api/admin/(registry|profile|profile-defaults|scan|operations)$~D', $path)) {
             $page = 'models';
         } elseif (in_array($path, ['/api/admin/attachment-parsers','/api/admin/services'], true)) {
-            $page = 'tools-services';
+            $page = 'models';
         } elseif ($path === '/api/admin/user') {
             $page = 'access';
         } elseif ($path === '/api/admin/team') {

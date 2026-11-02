@@ -96,6 +96,8 @@ class Onboarding
             }
             $config['onboarding']['stage'] = 'models';
             self::save($config);
+            // Whether the adult-oriented personas are available is decided once, for the whole installation.
+            Personas::setAdultEnabled(isset($input['adult_personas']) && in_array($input['adult_personas'], ['yes', '1', 1, true, 'true', 'on'], true));
             Config::configureServices([
                 'searxng' => ['url' => 'http://searxng:8080', 'url_env' => 'SEARXNG_URL'],
                 'camoufox' => ['url' => 'http://browser:8080', 'url_env' => 'CAMOUFOX_URL', 'token_env' => 'BROWSER_TOKEN'],

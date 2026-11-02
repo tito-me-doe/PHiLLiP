@@ -4,6 +4,8 @@ require __DIR__ . '/fixtures/cli_process.php';
 
 $alice = Agent\Identity::authenticate('alice', 'phillip-demo');
 $bob = Agent\Identity::authenticate('bob', 'phillip-demo');
+Agent\Identity::grant('user', $alice['id'], 'page.projects');
+Agent\Identity::grant('user', $bob['id'], 'page.projects');
 $marker = 'recursive-interface-' . bin2hex(random_bytes(8));
 $fixtures = []; $cookies = []; $server = null;
 $log = tmpfile();

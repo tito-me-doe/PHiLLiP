@@ -78,7 +78,7 @@ class Benchmarks
             foreach ($snapshot['questions'] as $question) {
                 if (in_array($question['position'], $done)) continue;
                 $control();
-                if ($job['dispatch_mode'] === 'queue' && BenchmarkRunner::paused($job['profileid'])) {
+                if ($job['dispatch_mode'] === 'queue' && BenchmarkRunner::paused($job['profileid'],$job['testid'])) {
                     Database::execute("UPDATE benchmark_runs SET status='paused',worker_pid=NULL,heartbeat_at=NOW() WHERE id=? AND status='running'", [$id]);
                     Log::writeInfo('Benchmark paused at question boundary', ['benchmark_id' => $id]);
                     return self::get($id);

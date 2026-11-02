@@ -14,13 +14,18 @@ $current = !empty($_GET['thread']) ? V::thread($state, (int)$_GET['thread']) : n
 $threads = (new Agent\Frontend($user))->threads();
 $tab = isset($_GET['tab']) && in_array($_GET['tab'], ['private','team','organization'], true)
     ? $_GET['tab'] : ($current ? $current['thread']['visibility'] : 'private');
-$navigation = $state['navigation'];
+// Chat and Project are one click away in the sidebar at all times, so the pages menu lists only the other pages.
+$navigation = array_values(array_filter($state['navigation'], function ($item) { return !in_array($item['id'], ['conversations', 'projects'], true); }));
+// The menu stays open while moving between settings pages; conversations and projects start with it closed.
+$settingsPage = !in_array($concept, ['conversations', 'projects'], true);
 $historyPage = Pages::allowed($user['id'], 'conversations') ? 'conversations' : 'projects';
 ?>
 <div class="shell">
-    <aside class="sidebar" aria-label="Primary navigation">
+    <aside class="sidebar" id="primary-navigation" aria-label="Primary navigation">
         <header class="sidebar-header">
-            <details class="route-menu">
+            <button class="icon mobile-nav-close" aria-label="Close navigation"><?= V::icon('close') ?></button>
+            <a class="brand" href="<?= V::url() ?>">PHiLL<i>i</i>P<span class="brand-cursor">_</span></a>
+            <details class="route-menu"<?= $settingsPage && $navigation ? ' open' : '' ?>>
                 <summary class="icon menu-toggle" aria-label="Toggle pages menu" title="Pages"><?= V::icon('menu') ?></summary>
                 <nav class="page-navigation" aria-label="Pages">
                     <table class="menu-table"><tbody>
@@ -34,7 +39,6 @@ $historyPage = Pages::allowed($user['id'], 'conversations') ? 'conversations' : 
                     </tbody></table>
                 </nav>
             </details>
-            <a class="brand" href="<?= V::url() ?>">PHiLL<i>i</i>P<span class="brand-cursor">_</span></a>
         </header>
         <nav class="tabs" aria-label="Conversation visibility">
             <?php foreach (['private'=>'Mine','team'=>'Groups','organization'=>'Organization'] as $key=>$label):
@@ -55,10 +59,10 @@ $historyPage = Pages::allowed($user['id'], 'conversations') ? 'conversations' : 
         </section>
         <div class="sidebar-bottom">
             <div class="user-circle"><?= V::h(mb_substr($user['display_name'], 0, 1)) ?></div>
-            <div class="name"><?= V::h($user['display_name']) ?><small class="muted"><?= $user['is_admin'] ? 'Administrator' : 'Your workspace' ?></small></div>
-            <span class="badge neutral">local</span>
+            <div class="name"><?= V::h($user['display_name']) ?><?php if ($user['is_admin']): ?><small class="muted">Administrator</small><?php endif; ?></div>
         </div>
     </aside>
+    <div class="sidebar-backdrop" aria-hidden="true"></div>
     <main class="workspace" id="workspace" data-page="<?= V::h($pageId) ?>">
         <?php if (!in_array($concept, ['conversations','projects'], true)) echo V::render('page-header', compact('state','page')); ?>
         <?php if (!in_array($concept, ['conversations','projects','benchmarks'], true)): ?>
@@ -71,8 +75,3 @@ $historyPage = Pages::allowed($user['id'], 'conversations') ? 'conversations' : 
         <?php if (!in_array($concept, ['conversations','projects','benchmarks'], true)): ?></div></div><?php endif; ?>
     </main>
 </div>
-<aside class="chat-companion" aria-label="PHiLLiP companion">
-    <span class="companion-bubble" aria-hidden="true">Right here with you.</span>
-    <button class="companion-character" data-action="avatar-react" aria-label="Say hello to PHiLLiP"><?= V::avatar($state) ?></button>
-    <span class="companion-status" aria-hidden="true">PHiLLiP</span>
-</aside>

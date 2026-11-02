@@ -1,6 +1,6 @@
 <?php
 use Agent\Views as V;
-Agent\Pages::authorize($state['user']['id'],'test-suites');
+Agent\Pages::authorize($state['user']['id'],'benchmarks');
 $reference = $_GET['test'] ?? (isset($_GET['edit_test']) && $_GET['edit_test'] !== 'new' ? $_GET['edit_test'] : null);
 $test = $reference !== null ? Agent\Benchmarks::test($reference) : null;
 $kind = $kind ?? 'benchmark-test';
@@ -17,8 +17,9 @@ if ($kind === 'benchmark-question') {
 }
 $action = $kind === 'benchmark-test' ? 'save-test' : ($remove ? 'remove-question' : 'save-question');
 ?>
-<form method="post" class="form-stack" action="<?= Agent\Pages::link('test-suites') ?>">
+<form method="post" class="form-stack" data-benchmark-form action="<?= Agent\Pages::link('benchmarks') ?>">
 <?= V::csrf($state,'benchmark-'.$action) ?>
+<?php if ($kind === 'benchmark-question'): ?><input type="hidden" name="return_to" value="questions"><?php endif; ?>
 <?php if ($test): ?><input type="hidden" name="testid" value="<?= $test['id'] ?>"><input type="hidden" name="revision" value="<?= $test['revision'] ?>"><?php endif; ?>
 <?php if ($kind === 'benchmark-test'): ?>
     <label>Name<input name="name" required maxlength="160" value="<?= V::h($test['name'] ?? '') ?>"></label>
@@ -35,8 +36,9 @@ $action = $kind === 'benchmark-test' ? 'save-test' : ($remove ? 'remove-question
         <label>Input (JSON object)<textarea name="input" spellcheck="false" required><?= V::h(json_encode($question['input'],JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)) ?></textarea></label>
         <?= V::select('scoring_type','Scoring',array_combine(Agent\Benchmarks::SCORERS,Agent\Benchmarks::SCORERS),$question['scoring_type']) ?>
         <label>Expected answer / rubric (JSON; quote text answers)<textarea name="criteria_json" spellcheck="false" required><?= V::h(json_encode($question['scoring_criteria'],JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)) ?></textarea></label>
-        <p class="hint">Chat uses prompt; classify adds labels; extract adds contract; vision adds image. Embed accepts texts or query/documents; rerank uses query/documents.</p>
+        
         <button class="primary">Save question</button>
     <?php endif; ?>
 <?php endif; ?>
+<div class="form-error" role="alert"></div>
 </form>

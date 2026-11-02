@@ -169,7 +169,7 @@
         async () => {
           result = await A.api(form.dataset.projectApi, body);
           delete form.dataset.projectDirty;
-          form.closest("dialog")?.close();
+          A.closeDialog(form);
           if (form.dataset.projectForm === "create")
             location.href = A.page("projects", { project: result.project.id });
           if (form.dataset.projectForm === "delete")

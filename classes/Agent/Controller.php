@@ -137,6 +137,9 @@ class Controller
             }
             if ($path === '/api/personas' && $method === 'POST') return self::output(['persona' => Personas::save($user['id'], $body, isset($body['id']) ? $body['id'] : null)], 'Persona saved');
             if (preg_match('~^/api/personas/(\d+)/apply$~', $path, $matches) && $method === 'POST') return self::output(['settings' => $frontend->persona((int)$matches[1], isset($body['settings']) ? $body['settings'] : [])], 'Persona prepared');
+            if ($path === '/api/personas/adult' && $method === 'POST') { Personas::setAdultEnabled(!empty($body['enabled']) && in_array($body['enabled'], [true, 1, '1', 'yes', 'on', 'true'], true), $user['id']); return self::output(['ok' => true, 'enabled' => Personas::adultEnabled()], 'Saved'); }
+            if (preg_match('~^/api/personas/(\d+)/enabled$~', $path, $matches) && $method === 'POST') return self::output(['persona' => Personas::setEnabled($user['id'], (int)$matches[1], isset($body['enabled']) && in_array($body['enabled'], [true, 1, '1', 'yes', 'on', 'true'], true))], 'Saved');
+            if (preg_match('~^/api/personas/(\d+)/duplicate$~', $path, $matches) && $method === 'POST') return self::output(['persona' => Personas::duplicate($user['id'], (int)$matches[1])], 'Your copy is ready to edit');
             if (preg_match('~^/api/personas/(\d+)/delete$~', $path, $matches) && $method === 'POST') { Personas::delete($user['id'], (int)$matches[1]); return self::output(['ok' => true], 'Persona deleted'); }
             if ($path === '/api/knowledge' && $method === 'GET') return self::output(['claims' => Knowledge::recall(isset($_GET['q']) ? $_GET['q'] : '', $user['id'], null, 50)]);
             if (preg_match('~^/api/knowledge/(\d+)(/delete)?$~', $path, $matches) && $method === 'POST') {
@@ -157,10 +160,17 @@ class Controller
                 if ($path === '/api/admin/registry' && $method === 'GET') return self::output(['profiles' => (new Registry())->profiles(), 'models' => (new Registry())->models(), 'endpoints' => (new Registry())->endpoints()]);
                 if ($path === '/api/admin/attachment-parsers' && $method === 'GET') return self::output(['parsers' => (object)AttachmentParser::configuration()]);
                 if ($path === '/api/admin/attachment-parsers' && $method === 'POST') {
-                    if (!isset($body['parsers'])) throw new \InvalidArgumentException('Provide a parser configuration object');
-                    AttachmentParser::configure($body['parsers']); return self::output(['ok' => true], 'Attachment parsers saved');
+                    if (array_key_exists('parsers', $body)) AttachmentParser::configure($body['parsers']);
+                    else AttachmentParser::configureMapping($body['type'] ?? null, $body['profile'] ?? null);
+                    return self::output(['ok' => true], 'Attachment parsers saved');
                 }
                 if ($path === '/api/admin/profile' && $method === 'POST') return self::output(['profile' => Profiles::save($body)], 'Profile saved');
+                if ($path === '/api/admin/profile-enabled' && $method === 'POST') return self::output(['profile' => Profiles::setEnabled(isset($body['name']) ? $body['name'] : '', !empty($body['enabled']) && in_array($body['enabled'], [true, 1, '1', 'yes', 'on', 'true'], true))], 'Saved');
+                if ($path === '/api/admin/profile-defaults' && $method === 'POST') {
+                    if (!isset($body['profileid'],$body['tasks']) || !is_array($body['tasks'])) throw new \InvalidArgumentException('Provide a profile and task selections');
+                    Profiles::setDefaults(['id'=>$body['profileid']],$body['tasks']);
+                    return self::output(['ok'=>true],'Profile defaults saved');
+                }
                 if ($path === '/api/admin/scan' && $method === 'POST') {
                     $payload = Scanner::configuration($body);
                     $q = Database::connection()->prepare("INSERT INTO operations (type, payload) VALUES ('scan', ?::jsonb) RETURNING id"); $q->execute([json_encode($payload)]);
@@ -183,7 +193,7 @@ class Controller
                     return self::output(['services' => $services]);
                 }
                 if ($path === '/api/admin/services' && $method === 'POST') {
-                    Config::configureServices($body['services']);
+                    Config::configureServices($body['services'] ?? $body);
                     return self::output(['ok' => true], 'Service configuration saved');
                 }
             }

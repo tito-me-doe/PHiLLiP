@@ -193,6 +193,15 @@ class Frontend
     public function persona($reference, array $settings = [])
     {
         $persona = Personas::resolve($reference, $this->userId);
+        if (isset($persona['enabled']) && !$persona['enabled']) throw new \RuntimeException('This persona is switched off');
+        if (($persona['maturity'] ?? 'everyone') === 'adult' && !Personas::adultEnabled()) throw new \RuntimeException(Personas::ADULT_OFF);
+        if (!empty($persona['sheet'])) {
+            // A character is always available: it starts without any tool this account is not permitted to use.
+            $persona['tools'] = array_values(array_filter($persona['tools'], function ($tool) {
+                $policy = ToolRegistry::policies([$tool])[0];
+                return in_array($policy, self::TOOLS, true) && Access::tool($this->userId, $policy);
+            }));
+        }
         unset($settings['persona']);
         return $this->validateSettings(Personas::settings($persona, $settings));
     }

@@ -58,7 +58,9 @@ try {
     expectException(function () use ($credentials) { Agent\Identity::authenticate('first_admin', $credentials['password']); }, 'Invalid username or password');
     check(!$request($base . '/api/state', null, '', 'old')['json']['user'], 'Other temporary-password sessions are invalidated');
     $state = $request($base . '/api/state')['json']; $csrf = $state['csrf'];
-    check($request($base . '/api/setup', ['configuration' => ['auth' => 'standalone']], $csrf)['status'] === 200, 'One-user standalone preferences require no teams or additional accounts');
+    check(Agent\Personas::adultEnabled() === false, 'Adult-oriented personas are off until setup says otherwise');
+    check($request($base . '/api/setup', ['configuration' => ['auth' => 'standalone', 'adult_personas' => 'yes']], $csrf)['status'] === 200, 'One-user standalone preferences require no teams or additional accounts');
+    check(Agent\Personas::adultEnabled() === true, 'The adult-oriented personas choice made in setup applies to the whole installation');
     check($request($base . '/api/setup/finish', [], $csrf)['status'] === 403, 'Setup cannot finish without a verified default chat profile');
     check($request($base . '/api/setup/scan', ['cidr' => '10.0.0.0/8'], $csrf)['status'] === 400, 'Accidental huge network scans are rejected');
     $scan = $request($base . '/api/setup/scan', ['cidr' => '127.0.0.1/32'], $csrf);
@@ -121,21 +123,35 @@ try {
     check(Agent\ToolRegistry::label('Agent\\Tools\\Fetch::fetch') === 'Fetch', 'Qualified tool methods have concise human labels');
     check(Agent\ToolRegistry::policies('Fetch::fetch, Fetch') === ['Agent\\Tools\\Fetch'], 'Method-scoped defaults share class-scoped UI and permission policy');
     $cardState = ['csrf' => 'fixture', 'user' => $user, 'tools' => ['Agent\\Tools\\Fetch'], 'profiles' => [['name' => 'default']], 'personas' => []];
-    foreach (['Blocked A' => ['Source'], 'Allowed Z' => ['Fetch::fetch'], 'Blocked B' => ['Workspace'], 'Allowed Y' => []] as $name => $tools) $cardState['personas'][] = ['id' => count($cardState['personas']) + 1, 'name' => $name, 'prompt' => 'A test persona.', 'tools' => $tools];
+    $character = function ($id, $name, array $extra = []) { return array_merge(['id' => $id, 'name' => $name, 'prompt' => 'x', 'tools' => [], 'slug' => null, 'is_default' => false, 'pronouns' => 'they/them', 'tagline' => "About $name", 'maturity' => 'everyone', 'avatar' => 'terminal', 'sheet' => ['name' => $name]], $extra); };
+    // Newest-first or alphabetical must not matter: PHiLLiP leads, then shipped characters, then everyone else's, each alphabetical. Instruction-only personas are not offered.
+    foreach ([$character(1, 'Zed'), $character(2, 'Amy'), $character(3, 'PHiLLiP', ['slug' => 'phillip', 'is_default' => true]), $character(4, 'Dave', ['slug' => 'dave', 'is_default' => true]),
+        $character(5, 'Needs Source', ['tools' => ['Source']]), ['id' => 6, 'name' => 'Plain instructions', 'prompt' => 'legacy', 'tools' => [], 'sheet' => null]] as $persona) $cardState['personas'][] = $persona;
     $cards = new DOMDocument(); @$cards->loadHTML(Agent\Views::render('messages', ['state' => $cardState, 'current' => null]));
-    $buttons = (new DOMXPath($cards))->query('//button'); $names = []; $disabled = [];
+    $buttons = (new DOMXPath($cards))->query('//button[@name="persona_id"]'); $names = []; $disabled = [];
     foreach ($buttons as $button) { $names[] = $button->getAttribute('title'); $disabled[] = $button->hasAttribute('disabled'); }
-    check($names === ['Allowed Z', 'Allowed Y', 'Blocked A', 'Blocked B'] && $disabled === [false, false, true, true], 'Persona table puts usable choices first while preserving order within both groups');
-    foreach ($buttons as $button) check(trim($button->textContent)==='Start Conversation','Persona action uses one consistent label');
+    check($names === ['PHiLLiP', 'Dave', 'Amy', 'Needs Source', 'Zed'], 'Welcome cards lead with PHiLLiP, then shipped characters, then the rest alphabetically, and omit instruction-only personas');
+    check(!in_array(true, $disabled, true), 'A character is never disabled by tool permissions: it starts without the tools the account may not use');
+    foreach ($buttons as $button) check(strpos($button->getAttribute('aria-label'), 'Start a conversation with ' . $button->getAttribute('title')) === 0, 'Each card names who the conversation starts with');
+    $all = (new DOMXPath($cards))->query('//button[contains(@class, "persona-new")]');
+    check($all->length === 1 && $all->item(0)->getAttribute('data-dialog') === 'persona', 'A New Persona card opens the persona dialog');
+    check((new DOMXPath($cards))->query('//*[contains(@class, "persona-badge")]')->length === 0, 'Only adult-oriented personas carry an 18+ badge');
+    $cardState['personas'][] = $character(7, 'Spicy', ['maturity' => 'adult']);
+    foreach ([false, true] as $adultOn) {
+        $cardState['adult_personas'] = $adultOn;
+        $doc = new DOMDocument(); @$doc->loadHTML(Agent\Views::render('messages', ['state' => $cardState, 'current' => null]));
+        $titles = []; foreach ((new DOMXPath($doc))->query('//button[@name="persona_id"]') as $button) $titles[] = $button->getAttribute('title');
+        check(in_array('Spicy', $titles, true) === $adultOn && (new DOMXPath($doc))->query('//*[contains(@class, "persona-badge")]')->length === ($adultOn ? 1 : 0), $adultOn ? 'An adult persona is offered, with an 18+ badge, when the installation allows it' : 'An adult persona is not offered when the installation has them off');
+    }
     if (in_array('--browser', $argv, true)) {
         // Repeat from a clean state, without touching public tables or this installation's data.
         $tables = ['users', 'settings', 'teams', 'memberships', 'permissions', 'threads', 'profiles', 'models', 'endpoints', 'operations'];
         $db->exec('TRUNCATE ' . implode(',', array_map(function ($name) use ($schema) { return $schema . '.' . $name; }, $tables)) . ' CASCADE');
         $credentials = Agent\Onboarding::bootstrap('browser_admin');
         $browserAdmin = Agent\Identity::authenticate('browser_admin', $credentials['password']);
-        Agent\Personas::save($browserAdmin['id'], ['name' => 'Thoughtful teammate', 'prompt' => 'You are a kind and thoughtful teammate.', 'visibility' => 'organization']);
-        Agent\Personas::save($browserAdmin['id'], ['name' => 'Fixture researcher', 'prompt' => 'You research carefully and cite your sources.', 'tools' => ['Fetch::fetch'], 'visibility' => 'organization']);
-        Agent\Personas::save($browserAdmin['id'], ['name' => 'AAA unavailable persona', 'prompt' => 'Requires a tool unavailable in web chat.', 'tools' => ['Source'], 'visibility' => 'organization']);
+        Agent\Personas::save($browserAdmin['id'], ['name' => 'Thoughtful teammate', 'tagline' => 'Kind, steady and thoughtful.', 'bio' => 'A kind and thoughtful teammate.', 'visibility' => 'organization']);
+        Agent\Personas::save($browserAdmin['id'], ['name' => 'Fixture researcher', 'tagline' => 'Careful, and cites sources.', 'bio' => 'Researches carefully and cites sources.', 'tools' => ['Fetch::fetch'], 'visibility' => 'organization']);
+        Agent\Personas::save($browserAdmin['id'], ['name' => 'AAA unavailable persona', 'tagline' => 'Wants a tool web chat does not offer.', 'bio' => 'Asks for a tool unavailable in web chat; starts without it.', 'tools' => ['Source'], 'visibility' => 'organization']);
         putenv('ONBOARDING_URL=' . $base); putenv('ONBOARDING_ENGINE=http://' . $engine);
         putenv('ONBOARDING_PASSWORD=' . $credentials['password']);
         $launch([PHP_BINARY, dirname(__DIR__) . '/bin/phill-worker']);

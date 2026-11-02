@@ -21,7 +21,7 @@ class PageActions
             if (strpos($action, 'setup') === 0) {
                 Onboarding::authorize($state['user'], $action === 'setup-password');
                 if ($action === 'setup-password') Onboarding::changePassword($state['user'], $_POST['password'], $_POST['confirmation']);
-                elseif ($action === 'setup-configure') Onboarding::configure($state['user'], ['auth' => 'standalone']);
+                elseif ($action === 'setup-configure') Onboarding::configure($state['user'], ['auth' => 'standalone', 'adult_personas' => isset($_POST['adult_personas']) ? $_POST['adult_personas'] : 'no']);
                 elseif ($action === 'setup-scan') Onboarding::scan($state['user'], $_POST['cidr']);
                 elseif ($action === 'setup-endpoint') Onboarding::endpoint($state['user'], $_POST['url'], isset($_POST['api_key']) ? $_POST['api_key'] : null);
                 elseif ($action === 'setup-model') Onboarding::selectModel($state['user'], $_POST['profile_id']);
@@ -30,7 +30,38 @@ class PageActions
                 header('Location: ' . Views::url(), true, 303); return;
             }
             if (Onboarding::pending()) throw new \RuntimeException('Finish setup before using PHiLLiP');
+            if ($action === 'profile-defaults') {
+                Pages::authorize($state['user']['id'],'models');
+                Profiles::setDefaults(['id'=>$_POST['profileid']],$_POST['tasks'] ?? []);
+                Log::flash(Log::writeSuccess('Profile defaults saved'));
+                header('Location: '.Pages::link('models'),true,303); return;
+            }
+            if ($action === 'save-profile') {
+                Pages::authorize($state['user']['id'],'models');
+                Profiles::save($_POST['name'], $_POST['config'] ?? null, isset($_POST['enabled']), $_POST['overrides'] ?? []);
+                Log::flash(Log::writeSuccess('Profile saved'));
+                header('Location: '.Pages::link('models'),true,303); return;
+            }
+            if (in_array($action, ['save-services','save-parsers'], true)) {
+                Pages::authorize($state['user']['id'],'models');
+                if ($action === 'save-services') {
+                    Config::configureServices($_POST['services'] ?? $_POST);
+                } elseif (array_key_exists('parsers', $_POST)) AttachmentParser::configure($_POST['parsers']);
+                else AttachmentParser::configureMapping($_POST['type'] ?? null, $_POST['profile'] ?? null);
+                Log::flash(Log::writeSuccess('Configuration saved'));
+                header('Location: '.Pages::link('models'),true,303); return;
+            }
             $frontend = new Frontend($state['user']);
+            if ($action === 'persona-enable') {
+                Personas::setEnabled($state['user']['id'], (int)($_POST['persona_id'] ?? 0), isset($_POST['enabled']) && $_POST['enabled'] === 'yes');
+                Log::flash(Log::writeSuccess('Saved'));
+                header('Location: ' . Pages::link('personas'), true, 303); return;
+            }
+            if ($action === 'persona-adult') {
+                Personas::setAdultEnabled(isset($_POST['adult']) && $_POST['adult'] === 'yes', $state['user']['id']);
+                Log::flash(Log::writeSuccess('Saved'));
+                header('Location: ' . Pages::link('personas'), true, 303); return;
+            }
             if ($action === 'persona-start') {
                 if (!$state['profiles']) throw new \RuntimeException('Ask an administrator to enable a model profile first');
                 $thread = $frontend->create('', ['profile' => $state['profiles'][0]['name'], 'parameters' => ['stream' => true], 'persona' => $_POST['persona_id']], 'private', null, Submission::key($_POST['creation_key']));

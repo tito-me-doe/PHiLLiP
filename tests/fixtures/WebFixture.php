@@ -26,8 +26,34 @@ class WebFixture
         putenv('PGOPTIONS=-c search_path=' . $this->schema . ',public');
         putenv('PHP_CLI_SERVER_WORKERS');
         putenv('APP_BASE_PATH=');
+        $this->loadDatabaseFiles();
+    }
+
+    private function loadDatabaseFiles()
+    {
         foreach (glob(dirname(__DIR__, 2) . '/database/*.sql') as $file) {
-            $this->db->exec(file_get_contents($file));
+            if (basename($file) === '016_engineering_research.sql') {
+                continue; // Shared engineering_research catalog/views are provisioned globally (bin/phill-research-provision). Never (re)bind them inside a private fixture schema.
+            }
+            $sql = file_get_contents($file);
+            if (basename($file) === '001_registry.sql') {
+                // Install a missing extension outside the disposable fixture schema.
+                $this->execSharedDdl('CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public');
+                $sql = str_replace('CREATE EXTENSION IF NOT EXISTS vector;', '', $sql);
+            }
+            $this->db->exec($sql);
+        }
+    }
+
+    private function execSharedDdl($sql)
+    {
+        // Serialize the remaining shared, database-global fixture DDL (extension setup) so
+        // concurrent private fixtures do not race on extension creation. Released in finally.
+        $this->db->exec("SELECT pg_advisory_lock(hashtext('web_fixture_shared_ddl'))");
+        try {
+            $this->db->exec($sql);
+        } finally {
+            $this->db->exec("SELECT pg_advisory_unlock(hashtext('web_fixture_shared_ddl'))");
         }
     }
 

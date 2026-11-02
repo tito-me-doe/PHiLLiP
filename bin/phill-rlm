@@ -1,0 +1,18 @@
+#!/usr/bin/env php
+<?php
+require dirname(__DIR__) . '/bootstrap.php';
+Agent\Log::configure(['cli_stream' => 'stderr']);
+$args = array_values(array_slice($argv, 1));
+if ($args && $args[0] === '--') {
+    array_shift($args);
+}
+if ($args && ($args[0] === '-h' || $args[0] === '--help')) {
+    echo "Usage: phill-rlm PROMPT_FILE [PROFILE_ID]\nA coordinator agent that only creates experts and assigns work to them. The final answer goes to stdout.\n";
+    exit(0);
+}
+if (count($args) < 1 || count($args) > 2) {
+    fwrite(STDERR, "Usage: phill-rlm PROMPT_FILE [PROFILE_ID]\nA coordinator agent that only creates experts and assigns work to them. The final answer goes to stdout.\n");
+    exit(2);
+}
+try { echo (new Agent\Rlm())->run($args[0], isset($args[1]) ? $args[1] : 'default'), "\n"; }
+catch (Throwable $e) { Agent\Log::writeError($e); exit(1); }

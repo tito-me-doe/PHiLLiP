@@ -19,37 +19,17 @@
       }
     };
   };
-  const close = () => document.querySelector("#dialog").close();
+  const close = (form) => A.closeDialog(form);
   A.bindSettings = () => {
-    document
-      .querySelectorAll("[data-theme-choice]")
-      .forEach(
-        (b) =>
-          (b.onclick = () =>
-            A.action(
-              "Choose appearance",
-              () => A.setTheme(b.dataset.themeChoice),
-              { success: "Appearance saved" },
-            )),
-      );
-    document.querySelectorAll("[data-avatar-choice]").forEach(
-      (b) =>
-        (b.onclick = () =>
-          A.action(
-            "Choose avatar",
-            () => {
-              A.persistUI({ avatar: b.dataset.avatarChoice });
-              document.cookie =
-                A.state.avatar_cookie +
-                "=" +
-                b.dataset.avatarChoice +
-                "; Path=" +
-                (A.base || "") +
-                "/; SameSite=Lax; Max-Age=31536000" +
-                (location.protocol === "https:" ? "; Secure" : "");
-            },
-            { success: "Avatar saved", reload: true },
-          )),
+    bind(
+      "[data-profile-defaults]",
+      "Profile defaults saved",
+      async (fields) => {
+        await A.api("/api/admin/profile-defaults", {
+          profileid: fields.get("profileid"),
+          tasks: fields.getAll("tasks[]"),
+        });
+      },
     );
     document.querySelectorAll("[data-forget]").forEach(
       (b) =>
@@ -76,6 +56,82 @@
         b.textContent = "Save profile";
       }
     });
+    // A live preview of the card they are making, as it will appear on the welcome screen.
+    const personaForm = document.querySelector("#persona-form");
+    const preview = personaForm?.querySelector(".persona-preview");
+    if (preview) {
+      const refresh = () => {
+        const get = (name) => (personaForm.elements[name]?.value || "").trim();
+        preview.querySelector(".pv-name").textContent = get("name") || "Their name";
+        preview.querySelector(".pv-pronouns").textContent = get("pronouns");
+        preview.querySelector(".pv-tagline").textContent = get("tagline") || "Their tagline";
+        const svg = personaForm
+          .querySelector("input[name=avatar]:checked")
+          ?.closest(".avatar-choice")
+          ?.querySelector(".avatar svg");
+        const slot = preview.querySelector(".avatar");
+        if (svg && slot) {
+          slot.innerHTML = svg.outerHTML;
+          slot.dataset.avatar = personaForm.querySelector("input[name=avatar]:checked").value;
+        }
+      };
+      personaForm.addEventListener("input", refresh);
+      refresh();
+    }
+    bind("#persona-adult-form", "Saved", async (f) => {
+      await A.api("/api/personas/adult", { enabled: f.get("adult") === "yes" });
+    });
+    document.querySelector("#persona-adult-form input[type=checkbox]")?.addEventListener("change", (e) => {
+      document.querySelectorAll("#persona-table tr[data-adult]").forEach((row) => {
+        const own = row.querySelector("form[data-persona-enable] input");
+        row.classList.toggle("is-off", !e.target.checked || (own && !own.checked));
+      });
+      e.target.form.requestSubmit();
+    });
+    document.querySelectorAll("form[data-persona-enable] input[type=checkbox]").forEach((box) =>
+      box.addEventListener("change", () =>
+        A.action(
+          "Switch persona",
+          () => A.api(`/api/personas/${box.form.dataset.personaEnable}/enabled`, { enabled: box.checked }),
+          { success: "Saved", reload: true },
+        ),
+      ),
+    );
+    document.querySelectorAll("form[data-profile-enable] input[type=checkbox]").forEach((box) =>
+      box.addEventListener("change", () =>
+        A.action(
+          "Switch profile",
+          async () => {
+            try {
+              await A.api("/api/admin/profile-enabled", { name: box.form.dataset.profileEnable, enabled: box.checked });
+            } catch (error) {
+              box.checked = !box.checked;
+              throw error;
+            }
+          },
+          { success: "Saved", reload: true },
+        ),
+      ),
+    );
+    document.querySelectorAll("form[data-user-active] input[type=checkbox]").forEach((box) =>
+      box.addEventListener("change", () => {
+        const f = box.form.dataset;
+        A.action(
+          "Switch user",
+          () => A.api("/api/admin/user", { id: f.userActive, username: f.username, display_name: f.displayName, active: box.checked }),
+          { success: "Saved", reload: true },
+        );
+      }),
+    );
+    document.querySelectorAll("[data-persona-copy]").forEach(
+      (b) =>
+        (b.onclick = () =>
+          A.action(
+            "Customize persona",
+            () => A.api(`/api/personas/${b.dataset.personaCopy}/duplicate`, {}),
+            { success: "Your copy is ready to edit", reload: true },
+          )),
+    );
     bind(
       "#persona-form",
       "Persona saved",
@@ -84,9 +140,9 @@
           ...Object.fromEntries(f),
           ...(form.dataset.id ? { id: form.dataset.id } : {}),
         });
-        close();
+        close(form);
       },
-      Boolean(document.querySelector("[data-settings-page=personas]")),
+      Boolean(document.querySelector("[data-settings-page=personas], #persona-start")),
     );
     document
       .querySelector("#delete-persona")
@@ -108,23 +164,30 @@
         content: f.get("content"),
       });
     });
+    bind("#services-form", "Service configuration saved", async (f) => {
+      await A.api("/api/admin/services", { services: f.get("services") });
+    });
     bind(
-      "#services-form",
+      "#service-form",
       "Service configuration saved",
       async (f) => {
-        await A.api("/api/admin/services", { services: f.get("services") });
+        await A.api("/api/admin/services", {
+          name: f.get("name"),
+          url: f.get("url"),
+          url_env: f.get("url_env"),
+          token_env: f.get("token_env"),
+        });
       },
-      false,
     );
     bind(
       "#attachment-parsers-form",
       "Attachment parsing profiles saved",
       async (f) => {
         await A.api("/api/admin/attachment-parsers", {
-          parsers: f.get("parsers"),
+          type: f.get("type"),
+          profile: f.get("profile"),
         });
       },
-      false,
     );
     bind(
       "#scan-form",
@@ -167,7 +230,7 @@
           details = document.createElement("details");
           details.className = "activity";
           const summary = document.createElement("summary");
-          summary.textContent = "Discovery details";
+          summary.textContent = "Discovery log";
           const pre = document.createElement("pre");
           pre.className = "scan-output";
           details.append(summary, pre);

@@ -4,6 +4,9 @@ namespace Agent\Tools;
 /** Bounded PostgreSQL research against a separately authenticated, curated schema. */
 class SQL
 {
+    /** Offered only when the service is configured; see Agent\Requirements. */
+    const REQUIRES = ['service:database_research'];
+
     /** List the curated engineering research relations available on the dedicated read-only connection. */
     public static function tables() { return \Agent\DatabaseResearch::tables(); }
 

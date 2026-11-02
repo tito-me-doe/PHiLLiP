@@ -34,24 +34,24 @@ with sync_playwright() as p:
     page.locator('[name=username]').fill('browser_admin')
     page.locator('[name=password]').fill(password)
     page.get_by_role('button', name='Make yourself at home').click()
-    page.get_by_role('heading', name='Make it yours, browser_admin.').wait_for()
+    page.get_by_role('heading', name='Choose a password').wait_for()
     page.locator('[name=password]').focus()
     page.wait_for_function("() => document.querySelector('#setup-help').textContent.includes('12 to 72')")
     page.locator('[name=password]').fill('My very own private password 123!')
     page.locator('[name=confirmation]').fill('My very own private password 123!')
     page.get_by_role('button', name='Save my password').click()
-    page.get_by_role('heading', name="Just you? That's all we need.").wait_for()
+    page.get_by_role('heading', name="Installation").wait_for()
     assert page.locator('[name=existing]').input_value() == 'no'
     assert page.locator('[name=auth]').input_value() == 'standalone'
     page.get_by_role('button', name='Find my models').click()
-    page.get_by_role('heading', name='The intelligence is already yours.').wait_for()
+    page.get_by_role('heading', name='Models').wait_for()
     assert page.locator('#setup-finish').is_disabled()
     page.get_by_role('button', name='Discover local models').click()
     page.locator('#setup-progress progress').first.wait_for()
     page.wait_for_function("() => document.querySelector('#setup-model-select').options.length > 1")
     page.wait_for_function("() => document.querySelector('#setup-progress [data-status=completed]')")
     page.reload()
-    page.get_by_role('heading', name='The intelligence is already yours.').wait_for()
+    page.get_by_role('heading', name='Models').wait_for()
     choices = page.locator('#setup-model-select option').evaluate_all("nodes => nodes.filter(n=>n.value).map(n=>n.value)")
     page.locator('#setup-model-select').select_option(choices[0])
     page.get_by_role('button', name='Test & use this model').click()
@@ -75,8 +75,9 @@ with sync_playwright() as p:
     assert page.locator('.persona-card[title="Thoughtful teammate"]').count() == 1
     assert page.locator('.persona-card[title="Fixture researcher"]').count() == 1
     disabled=page.locator('.persona-card').evaluate_all('nodes=>nodes.map(n=>n.disabled)')
-    assert disabled==sorted(disabled) and any(disabled) and not all(disabled)
-    assert page.get_by_role('button',name='AAA unavailable persona').is_disabled()
+    assert not any(disabled)  # a character always starts; it simply goes without tools this account may not use
+    assert page.get_by_role('button',name='AAA unavailable persona').is_enabled()
+    assert page.locator('.persona-card.persona-new').count() == 1
     page.get_by_role('button', name='Thoughtful teammate').click()
     page.wait_for_function("() => !!window.PHiLLiP.current")
     assert page.locator('.persona-card, #persona').count() == 0

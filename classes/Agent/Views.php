@@ -62,7 +62,7 @@ class Views
             if (!preg_match('/^(href|data-[a-z0-9-]+)$/D',$key)) throw new \InvalidArgumentException('Invalid action attribute');
             $html .= ' '.$key.'="'.self::h($value).'"';
         }
-        return $html.'>'.self::icon($icon).($icon === 'plus' && strpos($label,'New ') === 0 ? '<span>New</span>' : '').'</'.$tag.'>';
+        return $html.'>'.self::icon($icon).'</'.$tag.'>';
     }
 
     public static function select($name, $label, array $options, $selected = '')
@@ -177,12 +177,15 @@ class Views
             'plus' => 'M12 5v14M5 12h14',
             'send' => 'm5 12 7-7 7 7M12 5v14',
             'stop' => 'M6 6h12v12H6z',
+            'play' => 'M7 5v14l12-7z',
+            'pause' => 'M8 5v14M16 5v14',
             'trash' => 'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',
             'theme' => 'M20 13A8 8 0 0 1 11 4a8 8 0 1 0 9 9',
             'gear' => 'M9 3h6l1 4 4 2v6l-4 2-1 4H9l-1-4-4-2V9l4-2zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
             'close' => 'm6 6 12 12M6 18 18 6',
             'menu' => 'M4 6h16M4 12h16M4 18h16',
             'edit' => 'm15 4 5 5-11 11H4v-5zM13 6l5 5',
+            'copy' => 'M9 9h11v11H9zM5 15V4h11',
             'attach' => 'm8 13 7-7a3 3 0 0 1 4 4L9 20a5 5 0 0 1-7-7L12 3',
             'tools' => 'm14 5 5 5M4 20l10-10M14 3a6 6 0 0 0-7 7L3 14v6h6l4-4a6 6 0 0 0 7-7l-5 2-2-2z'
         ];
@@ -193,7 +196,8 @@ class Views
     public static function avatar($state, $extra = '', $name = null)
     {
         $name = $name ?: (isset($state['preferences']['avatar']) ? $state['preferences']['avatar'] : 'terminal');
-        if (!in_array($name, ['terminal', 'sprout'], true)) {
+        // Any shipped character (a persona's avatar, or the original terminal and sprout) may be shown; anything else falls back to the terminal.
+        if (!is_string($name) || !preg_match('/^[a-z][a-z0-9-]*$/D', $name) || !is_file(dirname(__DIR__, 2) . '/public/assets/avatars/' . $name . '.svg')) {
             $name = 'terminal';
         }
         return '<span class="avatar ' .
@@ -264,14 +268,12 @@ class Views
             })
         );
         $state['personas'] = Personas::listFor($id);
+        $state['adult_personas'] = Personas::adultEnabled();
         $state['attachment_max_bytes'] = Attachments::maxBytes();
-        // A tiny cookie mirrors the local-storage avatar for immediate PHP rendering.
-        $state['avatar_cookie'] = 'phillip_avatar_' . substr(hash('sha256', $id), 0, 16);
         $state['theme_cookie'] = 'phillip_theme_' . substr(hash('sha256', $id), 0, 16);
-        $avatar = isset($_COOKIE[$state['avatar_cookie']]) ? $_COOKIE[$state['avatar_cookie']] : 'terminal';
         $theme = isset($_COOKIE[$state['theme_cookie']]) ? $_COOKIE[$state['theme_cookie']] : 'light';
         $state['preferences'] = [
-            'avatar' => in_array($avatar, ['terminal', 'sprout'], true) ? $avatar : 'terminal',
+            'avatar' => 'terminal', // avatars belong to personas now; this is only the default when none applies
             'theme' => $theme === 'dark' ? 'dark' : 'light'
         ];
         return $state;
@@ -287,9 +289,11 @@ class Views
             $messages = self::messageAuthors($thread->messages());
             $workflow = WorkflowState::snapshot($id);
             $project = Project::forThread($thread->id);
+            $readOnly = $project && (string)$project->get()['thread_id'] !== (string)$thread->id;
             return [
                 'thread' => $thread->get() + [
-                    'project_id' => $project ? $project->id : null
+                    'project_id' => $project ? $project->id : null,
+                    'read_only' => $readOnly,
                 ],
                 'messages' => $messages,
                 'runs' => $workflow['runs'],
@@ -324,6 +328,7 @@ class Views
             'setup',
             'shell',
             'chat',
+            'companion',
             'messages',
             'threads',
             'settings',
@@ -332,18 +337,20 @@ class Views
             'attachments',
             'projects',
             'benchmarks',
+            'benchmark-inspect',
+            'permission-fields',
             'page-header',
-            'appearance',
             'personas',
             'knowledge',
             'models',
             'model-default',
+            'profile-defaults',
+            'profile-form',
             'services',
             'parsers',
             'access',
             'management-form',
-            'navigation',
-            'test-suites',
+            'benchmark-questions',
             'benchmark-form'
         ];
         if (!in_array($name, $allowed, true)) {

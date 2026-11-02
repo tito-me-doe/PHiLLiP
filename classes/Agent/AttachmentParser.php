@@ -72,6 +72,19 @@ class AttachmentParser
         Database::connection()->prepare("INSERT INTO settings (key, value) VALUES ('attachment_parsers', ?::jsonb) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value")
             ->execute([json_encode((object)$profiles)]);
     }
+    /** Save or remove one mapping without rewriting unrelated parser settings. */
+    public static function configureMapping($type, $profile)
+    {
+        if (!is_string($type) || !preg_match('~^(?:\.[a-z0-9]+|[a-z0-9.+-]+/(?:[a-z0-9.+-]+|\*))$~D', $type)) throw new \InvalidArgumentException('Use a lowercase MIME type, .extension, or MIME wildcard such as image/*');
+        if (!is_string($profile)) throw new \InvalidArgumentException('Each file type must name a model profile');
+        return State::transaction(function () use ($type, $profile) {
+            Database::execute("SELECT pg_advisory_xact_lock(hashtext('attachment_parsers'))");
+            $profiles = self::configuration();
+            if ($profile === '') unset($profiles[$type]);
+            else $profiles[$type] = $profile;
+            self::configure($profiles);
+        });
+    }
     public static function profile(array $file)
     {
         $profiles = self::configuration();

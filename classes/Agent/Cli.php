@@ -85,7 +85,7 @@ class Cli
         if (isset($args[0]) && $args[0] === 'profiles') return ProfileCli::run(array_slice($args, 1));
         if (isset($args[0]) && $args[0] === 'workflows') return WorkflowCli::run(array_slice($args, 1));
         if (isset($args[0]) && $args[0] === 'projects') return ProjectCli::run(array_slice($args, 1));
-        if (isset($args[0], $args[1]) && $args[0] === 'personas' && in_array($args[1], ['list', 'show', 'save', 'delete', 'help', '--help', '-h'], true)) return PersonaCli::run(array_slice($args, 1));
+        if (isset($args[0], $args[1]) && $args[0] === 'personas' && in_array($args[1], ['list', 'show', 'save', 'delete', 'install', 'adult', 'help', '--help', '-h'], true)) return PersonaCli::run(array_slice($args, 1));
         $signal = 0;
         $control = function () use (&$signal) { if (function_exists('pcntl_signal_dispatch')) pcntl_signal_dispatch(); return $signal ? 2 : 0; };
         if (function_exists('pcntl_signal')) foreach ([SIGINT, SIGTERM] as $number) pcntl_signal($number, function ($received) use (&$signal) { $signal = $received; });

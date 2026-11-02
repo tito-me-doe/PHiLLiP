@@ -61,6 +61,16 @@ Replace `42` with the current project ID and `9` with the decision ID returned b
 
 `ok-phill projects trace PROJECT [TODO] [--after ID]` renders concise project activity evidence: event id, run id, todo id, type, name, tool error flag, and bounded content. It takes only the project ID, an optional ToDo id, and an optional `--after` event cursor; it passes no raw task arguments to a model and makes no model calls. Use `--after ID` for incremental history.
 
+## Owner evidence
+
+`ok-phill projects evidence PROJECT TODO --evidence JSON` records an owner attestation against the latest worker link for the current ToDo revision. It requires a local Git workspace root and a current link, and records the project and ToDo revisions, link and run IDs, Git HEAD, tracked dirty state, and observation time in project events.
+
+Required string fields are `lint`, `test`, and `review`. Optional `remote_identity` is owner-supplied metadata; no remote transport is implemented. Git observations exclude untracked and ignored files and are a snapshot, not a lock on the workspace. The attestation does not execute or verify the named checks. Evidence does not change ToDo runtime state or add project runtime tools.
+
+```sh
+ok-phill projects evidence 42 7 --evidence '{"lint":"php -l passed","test":"suite passed","review":"owner reviewed","remote_identity":"ci:worker-3"}'
+```
+
 ## Plan details and recovery
 
 Every ToDo needs a title, goal, requirements, context, and at least one acceptance gate before Start. Drafts may be incomplete. Requirements and context are text; gates are a list of nonempty strings. Optional `persona_id` selects a saved persona, and `max_attempts` defaults to `3` with an allowed range of `1..10`.
@@ -74,7 +84,7 @@ ok-phill projects remove-todo 42 8 --descendants
 ok-phill projects delete 42 --confirm
 ```
 
-Replace ToDo IDs too. `add`/`update` also accept piped JSON. Pause before editing running work, and wait for active runs to settle. Plan, model, tool, prompt, and visibility changes invalidate readiness; run `prepare` again and explicitly Start to resume. `retry` resets a blocked ToDo for another attempt, invalidates readiness, and does not start it. Removing a parent requires explicit `--descendants`. Delete removes the project and its associated task histories and requires inactive work. Completed projects can be inspected or deleted; reopening a completed project is not implemented.
+Replace ToDo IDs too. `add`/`update` also accept piped JSON. Pause before editing running work, and wait for active runs to settle. Plan, model, tool, prompt, and visibility changes invalidate readiness; run `prepare` again and explicitly Start to resume. `retry` resets a blocked ToDo for another attempt, invalidates readiness, and does not start it. Removing a parent requires explicit `--descendants`. Delete removes the project and its associated task histories and requires inactive work. Completed projects can be inspected, deleted, or reopened by the local owner. `ok-phill projects reopen PROJECT` returns a completed project to `planning`, archives prior ToDo state in the event history, resets ToDos to pending with new revisions, and invalidates readiness. Previous worker links and verdicts remain in history but become stale. A fresh `prepare` and explicit `start` are required before work resumes. Reopen is rejected while project execution or planning runs are queued or running.
 
 Each ToDo has a separate execution thread and may use a different persona; it receives its own conversation history, task specification, minimal plan metadata, and completed child summaries rather than unrelated task conversations. Persona selection does not widen the project's tool grants. Scoped Project tools let the agent report findings, evidence, and blockers, but cannot grant Start or mark a task done.
 
@@ -146,3 +156,23 @@ The Project suites cover core state, orchestration, integration/policy boundarie
 `tests/project_recursive_live.php` is an opt-in real-model smoke test: `php tests/project_recursive_live.php --profile nemotron-vl-fast` calls an explicitly real Nemotron model and retains the created project. `--help` or no args prints usage and never calls the model.
 
 `ui_projects.py` uses the real enabled model: it checks incomplete plans, preserved drafts/focus, nested edits, readiness invalidation, explicit Start, reopening the page, child-before-parent execution, and passing evidence for every gate. It requires Python Playwright/Chromium, the running demo installation/workers, and configured model profiles; it removes its own fixtures.
+
+### Passive engineering evidence
+
+A local owner can attach an existing standalone local worker run to a ToDo with
+`ok-phill projects link-run PROJECT TODO AGENT RUN`. This records a revision-stamped
+link; it does not dispatch work, grant tools, or change Project runtime status.
+The same run can support multiple ToDos. Repeating the same ToDo, revision, and
+run is idempotent. Links from earlier ToDo revisions remain as stale history.
+
+`ok-phill projects assignments PROJECT [TODO] [--compact]` shows engineering
+links and aggregate accepted, rejected, pending, stale, and unlinked counts.
+These counts are separate from Project runtime progress. Record an owner decision
+with `ok-phill projects verdict PROJECT TODO accept|reject --evidence '{"checks":"..."}'`.
+Only the latest link for the current ToDo revision may receive a verdict;
+acceptance requires a successfully completed run, while rejection permits any
+terminal run. Decisions, evidence, actor, and timestamps remain in history.
+
+### Worker and workspace controls
+
+Passive linking uses existing standalone local workers only: no nesting, no dispatch, no runtime tool changes. The existing explicit grant/revoke/stop controls apply unchanged: operator workspace grants (approve/revoke) and run/worker stop controls are independent of Projects and are not expanded by linking. Project runtime tools remain SearchWeb, Fetch, BrowseWeb, Memory, and the durable Project tool only; Workspace, Source, SQL, and Delegate are unchanged and unavailable inside Projects.

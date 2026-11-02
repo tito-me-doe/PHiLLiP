@@ -4,8 +4,8 @@ namespace Agent;
 /** Thin machine-readable adapter for the durable project service used by the future TUI. */
 class ProjectCli
 {
-    const ACTIONS = ['list', 'create', 'show', 'plan', 'result', 'add', 'update', 'remove-todo', 'preflight', 'prepare', 'start', 'pause', 'retry', 'delete', 'events', 'trace', 'wait', 'answer', 'decisions', 'help', '--help', '-h'];
-    const MUTATIONS = ['create', 'plan', 'add', 'update', 'remove-todo', 'preflight', 'prepare', 'start', 'pause', 'retry', 'delete', 'answer'];
+    const ACTIONS = ['list', 'create', 'show', 'plan', 'result', 'add', 'update', 'remove-todo', 'preflight', 'prepare', 'start', 'pause', 'reopen', 'retry', 'delete', 'events', 'trace', 'wait', 'answer', 'decisions', 'link-run', 'assignments', 'verdict', 'evidence', 'help', '--help', '-h'];
+    const MUTATIONS = ['create', 'plan', 'add', 'update', 'remove-todo', 'preflight', 'prepare', 'start', 'pause', 'reopen', 'retry', 'delete', 'answer', 'link-run', 'verdict', 'evidence'];
 
     public static function run(array $args)
     {
@@ -75,6 +75,10 @@ class ProjectCli
                     $project = self::existingProject($words[0], $identity);
                     $result = $project->pause($identity['owner']);
                     break;
+                case 'reopen':
+                    $project = self::existingProject($words[0], $identity);
+                    $result = $project->reopen();
+                    break;
                 case 'retry':
                     $project = self::existingProject($words[0], $identity);
                     $result = $project->retryTodo((int)$words[1]);
@@ -100,6 +104,28 @@ class ProjectCli
                 case 'answer':
                     $project = self::existingProject($words[0], $identity);
                     $result = (new ProjectWorkflow($project))->answer($words[1], $words[2], $identity['owner']);
+                    break;
+                case 'link-run':
+                    $project = self::existingProject($words[0], $identity);
+                    $result = ProjectAssignments::link($project, $words[1], $words[2], $words[3]);
+                    break;
+                case 'assignments':
+                    $project = self::existingProject($words[0], $identity);
+                    $result = ProjectAssignments::listing($project, $words[1] ?? null, !empty($options['compact']));
+                    break;
+                case 'verdict':
+                    $project = self::existingProject($words[0], $identity);
+                    if (!isset($options['evidence'])) throw new \InvalidArgumentException('Verdict requires --evidence JSON');
+                    $evidence = json_decode($options['evidence']);
+                    if (json_last_error() !== JSON_ERROR_NONE || (!is_array($evidence) && !$evidence instanceof \stdClass)) throw new \InvalidArgumentException('Evidence must be a JSON object or array');
+                    $result = ProjectAssignments::verdict($project, $words[1], $words[2], $evidence);
+                    break;
+                case 'evidence':
+                    $project = self::existingProject($words[0], $identity);
+                    if (!isset($options['evidence'])) throw new \InvalidArgumentException('Evidence requires --evidence JSON');
+                    $evidence = json_decode($options['evidence']);
+                    if (json_last_error() !== JSON_ERROR_NONE || !$evidence instanceof \stdClass) throw new \InvalidArgumentException('Evidence must be a JSON object');
+                    $result = ProjectEvidence::record($project, $words[1], $evidence);
                     break;
                 case 'decisions':
                     $project = self::existingProject($words[0], $identity);
@@ -133,16 +159,16 @@ class ProjectCli
         if ($action === '--help' || $action === '-h') $action = 'help';
         $allowed = [
             'list' => ['compact'], 'create' => ['profile', 'tool'], 'show' => ['compact'], 'plan' => [], 'result' => [], 'add' => [], 'update' => [],
-            'remove-todo' => ['descendants'], 'preflight' => [], 'start' => [], 'pause' => [], 'retry' => [],
+            'remove-todo' => ['descendants'], 'preflight' => [], 'start' => [], 'pause' => [], 'reopen' => [], 'retry' => [],
             'prepare' => ['compact', 'timeout'],
-            'events' => ['after'], 'trace' => ['after'], 'wait' => ['compact', 'timeout', 'until'], 'delete' => ['confirm'], 'answer' => [], 'decisions' => [], 'help' => []
+            'events' => ['after'], 'trace' => ['after'], 'wait' => ['compact', 'timeout', 'until'], 'delete' => ['confirm'], 'answer' => [], 'decisions' => [], 'link-run' => [], 'assignments' => ['compact'], 'verdict' => ['evidence'], 'evidence' => ['evidence'], 'help' => []
         ];
         $minimum = ['list' => 0, 'create' => 1, 'show' => 1, 'plan' => 1, 'result' => 1, 'add' => 1, 'update' => 2,
-            'remove-todo' => 2, 'preflight' => 1, 'start' => 1, 'pause' => 1, 'retry' => 2,
-            'events' => 1, 'trace' => 1, 'prepare' => 1, 'wait' => 1, 'delete' => 1, 'answer' => 3, 'decisions' => 1, 'help' => 0];
-        $exact = ['list', 'create', 'show', 'result', 'remove-todo', 'preflight', 'prepare', 'start', 'pause', 'retry', 'delete', 'events', 'wait', 'answer', 'decisions', 'help'];
+            'remove-todo' => 2, 'preflight' => 1, 'start' => 1, 'pause' => 1, 'reopen' => 1, 'retry' => 2,
+            'events' => 1, 'trace' => 1, 'prepare' => 1, 'wait' => 1, 'delete' => 1, 'answer' => 3, 'decisions' => 1, 'link-run' => 4, 'assignments' => 1, 'verdict' => 3, 'evidence' => 2, 'help' => 0];
+        $exact = ['list', 'create', 'show', 'result', 'remove-todo', 'preflight', 'prepare', 'start', 'pause', 'reopen', 'retry', 'delete', 'events', 'wait', 'answer', 'decisions', 'link-run', 'verdict', 'evidence', 'help'];
         $names = ['-p' => 'profile', '--profile' => 'profile', '-t' => 'tool', '--tool' => 'tool',
-            '--compact' => 'compact', '--confirm' => 'confirm', '--descendants' => 'descendants', '--after' => 'after', '--timeout' => 'timeout', '--until' => 'until'];
+            '--evidence' => 'evidence', '--compact' => 'compact', '--confirm' => 'confirm', '--descendants' => 'descendants', '--after' => 'after', '--timeout' => 'timeout', '--until' => 'until'];
         $options = [];
         $words = [];
         $literal = false;
@@ -180,6 +206,7 @@ class ProjectCli
         if (in_array($action, $exact, true) && count($words) !== $minimum[$action]) {
             throw new \InvalidArgumentException('projects ' . $action . ' requires exactly ' . $minimum[$action] . ' argument(s)');
         }
+        if ($action === 'assignments' && count($words) > 2) throw new \InvalidArgumentException('projects assignments requires PROJECT and optional TODO');
         if ($action === 'trace') {
             if (count($words) > 2) throw new \InvalidArgumentException('projects trace requires PROJECT and optional TODO');
             if (isset($words[1]) && (!preg_match('/^[1-9][0-9]*$/D', $words[1]) || filter_var($words[1], FILTER_VALIDATE_INT) === false)) throw new \InvalidArgumentException('Trace ToDo must be a positive integer');
@@ -334,10 +361,15 @@ class ProjectCli
             . "prepare PROJECT [--compact] [--timeout 0..30]  Request readiness and wait; never starts work\n"
             . "start PROJECT                         Start a project (requires a ready preflight)\n"
             . "pause PROJECT                         Pause a project\n"
+            . "reopen PROJECT                        Reopen a completed project at a new revision\n"
             . "retry PROJECT TODO                    Retry a blocked ToDo\n"
             . "wait PROJECT [--until ready|completed] [--timeout 0..30]  Wait up to 30 seconds\n"
             . "answer PROJECT DECISION 'ANSWER'      Answer a root question as the local owner; quote multiword text\n"
             . "decisions PROJECT                     List current project decisions as the local owner\n"
+            . "link-run PROJECT TODO AGENT RUN        Link an existing standalone worker run\n"
+            . "assignments PROJECT [TODO] [--compact]  Inspect engineering links and verdicts\n"
+            . "verdict PROJECT TODO accept|reject --evidence JSON  Record an owner verdict\n"
+            . "evidence PROJECT TODO --evidence JSON  Record lint, test, review and local Git evidence\n"
             . "events PROJECT [--after ID]           Read incremental project history\n"
             . "trace PROJECT [TODO] [--after ID]     Read up to 100 tool/run outcomes; content bounded to 2000 bytes\n"
             . "\n"

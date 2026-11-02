@@ -10,6 +10,11 @@ class Database
     public static function connection()
     {
         if (!self::$connection) {
+            if (getenv('PHILLIP_TESTING') === '1' && ($prod = getenv('PHILLIP_PRODUCTION_DATABASE')) !== false && $prod !== '') {
+                if (preg_match('/dbname=([^;]+)/', (string)getenv('DB_DSN'), $m) && $m[1] === $prod) {
+                    throw new \RuntimeException('Refusing to connect to the production database from a test process');
+                }
+            }
             self::$connection = new \PDO(getenv('DB_DSN'), getenv('DB_USER'), getenv('DB_PASSWORD'), [
                 \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
                 \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC

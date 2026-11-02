@@ -86,6 +86,31 @@ class Run
             $config = Config::resolve($config);
             $config['tools'] = $snapshot['tools'];
             $config['before_round'] = function ($request) use ($id) { Agents::deliverMessages($id, $request); };
+
+            // history_scope is an opt-in assignment-history boundary for durable CLI agent runs.
+            // It is consumed here and is never part of the provider request.
+            // 'assignment' keeps only this run's turns for durable CLI agents; 'conversation'
+            // accepts the full normal history unchanged. Any other value is rejected.
+            $historyScope = $config['history_scope'] ?? ($config['body']['history_scope'] ?? null);
+            if ($historyScope !== null) {
+                if (!in_array($historyScope, ['assignment', 'conversation'], true)) {
+                    throw new \InvalidArgumentException('Invalid history_scope value: ' . json_encode($historyScope) . "; only 'assignment' and 'conversation' are supported");
+                }
+                if ($historyScope === 'assignment') {
+                    if (empty($snapshot['execution_context']['agent_id']) || !empty($snapshot['frontend'])) {
+                        throw new \InvalidArgumentException('history_scope "assignment" is reserved for durable CLI agent runs');
+                    }
+                    // Scoped agents may inspect current-thread history they otherwise lose from context,
+                    // unless tool use was explicitly disabled. Cross-thread Memory is intentionally not granted.
+                    if (($config['tools_enabled'] ?? true) !== false) {
+                        $config['tools'] = array_values(array_unique(array_merge(
+                            (array)($config['tools'] ?? []),
+                            ['Agent\\Tools\\History']
+                        )));
+                    }
+                }
+            }
+            unset($config['history_scope'], $config['body']['history_scope']);
             if ($project) $config['tools'] = ProjectRunner::safeTools($config['tools']);
             if ($projectTask && !self::projectActive($project, $run, !empty($snapshot['frontend']))) throw new Cancelled('Project execution is no longer active');
             $todoRevision = null;
@@ -156,8 +181,14 @@ class Run
                 // Never-executed cancelled tasks remain in durable history, but must not become future instructions.
                 if ($message['run_id'] !== null && isset($cancelled[(string)$message['run_id']])) continue;
                 if ($currentRevisionRuns !== null && $message['run_id'] !== null && !isset($currentRevisionRuns[(string)$message['run_id']])) continue;
+                // Assignment scope keeps no-run messages and only this run's turns; everything else stays durable but out of context.
+                if ($historyScope === 'assignment' && $message['run_id'] !== null && (string)$message['run_id'] !== (string)$id) continue;
                 $raw = Message::fromRow($message);
                 if ($message['run_id'] === null && isset($snapshot['system_prompt'])) $raw['content'] = $snapshot['system_prompt'];
+                if (!$project && empty($snapshot['frontend']) && $message['run_id'] === null && $message['role'] === 'system' && !empty($snapshot['execution_context']['agent_id']) && in_array('Agent\\Tools\\Workspace', (array)$config['tools'], true)) {
+                    $worker = Database::row('SELECT id, name FROM agents WHERE id = ? AND thread_id = ?', [$snapshot['execution_context']['agent_id'], $thread->id]);
+                    if ($worker) $raw['content'] .= "\n\nYour worker ID is " . $worker['id'] . " (" . $worker['name'] . "). Call Workspace.context to inspect your current approved files and command prefixes. Grants can be revoked; each operation checks current authority. If blocked, report the exact target and stop.";
+                }
                 if ($project && !$projectTask && $message['run_id'] === null && $message['role'] === 'system') $raw['content'] .= "\n\nThis conversation plans Project " . $project->id . ". Use the scoped Project tools to inspect and flesh out nested ToDos with clear goals, requirements, context and acceptance gates. Planning and preflight never authorize execution: only an explicit human Start Project action can start it. If work is running, plan changes require pausing first. Never claim a ToDo or project is complete merely because an answer was generated.";
                 $request->addMessage($raw);
             }

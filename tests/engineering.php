@@ -28,7 +28,7 @@ foreach ($expectedRoles as $roleId) {
 }
 
 // Reflect ALL role tool definitions (deduplicated). Diagnostics and SQL are role tools but never executed here.
-$registry = new ToolRegistry();
+$registry = new ToolRegistry(true); // reflection must not depend on which services this database has configured
 $allTools = []; foreach ($catalog as $persona) foreach ($persona['tools'] as $tool) $allTools[] = $tool; $allTools = array_values(array_unique($allTools));
 foreach ($allTools as $tool) $registry->register($tool);
 $names = [];

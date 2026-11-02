@@ -4,6 +4,7 @@ require __DIR__ . '/fixtures/cli_process.php';
 
 $marker = 'project-cli-' . bin2hex(random_bytes(6));
 $fixtures = [];
+$foreignUserId = null;
 $profile = json_encode(['url' => 'http://127.0.0.1:1', 'model' => 'unused-fixture', 'max_retries' => 0]);
 
 function projectCliCommand(array $args, $expected = 0, $input = '', $unprivileged = true)
@@ -73,7 +74,9 @@ try {
     projectCliCommand(['events', $id]);
     projectCliCommand(['delete', $id], 2);
 
-    $foreignUser = Agent\Identity::user(['username' => 'alice']);
+    $foreignUsername = 'clifix-' . bin2hex(random_bytes(8));
+    $foreignUser = Agent\Identity::createUser($foreignUsername, bin2hex(random_bytes(32)));
+    $foreignUserId = (string)$foreignUser['id'];
     check($foreignUser && (string)$foreignUser['id'] !== (string)$created['owner_id'], 'Private foreign fixture uses a distinct real ERP account');
     $foreign = Agent\Project::create($foreignUser['id'], ['title' => $marker . '-foreign', 'settings' => ['profile' => $profile, 'manual' => true, 'project_manual' => true]]);
     $fixtures[$foreign->id] = ['thread_id' => $foreign->get()['thread_id'], 'owner_id' => (string)$foreignUser['id']];
@@ -99,4 +102,5 @@ try {
         Agent\Database::execute("UPDATE runs SET status = 'stopped', error = 'Fixture cleanup before execution', finished_at = NOW() WHERE thread_id = ? AND status = 'queued'", [$fixture['thread_id']]);
         (new Agent\Project($id))->delete();
     }
+    if ($foreignUserId !== null) Agent\Database::execute('DELETE FROM users WHERE id = ? AND username = ?', [$foreignUserId, $foreignUsername]);
 }

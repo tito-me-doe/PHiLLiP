@@ -1,7 +1,14 @@
 <?php
 require __DIR__ . '/helpers.php';
+// Save the default profile (from config/profiles.local.json, the real LAN model)
+// into the isolated test database so Attachments::capabilities() can find it and
+// report supports_tools, enabling attachment tool registration and tool.result events.
+$defaultConfig = Agent\Config::profile('default');
+Agent\Profiles::save('default', $defaultConfig, false);
+$db = Agent\Database::connection();
+$db->prepare("UPDATE profiles SET supports_tools = 'true', supports_chat = 'true', enabled = 'true' WHERE name = 'default'")->execute();
 $user = Agent\Identity::authenticate('alice', 'phillip-demo');
-$thread = Agent\Thread::create($user['id'], 'Attachment model fixture', ['manual' => true, 'parameters' => ['temperature' => 0, 'max_tokens' => 1024]]);
+$thread = Agent\Thread::create($user['id'], 'Attachment model fixture', ['manual' => true, 'profile' => 'default', 'parameters' => ['temperature' => 0, 'max_tokens' => 1024]]);
 try {
     $file = Agent\Attachments::store($user['id'], 'delivery.txt', 'The delivery code is COPPER-482. The destination is Boise.');
     $first = $thread->enqueue($user['id'], ['content' => 'Read the attached file. Reply with the delivery code and destination.', 'attachments' => [$file]]);

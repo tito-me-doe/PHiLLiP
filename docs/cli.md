@@ -74,6 +74,32 @@ Management commands emit JSON results, not a final natural-language answer. A qu
 
 `./bin/phill --once` renders a read-only project snapshot. Interactive terminal mode supports refresh and project selection, not conversational chat or task mutations yet.
 
+## Orchestrated experts (phill-rlm)
+
+`bin/phill-rlm PROMPT_FILE [PROFILE_ID]` runs Agent A, a coordinator that can only create and message experts.
+`PROFILE_ID` defaults to `default` when omitted.
+The coordinator cannot read files, see the prompt, or use any tool itself.
+It only creates experts, assigns work, and returns the final answer.
+`PROMPT_FILE` must be a readable file inside the current workspace (the current directory).
+Paths outside the workspace are rejected.
+
+Experts are durable local workers in separate processes.
+They share nothing with each other except the workspace, so briefs must name exact workspace-relative paths, needed evidence, and expected deliverables.
+Assignments given in one batch run in parallel via `message_expert`; each expert's own tasks run in order.
+At most 16 experts may exist, so reuse them with follow-up assignments.
+An expert returns only its final response, never its reasoning or tool calls.
+Experts are removed when the run ends. On Ctrl-C/SIGTERM they are stopped and then removed; if removal fails a warning prints the manual `ok-phill agents remove NAME` command.
+
+Experts may receive only granted tools, as a CSV of `Class::method` names:
+- read-only Source tools (`Source::files`, `Source::read`, `Source::search`) for any expert;
+- Patch write tools (`Patch::replace`, `Patch::replaceLines`, `Patch::create`) only when the task explicitly requires creating or modifying named files; `Patch::replace` also tolerates whitespace differences (indentation, tabs vs spaces, CRLF vs LF) between the search text and the file content.
+- Verify tools (`Verify::testUnits`, `Verify::lint`) for testers and reviewers, paired with `Source::read` to interpret failures.
+- Web tools (`SearchWeb::search`, `Fetch::fetch`, `BrowseWeb`) for web access.
+Granted to experts: only the six tool classes `Source`, `Patch`, `Verify`, `SearchWeb`, `Fetch`, `BrowseWeb` (matched case-insensitively). Any other name — including `Workspace`, `Delegate`, `Memory`, `Project`, `History`, `Attachments` — is rejected when the expert is created.
+
+Stdout holds only the final answer; diagnostics and progress go to stderr.
+Exit codes: `0` success/help, `1` execution failure, `2` invalid usage, `130` Ctrl+C.
+
 ## Identity, authority, and exit status
 
 Identity comes from the effective Unix UID/passwd entry, not `USER`, `LOGNAME`, or `SUDO_USER`. Root/unidentified UIDs cannot supply tools or sessions. Mapped active users can access authorized private/team/organization memories; unmapped accounts have a restricted audience including organization-published knowledge and current-thread knowledge. A tool/persona selection does not widen that scope.

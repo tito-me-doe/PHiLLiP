@@ -27,12 +27,8 @@ class Administration
     /** Editors and API aliases share the same authorization boundary. */
     public static function page($entity, array $input = [])
     {
-        if ($entity === 'navigation') return 'navigation';
-        if ($entity === 'permissions') {
-            $resource = $input['resource'] ?? $input['tool'] ?? '';
-            return is_string($resource) && strpos($resource, 'page.') === 0 ? 'navigation' : 'tools-services';
-        }
-        return $entity === 'tools' ? 'tools-services' : 'access';
+        // Users, groups, pages and tool access are one administration page.
+        return 'access';
     }
 
     public function data($page)
@@ -41,14 +37,9 @@ class Administration
         $data = [];
         $data['users'] = Identity::users();
         $data['groups'] = Mappings::rows('teams');
-        if (in_array($page, ['navigation','permissions','tools'], true)) {
-            $data['permissions'] = Mappings::rows('permissions');
-        } else {
-            $data['memberships'] = Mappings::rows('memberships');
-        }
-        if ($page === 'navigation') {
-            $data['pages'] = Pages::all();
-        }
+        $data['memberships'] = Mappings::rows('memberships');
+        $data['permissions'] = Mappings::rows('permissions');
+        $data['pages'] = Pages::all();
         return $data;
     }
 

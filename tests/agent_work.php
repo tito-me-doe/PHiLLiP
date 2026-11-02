@@ -96,6 +96,22 @@ try {
     check(count($peek['tool_errors']) === 1 && strpos($peek['tool_errors'][0]['message'], 'Operator approval required') !== false && strpos(json_encode($peek), 'FILE_PAYLOAD_SECRET') === false && strpos(json_encode($peek), 'tool_calls') === false, 'Peek exposes durable tool errors while excluding source contents, command output and raw tool arguments');
     $grants = Agent\State::thread($work['thread_id'])->read()['value']['approvals'];
     check(count($grants) === 3, 'Only the requested file and two command prefixes are saved');
+
+    $capacityTeam = $marker . '-capacity';
+    for ($i = 0; $i < 16; $i++) {
+        $thread = Agent\Database::row('INSERT INTO threads (owner_id, title) VALUES (?, ?) RETURNING id', [(string)Agent\Cli::identity()['owner'], 'Capacity fixture ' . $i]);
+        Agent\Database::execute('INSERT INTO agents (name, team, owner_id, unix_uid, hostname, thread_id, workspace) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [$marker . '-capacity-' . $i, $capacityTeam, (string)Agent\Cli::identity()['owner'], posix_geteuid(), gethostname(), $thread['id'], $directory]);
+    }
+    $capacityResult = workCli(['work', $marker . '-capacity-new', 'Do not auto-select a worker', '--team', $capacityTeam,
+        '--profile', json_encode($config), '--workspace', $directory], 1);
+    $capacityError = isset($capacityResult['error']) ? $capacityResult['error'] : null;
+    check($capacityError !== null && strpos($capacityError, "'" . $capacityTeam . "'") !== false && strpos($capacityError, '16/16 local workers') !== false
+        && strpos($capacityError, "ok-phill agents list --team '" . $capacityTeam . "' --compact") !== false
+        && strpos($capacityError, 'ok-phill agents work <EXISTING_ID> TASK') !== false, 'Capacity guidance names the local team and exact inspect/reuse commands');
+    check((int)Agent\Database::row('SELECT COUNT(*) AS count FROM agents WHERE hostname = ? AND unix_uid = ? AND owner_id = ? AND team = ?', [gethostname(), posix_geteuid(), (string)Agent\Cli::identity()['owner'], $capacityTeam])['count'] === 16
+        && !(int)Agent\Database::row('SELECT COUNT(*) AS count FROM agents WHERE name = ?', [$marker . '-capacity-new'])['count'], 'Capacity denial creates no worker and leaves the owner/team limit unchanged');
+
     $cliPeek = workCli(['peek', (string)$work['agent_id']]);
     check($cliPeek['agent_id'] === $work['agent_id'] && $cliPeek['changes'] === $peek['changes'], 'CLI peek reads the same evidence under its real Unix identity');
 
@@ -133,11 +149,39 @@ try {
     for ($i = 0; $i < 4; $i++) Agent\Database::execute("INSERT INTO events (run_id, type, data) VALUES (?, 'tool.result', ?::jsonb)", [$fixtureRun, json_encode(['name' => 'Fixture_error_' . $i, '_tool_error' => true, 'content' => str_repeat('é', 500)])]);
     Agent\Database::execute("INSERT INTO events (run_id, type, data) VALUES (?, 'run.completed', ?::jsonb)", [$fixtureRun, json_encode(['content' => str_repeat('é', 1400)])]);
     Agent\Database::execute("INSERT INTO events (run_id, type, data) VALUES (?, 'progress', ?::jsonb)", [$second['run_id'], json_encode(['content' => 'Latest cursor is independent of the selected active run'])]);
+    foreach ([9, 0] as $exitCode) Agent\Database::execute("INSERT INTO events (run_id, type, data) VALUES (?, 'tool.result', ?::jsonb)", [$fixtureRun, json_encode(['name' => 'Agent_Tools_Workspace_run', 'content' => json_encode(['command' => ['repeat'], 'exit_code' => $exitCode])])]);
+    $compactPeek = workCli(['peek', (string)$idle['id'], '--compact']);
+    check(count($compactPeek['checks']) === 2 && $compactPeek['checks'][1]['command'] === ['repeat'] && $compactPeek['checks'][1]['exit_code'] === 0, 'Compact peek keeps latest result for each command in chronological order');
+    $compactList = workCli(['list', '--team', $marker, '--compact']);
+    $compactIdle = array_values(array_filter($compactList, function ($row) use ($idle) { return $row['id'] === $idle['id']; }))[0];
+    check($compactIdle['assignable'] && $compactIdle['latest_run_id'] !== null && !isset($compactIdle['owner_id'], $compactIdle['tools']), 'Compact list reports latest run and excludes private worker details');
+    $compactResult = workCli(['result', (string)$idle['id'], '--run', (string)$fixtureRun, '--compact'], 3);
+    check(mb_strlen($compactResult['answer']) === 1200, 'Compact result bounds long UTF-8 answers');
     $bounded = Agent\Agents::peek($idle['id']);
     $max = (int)Agent\Database::row('SELECT MAX(e.id) AS id FROM events e JOIN runs r ON r.id = e.run_id WHERE r.thread_id = ?', [$idle['thread_id']])['id'];
     check($bounded['active_run_id'] === $fixtureRun && $bounded['run']['id'] === $fixtureRun && $bounded['queued'] === 2 && $bounded['cursor'] === $max, 'Peek chooses active work before later queued assignments and returns the independent maximum cursor');
     check(count($bounded['tool_errors']) === 3 && $bounded['tool_errors'][0]['name'] === 'Fixture_error_1' && mb_strlen($bounded['tool_errors'][0]['message']) === 400 && mb_strlen($bounded['run']['answer']) === 1200 && substr($bounded['checks'][0]['stderr'], -4) === 'TAIL' && strlen($bounded['checks'][0]['stderr']) === 600, 'Peek bounds UTF-8 answers and last-three errors and retains only a failure stderr tail');
     check(strpos(json_encode($bounded), 'MUST_NOT_LEAK') === false && $bounded['changes'] === [$lineEvidence], 'Bounded peek preserves replaceLines result evidence and excludes Source payloads and command stdout');
+    Agent\Database::execute("INSERT INTO events (run_id, type, data) VALUES (?, 'tool.result', ?::jsonb)", [$fixtureRun, json_encode(['name' => 'Agent_Tools_Workspace_create', 'content' => json_encode(['path' => 'failed-run-only.txt', 'sha256' => str_repeat('b', 64), 'bytes' => 21])])]);
+    Agent\Database::execute("INSERT INTO events (run_id, type, data) VALUES (?, 'tool.result', ?::jsonb)", [$fixtureRun, json_encode(['name' => 'Agent_Tools_Workspace_run', 'content' => json_encode(['command' => ['failed-run-check'], 'exit_code' => 8, 'stderr' => 'failed run check'])])]);
+    Agent\Database::execute("INSERT INTO events (run_id, type, data) VALUES (?, 'tool.result', ?::jsonb)", [$fixtureRun, json_encode(['name' => 'Fixture_failed_run_error', '_tool_error' => true, 'content' => 'failed-run tool error'])]);
+    Agent\Database::execute("INSERT INTO events (run_id, type, data) VALUES (?, 'tool.result', ?::jsonb)", [$second['run_id'], json_encode(['name' => 'Agent_Tools_Workspace_create', 'content' => json_encode(['path' => 'later-run-only.txt', 'sha256' => str_repeat('c', 64), 'bytes' => 20])])]);
+    Agent\Database::execute("INSERT INTO events (run_id, type, data) VALUES (?, 'tool.result', ?::jsonb)", [$second['run_id'], json_encode(['name' => 'Agent_Tools_Workspace_run', 'content' => json_encode(['command' => ['later-run-check'], 'exit_code' => 0])])]);
+    Agent\Database::execute("INSERT INTO events (run_id, type, data) VALUES (?, 'tool.result', ?::jsonb)", [$second['run_id'], json_encode(['name' => 'Fixture_later_run_error', '_tool_error' => true, 'content' => 'later-run tool error'])]);
+    Agent\Database::execute("UPDATE runs SET status = 'failed', error = 'fixture failure', finished_at = NOW() WHERE id = ?", [$fixtureRun]);
+    Agent\Database::execute("UPDATE runs SET status = 'completed', finished_at = NOW() WHERE id = ?", [$second['run_id']]);
+    $failedCompact = workCli(['result', (string)$idle['id'], '--run', (string)$fixtureRun, '--compact'], 1);
+    check($failedCompact['status'] === 'failed' && $failedCompact['changed_paths'] === ['fixture-lines.php', 'failed-run-only.txt']
+        && in_array(['failed-run-check'], array_column($failedCompact['checks'], 'command'), true)
+        && !in_array(['later-run-check'], array_column($failedCompact['checks'], 'command'), true)
+        && in_array('Fixture_failed_run_error', array_column($failedCompact['tool_errors'], 'name'), true)
+        && !in_array('Fixture_later_run_error', array_column($failedCompact['tool_errors'], 'name'), true), 'Compact failed result evidence is bound to the explicitly selected historical run');
+    $laterCompact = workCli(['result', (string)$idle['id'], '--run', (string)$second['run_id'], '--compact']);
+    check($laterCompact['status'] === 'completed' && !isset($laterCompact['changed_paths'], $laterCompact['checks'], $laterCompact['tool_errors']), 'A later successful run does not contaminate the historical failed-run handoff');
+    expectException(function () use ($idle, $second) { Agent\Agents::peek($idle['id'], true, $second['run_id'] + 999999); }, 'Run does not belong to this agent');
+    $foreignRun = Agent\Database::row("INSERT INTO runs (thread_id, author_id, settings, status) VALUES (?, ?, '{}'::jsonb, 'failed') RETURNING id", [$duplicate['thread_id'], (string)$duplicate['owner_id']]);
+    $foreignResult = workCli(['result', (string)$idle['id'], '--run', (string)$foreignRun['id'], '--compact'], 1);
+    check(strpos($foreignResult['error'], 'Run does not belong to this agent') !== false, 'Compact handoff rejects a run owned by another worker');
     Agent\Database::execute("UPDATE runs SET status = 'stopped', finished_at = NOW() WHERE id = ?", [$fixtureRun]);
     Agent\Agents::stop($idle['id']);
     $stateBefore = Agent\State::thread($idle['thread_id'])->read()['value'];
@@ -153,6 +197,14 @@ try {
         expectException(function () use ($duplicate) { Agent\Agents::work($duplicate['id'], 'Foreign identity cannot be reused'); }, 'not owned');
         expectException(function () use ($duplicate) { Agent\Agents::peek($duplicate['id']); }, 'not owned');
     } finally { Agent\Database::execute('UPDATE agents SET unix_uid = ? WHERE id = ?', [posix_geteuid(), $duplicate['id']]); }
+    Agent\Database::execute('UPDATE threads SET deletedon = NOW() WHERE id = ?', [$duplicate['thread_id']]);
+    $unavailable = workCli(['list', '--team', $marker . '-other', '--compact']);
+    $unavailable = array_values(array_filter($unavailable, function ($row) use ($duplicate) { return $row['id'] === $duplicate['id']; }));
+    check(count($unavailable) === 1 && !$unavailable[0]['assignable'] && $unavailable[0]['status'] === 'unavailable', 'Deleted worker is visible as unavailable before assignment');
+    $denied = workCli(['assign', (string)$duplicate['id'], 'Do not enqueue'], 1);
+    check(strpos($denied['error'], 'Create a new worker') !== false, 'Deleted worker assignment gives recovery guidance');
+    expectException(function () use ($duplicate) { Agent\Agents::work($duplicate['id'], 'Do not restore'); }, 'deleted and unavailable');
+    check((new Agent\Thread($duplicate['thread_id']))->get()['deletedon'] !== null, 'Assignment and work never restore deleted conversations');
     $cliWork = workCli(['work', (string)$idle['id'], 'CLI follow-up after stop'], 0, 'PIPED_WORK_CONTEXT');
     check($cliWork['agent_id'] === $idle['id'] && !$cliWork['created'] && $cliWork['approvals'] === ['files' => [], 'commands' => []], 'CLI work shares the API reuse and approval contract');
     $stored = Agent\Database::row("SELECT raw->>'content' AS content FROM messages WHERE run_id = ? AND role = 'user'", [$cliWork['run_id']]);

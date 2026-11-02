@@ -1,6 +1,7 @@
 <?php
 namespace Agent;
-
+use Exception;
+use InvalidArgumentException;
 class Config
 {
     /** Explicit booleans from application code, JSON, or HTML form values. Never use PHP truthiness. */
@@ -35,7 +36,7 @@ class Config
         }
         return $path;
     }
-    public static function service($name)
+    public static function service($name, $resolve = true)
     {
         $config = null;
         try {
@@ -50,6 +51,9 @@ class Config
             if (!isset($json[$name])) throw new \RuntimeException("Service '$name' is not configured. Run the onboarding script or create the required JSON at $file.");
             $config = $json[$name];
         }
+        // When editing/merging we need the RAW stored config (fallback URL, not the
+        // environment-resolved URL) so an env override is never accidentally baked in.
+        if (!$resolve) return $config;
         // Only explicitly transport-aware defaults opt in; custom database settings remain authoritative.
         $environment = isset($config['url_env']) ? $config['url_env'] : null;
         if ($environment !== null && (!is_string($environment) || !preg_match('/^[A-Z_][A-Z0-9_]*$/D', $environment))) throw new \InvalidArgumentException('Service url_env must name an environment variable');
@@ -61,20 +65,81 @@ class Config
         return $config;
     }
 
-    /** Save service settings once normalized, irrespective of caller transport. */
+    /** Save service settings once normalized, irrespective of caller transport.
+
+        Accepts the OLD bulk map {searxng: {...}, camoufox: {...}} (also as a JSON
+        string) and the NEW flat named payload {name, url, url_env, token_env}.
+        Per-value objects are normalized before merging, and the raw stored service
+        (unresolved URL) is merged once here so edit/repair never bakes in an
+        environment-resolved URL or loses existing headers/secrets. */
     public static function configureServices($services)
     {
         $services = self::object($services, 'Service configuration');
+
+        // NEW flat named payload: {name, url, url_env, token_env[, headers/head]}.
+        if (isset($services['name'])) {
+            $name = $services['name'];
+            if (!is_string($name)) throw new InvalidArgumentException('Service name must be a string');
+            if (!in_array($name, ['searxng', 'camoufox'], true)) throw new InvalidArgumentException('Unknown service');
+            unset($services['name']);
+            $entry = [];
+            foreach (['url', 'url_env', 'token_env', 'headers', 'head'] as $field) {
+                if (array_key_exists($field, $services)) $entry[$field] = $services[$field];
+            }
+            $services = [$name => $entry];
+        }
         foreach ($services as $name => &$value) {
-            if (!in_array($name, ['searxng', 'camoufox'], true)) throw new \InvalidArgumentException('Unknown service');
+            if (!in_array($name, ['searxng', 'camoufox'], true)) throw new InvalidArgumentException('Unknown service');
+            // Normalize per-value objects before merging; old bulk JSON/stdClass entries stay valid.
             $value = self::object($value, 'Service ' . $name);
-            if (!isset($value['url']) || !is_string($value['url']) || !filter_var($value['url'], FILTER_VALIDATE_URL)
-                || !in_array(strtolower(parse_url($value['url'], PHP_URL_SCHEME)), ['http', 'https'], true)) throw new \InvalidArgumentException('Service ' . $name . ' requires an HTTP(S) URL');
-            if (isset($value['url_env']) && (!is_string($value['url_env']) || !preg_match('/^[A-Z_][A-Z0-9_]*$/D', $value['url_env']))) throw new \InvalidArgumentException('Service url_env must name an environment variable');
+
+            // Remember submitted env fields, then merge current raw + remaining patch.
+            $submittedEnv = [];
+            foreach (['url_env', 'token_env'] as $envField) {
+                if (array_key_exists($envField, $value)) {
+                    $submittedEnv[$envField] = $value[$envField];
+                    unset($value[$envField]);
+                }
+            }
+            $current = [];
+            try { $current = self::service($name, false); } catch (Exception $e) {}
+            $value = self::object(array_replace($current, $value), 'Service ' . $name);
+
+            // Apply processed submitted env fields: blank/null -> unset; omitted -> preserve;
+            // non-string/non-null -> friendly throw; non-blank string -> trim + validate.
+            foreach ($submittedEnv as $envField => $submitted) {
+                if ($submitted === null || $submitted === '') {
+                    unset($value[$envField]);
+                } elseif (!is_string($submitted)) {
+                    throw new InvalidArgumentException('Service ' . $name . ' ' . $envField . ' must be a string or null');
+                } else {
+                    $trimmed = trim($submitted);
+                    if ($trimmed === '') {
+                        unset($value[$envField]);
+                    } elseif (!preg_match('/^[A-Z_][A-Z0-9_]*$/D', $trimmed)) {
+                        throw new InvalidArgumentException('Service ' . $name . ' ' . $envField . ' must name an environment variable');
+                    } else {
+                        $value[$envField] = $trimmed;
+                    }
+                }
+            }
+
+            // Typecheck URL before trim (arrays must friendly-throw, not TypeError).
+            if (array_key_exists('url', $value)) {
+                if (!is_string($value['url'])) throw new InvalidArgumentException('Service ' . $name . ' URL must be a string');
+                $value['url'] = trim($value['url']);
+            }
+            if (!isset($value['url']) || !is_string($value['url'])
+                || !filter_var($value['url'], FILTER_VALIDATE_URL)
+                || !in_array(strtolower(parse_url($value['url'], PHP_URL_SCHEME)), ['http', 'https'], true)) {
+                throw new InvalidArgumentException('Service ' . $name . ' requires an HTTP(S) URL');
+            }
             foreach (['headers', 'head'] as $key) if (isset($value[$key])) {
-                if (!is_array($value[$key])) throw new \InvalidArgumentException('Service headers must be a named or list array');
+                if (!is_array($value[$key])) throw new InvalidArgumentException('Service headers must be a named or list array');
                 foreach ($value[$key] as $header => $content) {
-                    if (!is_string($content) || preg_match('/[\r\n]/', $content) || (is_string($header) && preg_match('/[\r\n:]/', $header))) throw new \InvalidArgumentException('Service headers must contain valid single-line strings');
+                    if (!is_string($content) || preg_match('/[\r\n]/', $content) || (is_string($header) && preg_match('/[\r\n:]/', $header))) {
+                        throw new InvalidArgumentException('Service headers must contain valid single-line strings');
+                    }
                 }
             }
         }

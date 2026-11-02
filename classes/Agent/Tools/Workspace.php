@@ -7,6 +7,19 @@ use Agent\WorkspaceAccess;
 class Workspace
 {
     /**
+     * Inspect your own worker identity and currently approved files and command prefixes. Recheck after an operator changes access; this does not grant access.
+     */
+    public static function context()
+    {
+        $threadId = \Agent\ToolContext::get('thread_id');
+        $agentId = \Agent\ToolContext::get('agent_id');
+        if (!$threadId || !$agentId || \Agent\ToolContext::get('frontend')) throw new \RuntimeException('Workspace context is available only to a durable local worker');
+        $agent = \Agent\Database::row('SELECT id, name FROM agents WHERE id = ? AND thread_id = ?', [$agentId, $threadId]);
+        if (!$agent) throw new \RuntimeException('Worker identity does not match this thread');
+        return ['agent_id' => (int)$agent['id'], 'name' => $agent['name'], 'grants' => WorkspaceAccess::currentGrants($threadId)];
+    }
+
+    /**
      * Replace one exact, non-empty occurrence in an existing UTF-8 file. Never guesses among matches. Requires file PATCH approval; ask the operator if denied.
      * @param string $path Workspace-relative file
      * @param string $search Exact existing text, occurring once
@@ -149,9 +162,44 @@ class Workspace
     private static function text($text, $path = '')
     {
         if (strlen($text) > 2097152 || strpos($text, "\0") !== false || preg_match('//u', $text) !== 1) throw new \InvalidArgumentException('Workspace edits require UTF-8 text without NUL bytes, at most 2 MiB');
-        if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'php' || preg_match('/^#![^\r\n]*\bphp\b/', $text)) {
+        if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'php' || preg_match('/^#[^\r\n]*\bphp\b/', $text)) {
             try { token_get_all($text, TOKEN_PARSE); }
             catch (\ParseError $error) { throw new \RuntimeException('Refusing invalid PHP for ' . $path . ': ' . $error->getMessage()); }
+            self::phpLint($text, $path);
+        }
+    }
+
+    private static function phpLint(string $text, string $path): void
+    {
+        $descriptorSpec = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+        $process = @proc_open([PHP_BINARY, '-n', '-l'], $descriptorSpec, $pipes);
+        if (!is_resource($process)) {
+            throw new \RuntimeException('Refusing invalid PHP for ' . $path . ': PHP lint cannot run');
+        }
+        $released = false;
+        try {
+            fwrite($pipes[0], $text);
+            fclose($pipes[0]);
+            $stdout = stream_get_contents($pipes[1]);
+            $stderr = stream_get_contents($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            $exit = proc_close($process);
+            $released = true;
+            if ($exit === 0) return;
+            $diagnostic = trim((string)($stdout . $stderr));
+            if ($diagnostic === '') $diagnostic = 'PHP lint exited with status ' . (int)$exit;
+            $diagnostic = substr($diagnostic, 0, 2048);
+            throw new \RuntimeException('Refusing invalid PHP for ' . $path . ': ' . $diagnostic);
+        } finally {
+            if (!$released && is_resource($process)) {
+                @proc_terminate($process);
+                @proc_close($process);
+            }
         }
     }
 

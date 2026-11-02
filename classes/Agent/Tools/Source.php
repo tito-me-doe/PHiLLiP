@@ -16,7 +16,7 @@ class Source
     public static function files(string $path = '.', int $limit = 1000)
     {
         list($root, $directory) = self::resolve($path);
-        if (!is_dir($directory)) throw new \InvalidArgumentException('Source listing requires a directory');
+        if (!is_dir($directory)) throw new \InvalidArgumentException('Source listing requires a directory: supply a workspace-relative directory path');
         $results = [];
         self::collect($directory, $root, $results, max(1, min(1000, $limit)));
         sort($results);
@@ -106,15 +106,15 @@ class Source
         $root = realpath(getcwd());
         if ($root === false || $root === DIRECTORY_SEPARATOR) throw new \RuntimeException('A specific CLI workspace is required');
         // Validate before trimming: whitespace is forgiving, embedded control bytes are not.
-        if (preg_match('/[\x00-\x1f\x7f\\\\]/', $path)) throw new \InvalidArgumentException('Invalid source path characters');
+        if (preg_match('/[\x00-\x1f\x7f\\\\]/', $path)) throw new \InvalidArgumentException('Invalid source path characters: workspace-relative paths use forward slashes and may not contain control bytes or backslashes');
         $path = trim($path);
-        if ($path === '' || $path[0] === '/' || preg_match('/^[A-Za-z]:/', $path)) throw new \InvalidArgumentException('Source requires a workspace-relative path');
+        if ($path === '' || $path[0] === '/' || preg_match('/^[A-Za-z]:/', $path)) throw new \InvalidArgumentException('Source requires a workspace-relative path: no leading slash, absolute path, or drive letter');
         $full = $root;
         foreach (explode('/', $path) as $segment) {
             if ($segment === '.') continue;
-            if ($segment === '' || $segment === '..' || $segment[0] === '.' || in_array(strtolower($segment), self::PRIVATE_NAMES, true)) throw new \InvalidArgumentException('Private or invalid source path');
+            if ($segment === '' || $segment === '..' || $segment[0] === '.' || in_array(strtolower($segment), self::PRIVATE_NAMES, true)) throw new \InvalidArgumentException('Private or invalid source path: use a workspace-relative path without "..", hidden segments, or reserved names');
             $full .= '/' . $segment;
-            if (is_link($full)) throw new \InvalidArgumentException('Source paths cannot traverse symlinks');
+            if (is_link($full)) throw new \InvalidArgumentException('Source paths cannot traverse symlinks: supply a real workspace-relative path within the workspace');
         }
         $canonical = realpath($full);
         if ($canonical === false && strpos($path, '/') === false) {
@@ -126,7 +126,7 @@ class Source
                 return self::resolve($matches[0]);
             }
         }
-        if ($canonical === false || ($canonical !== $root && strpos($canonical, $root . '/') !== 0)) throw new \InvalidArgumentException('Source path is missing or outside the workspace');
+        if ($canonical === false || ($canonical !== $root && strpos($canonical, $root . '/') !== 0)) throw new \InvalidArgumentException('Source path is missing or outside the workspace: supply an existing workspace-relative path');
         return [$root, $canonical];
     }
 

@@ -65,28 +65,34 @@ Scorers (`Benchmarks::SCORERS`): `matches`, `contains`, `starts_with`, `ends_wit
 
 Execution hardens config: `tools_enabled=false`, `max_rounds=1`, `max_retries=0`, `max_contract_corrections=0`, `compaction_enabled=false`, `timeout=120`, `max_tokens=2048` when unset. `first_token_seconds` comes from the first `text.delta` event; `tokens_per_second = completion_tokens / elapsed_seconds` only when usage is present — unknown usage is omitted, never estimated.
 
-Native embedding/rerank plots use requests/second instead. Failed/stopped jobs show their status and recorded/total counts; only completed runs enter the Pareto chart. Transport/authentication/service-unavailable errors end the job early instead of repeating every remaining question against a broken profile.
+The frontend plots actual elapsed wall time in seconds, not tokens/second or requests/second, for every model type. Lower time is better. Token metrics remain diagnostic data in saved results. Failed/stopped jobs retain their status and recorded counts; only completed runs enter the score/chart. Transport/authentication/service-unavailable errors end the job early instead of repeating every remaining question against a broken profile.
 
 ## Pause / resume / stop / recovery
 
-Controls live in `benchmark_controls(scope, paused)` with a seeded `global` scope and per-`profile:<id>` scopes.
+Controls live in `benchmark_controls(scope, paused, version)` with global, `test:<id>`, `profile:<id>`, and `profile:<id>:test:<id>` scopes. The latest matching control wins. Every control update gets a sequence revision, serialized under the queue's global row lock.
 
 - Pause finishes the active question, then marks the run `paused` at the next question boundary.
-- Resume returns `queued`/`paused` runs to `queued`; a global pause remains authoritative over per-profile Play. Standalone single-run commands do not wait on queue pauses.
+- Resume returns paused runs in its scope to queued. Resuming a specific tab/profile overrides an earlier All pause only for that scope, leaving unrelated work paused. A later All resume applies to everything. Standalone single-run commands do not wait on queue pauses.
 - Stop cancels queued/paused/running runs and requests stop on each still-running result.
 - Recovery (`BenchmarkRunner::recover()`) marks abandoned runs as `failed` after 90 seconds; incomplete results are stopped, not replayed; interrupted work is never silently replayed. The queue worker owns an advisory lock and recovers stale runs every 10 seconds.
 
 ## Editor and revisions
 
-Tests/questions are edited on the separate **Test Suites** page with optimistic concurrency: `lockTest()` throws `StateConflict` ("Test changed; reload before editing") when the supplied revision mismatches. Its library lists each suite's model type, question count, and revision. Edits bump `revision`; tests are capped at 200 questions. Queued/completed runs retain their original questions and configuration — nothing is evaluated as PHP or shell code.
+Tests/questions are edited within **Benchmarks**: the final **New Test** tab opens a creation dialog, and a selected test exposes **Edit Test** and **Edit Questions** below the graph. The question dialog uses read-only rows with modal editors and ordinary PHP form fallbacks. Optimistic concurrency remains: `lockTest()` throws `StateConflict` ("Test changed; reload before editing") when the supplied revision mismatches. Edits bump `revision`; tests are capped at 200 questions. Queued/completed runs retain their original questions and configuration — nothing is evaluated as PHP or shell code.
 
 ## Fixed task defaults
 
 `Profiles::DEFAULT_TASKS = ['embed','rerank','classify','extract','generate_titles','summarize','score']`. These are the only valid `profile_defaults.default_for` values (enforced by table CHECK constraint). `Profiles::defaultFor($task, $fallback)` returns the assigned profile or resolves `$fallback` (default `'default'`). The `llm_score` scorer uses the `score` task default as its judge model.
 
+In **System Settings**, the **Default for** column edits all tasks assigned to a profile in one dialog. `Profiles::setDefaults($profile, $tasks)` atomically replaces that profile's assignments without clearing other profiles' unrelated defaults. Missing chat/embedding dependencies are listed below the Profiles table; other unassigned tasks use their documented fallback.
+
 ## Report and controls
 
-`BenchmarkFrontend::report()` serves the permission-checked Benchmarks page: latest run per profile/test, recent runs, a speed-vs-score Pareto chart, play/pause/stop controls, and `defaults` from `profile_defaults`. Report/control access (`page.benchmarks`) and suite editing (`page.test-suites`) are independent grants; both default to administrators only. The details view shows each question's input, expected rubric, answer, thread, run, elapsed time, and raw saved conversation/response. Credentials and private profile configuration are stripped from report payloads.
+`BenchmarkFrontend::report()` serves one profile-centric leaderboard. Only saved profiles appear, never unprofiled registry models. The default **All** tab combines each profile's latest completed run per test as total earned question scores / total questions seen (including fractional scores), and sums their wall times. A test tab shows that test only. New tests and revisions do not invalidate previous scores; a new completed run replaces that profile/test's previous result. Sorting is score descending, then wall time ascending, with unscored profiles last. The Pareto frontier favors higher scores and shorter times; coverage counts are displayed because All scores may reflect different tests/questions.
+
+Process controls and scoped status sit between tabs and graph. Controls are icon-only and follow the work: idle offers Play; running or queued work offers Pause; paused work offers Play (resume) and Stop. On All, global controls target every test; on a test tab, they target only that test. Row controls additionally limit the action to that profile. Repeated Play reuses unfinished profile/test pairs rather than duplicating them. The page has no separate queue section, recent-runs list, or Test Suites navigation entry. Report, process controls, and definition editing share `page.benchmarks` permission.
+
+Metadata, combined profile results, and individual run details open in PHP-rendered dialogs without leaving the report. The run details show each question's input, rubric, answer, thread, run, elapsed time, and raw saved conversation/response. Regular links/forms remain available without JavaScript. Credentials and private profile configuration are stripped from report payloads.
 
 ## Snapshots and durability
 

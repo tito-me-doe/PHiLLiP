@@ -37,9 +37,10 @@ try {
     check(Agent\Attachments::get($utf['id'])['text_content'] === 'Hi', 'UTF-16 text decoded locally');
     $binary = Agent\Attachments::store($alice['id'], 'unsafe.php', "\x00\x01\xff"); $files[] = $binary['id'];
     expectException(function () use ($binary) { Agent\Attachments::forModel(['content' => '', 'attachments' => [$binary]], []); }, 'Cannot parse');
+    $profile = Agent\Profiles::save('attachment-fixture', ['url' => 'http://127.0.0.1:1/v1/chat/completions', 'model' => 'attachment-fixture'], false);
     $thread->delete();
     expectException(function () use ($file) { Agent\Attachments::get($file['id']); }, 'not found');
-    check((new Agent\Registry())->profiles() !== [], 'Attachment cleanup does not alter model profiles');
+    check((new Agent\Registry())->profile('attachment-fixture') !== false, 'Attachment cleanup does not alter model profiles');
 } finally {
     Agent\Database::connection()->prepare('DELETE FROM threads WHERE id = ?')->execute([$thread->id]);
     foreach ($files as $id) Agent\Database::connection()->prepare('DELETE FROM attachments WHERE id = ?')->execute([$id]);

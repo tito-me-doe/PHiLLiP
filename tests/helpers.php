@@ -1,4 +1,7 @@
 <?php
+require __DIR__ . '/fixtures/TestDatabase.php';
+TestDatabase::prepare();
+
 require dirname(__DIR__) . '/bootstrap.php';
 
 function check($condition, $message)

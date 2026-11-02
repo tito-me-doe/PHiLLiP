@@ -21,7 +21,7 @@ $date = null;
             href="<?= $project ? Agent\Pages::link('projects', ['project'=>$row['project_id']]) : Agent\Pages::link('conversations', ['thread'=>$row['id']]) ?>"
             <?= $project ? '' : 'data-thread="'.$row['id'].'"' ?> title="<?= V::h($stamp) ?>">
             <strong><?= V::h(trim($row['title']) !== '' ? $row['title'] : ($project ? 'Untitled project' : 'New conversation')) ?></strong>
-            <small><?= $project ? 'Project · '.V::h($row['project_status']) : 'Conversation' ?></small>
+            <?php if ($project): ?><small>Project · <?= V::h($row['project_status']) ?></small><?php endif; ?>
 	</a>
         <?php if (!$project && (string)$row['owner_id'] === (string)$state['user']['id']): ?>
             <form method="post" action="<?= V::url() ?>" class="delete-thread-form">

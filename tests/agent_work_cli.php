@@ -42,3 +42,10 @@ check(parseErr(['create','a','--profile','p','--profile','q']) !== null, 'create
 // help includes work and peek.
 $help = AgentCli::help();
 check(strpos($help, 'work NAME') !== false && strpos($help, 'peek NAME') !== false, 'help documents work and peek');
+
+foreach ([['list'], ['result', 'alice'], ['peek', 'alice']] as $args) {
+    $args[] = '--compact';
+    check(AgentCli::parse($args)['options']['compact'] === true, 'Compact flag accepted for ' . $args[0]);
+}
+check(parseErr(['show', 'alice', '--compact']) !== null, 'Compact flag rejected for other actions');
+check(parseErr(['list', '--compact=yes']) !== null, 'Compact flag takes no value');

@@ -204,7 +204,11 @@
     form.onsubmit = async (e) => {
       e.preventDefault();
       const f = new FormData(form),
-        configuration = { auth: f.get("auth"), mappings: {} };
+        configuration = {
+          auth: f.get("auth"),
+          mappings: {},
+          adult_personas: f.get("adult_personas") || "no",
+        };
       if (f.get("existing") === "yes") {
         configuration.connection = connection();
         document.querySelectorAll("[data-map]").forEach((select) => {

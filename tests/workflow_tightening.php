@@ -1,9 +1,27 @@
 <?php
 if (PHP_SAPI === 'cli-server') {
     header('Content-Type: application/json');
-    if (!isset($_SERVER['HTTP_AUTHORIZATION']) || $_SERVER['HTTP_AUTHORIZATION'] !== 'Bearer PROFILE_CONTRACT_SECRET') {
-        http_response_code(401); echo '{"error":"Missing fixture authorization"}'; return;
+    $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    if ($path === '/v1/models') {
+        $models = ['data' => [['id' => 'auth-fixture', 'owned_by' => 'fixture', 'max_model_len' => 4096]]];
+        echo json_encode($models);
+        return;
     }
+    if ($path === '/health') { echo '{}'; return; }
+    if ($path === '/v1/embeddings') {
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $texts = isset($body['input']) ? $body['input'] : [];
+        $data = [];
+        foreach ($texts as $i => $text) {
+            $data[] = ['index' => $i, 'embedding' => [0.1, 0.2, 0.3]];
+        }
+        echo json_encode(['data' => $data]);
+        return;
+    }
+    if (!isset($_SERVER['HTTP_AUTHORIZATION']) || $_SERVER['HTTP_AUTHORIZATION'] !== 'Bearer PROFILE_CONTRACT_SECRET') {
+        http_response_code(401); echo json_encode(['error' => 'Missing fixture authorization']); return;
+    }
+    if ($path !== '/v1/chat/completions') { http_response_code(404); echo '{}'; return; }
     $body = json_decode(file_get_contents('php://input'), true);
     $extracting = isset($body['messages'][0]['content']) && strpos($body['messages'][0]['content'], 'Extract durable source-backed knowledge') !== false;
     echo json_encode(['choices' => [['message' => ['role' => 'assistant', 'content' => $extracting ? '{"claims":[],"remove":[]}' : 'PROFILE_AUTH_READY'], 'finish_reason' => 'stop']]]);
@@ -33,7 +51,8 @@ try {
         usleep(50000);
     }
     if (!$ready) throw new RuntimeException('Authentication fixture did not become ready');
-    $config = ['url' => 'http://' . $fixtureAddress . '/v1/chat/completions', 'model' => 'auth-fixture', 'headers' => $headers, 'stream' => false, 'max_retries' => 0];
+$config = ['url' => 'http://' . $fixtureAddress . '/v1/chat/completions', 'model' => 'auth-fixture', 'headers' => $headers, 'stream' => false, 'max_retries' => 0];
+Agent\Profiles::save('default', ['url' => 'http://' . $fixtureAddress . '/v1/chat/completions', 'model' => 'auth-fixture', 'headers' => $headers, 'stream' => false, 'max_tokens' => 1024]);
     $thread = Agent\Thread::create('fixture-workflow', 'Durable projection recovery', ['manual' => true, 'profile' => $config]); $threads[] = $thread;
     $run = $thread->enqueue('fixture-workflow', 'Recover projection');
     Agent\Run::claim($thread->id);

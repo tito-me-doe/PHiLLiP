@@ -26,6 +26,8 @@ class SystemInfo
                 $result['checks'][$service] = self::probe($url);
             } catch (\Throwable $e) { $result['checks'][$service] = ['status' => 'unconfigured']; }
         }
+        // What each tool needs and whether it is configured here; an unavailable tool is hidden from agents until configured.
+        $result['tools'] = array_map(function ($check) { return $check['available'] ? 'available' : ['unavailable' => array_column($check['missing'], 'reason')]; }, Requirements::tools());
         $result['systemd'] = 'not available in this environment';
         if (is_dir('/run/systemd/system') && is_executable('/usr/bin/systemctl') && is_executable('/usr/bin/timeout')) {
             $pipes = []; $process = proc_open('exec /usr/bin/timeout 3s /usr/bin/systemctl --failed --plain --no-legend --no-pager', [['file', '/dev/null', 'r'], ['pipe', 'w'], ['file', '/dev/null', 'w']], $pipes);

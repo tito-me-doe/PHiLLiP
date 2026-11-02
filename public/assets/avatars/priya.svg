@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 220" role="img" aria-label="Priya, a round-bottomed laboratory flask with violet liquid">
+ <ellipse cx="120" cy="203" rx="92" ry="8" fill="#473e2a" opacity=".09"/>
+ <g class="avatar-body">
+ <defs><clipPath id="priya-bulb"><circle cx="120" cy="118" r="79"/></clipPath></defs>
+ <rect x="102" y="14" width="36" height="52" fill="#e6f7fa" stroke="#6aa6b2" stroke-width="4"/>
+ <rect x="95" y="8" width="50" height="11" rx="5.5" fill="#d7f1f5" stroke="#6aa6b2" stroke-width="4"/>
+ <circle cx="120" cy="118" r="82" fill="#e6f7fa" stroke="#6aa6b2" stroke-width="4"/>
+ <g clip-path="url(#priya-bulb)"><path d="M30 144Q75 130 120 144T210 144V210H30Z" fill="#7a5cff" opacity=".42"/></g>
+ <circle cx="92" cy="170" r="5" fill="#fff" opacity=".65" stroke="#bfa8ff" stroke-width="1.5"/><circle cx="146" cy="178" r="7" fill="#fff" opacity=".65" stroke="#bfa8ff" stroke-width="1.5"/><circle cx="118" cy="160" r="3" fill="#fff" opacity=".7"/>
+ <path d="M64 58Q52 78 56 100" fill="none" stroke="#ffffff" stroke-opacity=".8" stroke-width="5" stroke-linecap="round"/>
+ <g class="avatar-face" fill="none" stroke="#3b2f7a" stroke-width="6" stroke-linecap="round">
+  <g class="avatar-eyes" stroke="none">
+   <g class="eye-left"><ellipse cx="87" cy="80" rx="13" ry="17" fill="#ffffff"/><g class="avatar-pupil"><ellipse cx="89" cy="82" rx="7" ry="10" fill="#7a5cff"/><ellipse cx="90" cy="83" rx="4" ry="7" fill="#1b1440"/><circle cx="85" cy="76" r="3" fill="#ffffff"/></g></g>
+   <g class="eye-right"><ellipse cx="151" cy="80" rx="13" ry="17" fill="#ffffff"/><g class="avatar-pupil"><ellipse cx="149" cy="82" rx="7" ry="10" fill="#7a5cff"/><ellipse cx="148" cy="83" rx="4" ry="7" fill="#1b1440"/><circle cx="145" cy="76" r="3" fill="#ffffff"/></g></g>
+  </g>
+  <path class="avatar-mouth" d="M102 111Q120 126 138 111" stroke="#3b2f7a"/>
+  <ellipse class="avatar-speaking-mouth" cx="120" cy="118" rx="13" ry="10" fill="#1b1440" stroke="#3b2f7a" stroke-width="4"/>
+  <path class="avatar-brow brow-left" d="M77 61l17-3" opacity="0"/><path class="avatar-brow brow-right" d="M144 58l17 3" opacity="0"/>
+ </g>
+ <g class="avatar-heart-eyes" fill="#ff6fae"><path d="M87 91L74 77C63 62 88 59 87 72C89 59 111 62 100 77Z"/><path d="M151 91L138 77C127 62 152 59 151 72C153 59 175 62 164 77Z"/></g>
+ <g class="avatar-shades" fill="#1b1440" stroke="#bfa8ff" stroke-width="2"><path d="M70 69h34v18q-17 13-34-1ZM134 69h34v17q-17 14-34 1Z"/><path d="M104 75h30"/></g>
+ <g class="avatar-tears" stroke="#84cbd6" stroke-width="4" stroke-linecap="round"><path d="M78 96l-2 10M160 96l2 10"/></g>
+ <g class="avatar-confetti" fill="#7a5cff"><path d="m54 24 6-7 3 11ZM182 13l4 9 7-8ZM120 5l4 7-9 1Z"/><circle cx="66" cy="11" r="3"/><circle cx="173" cy="30" r="3"/></g>
+ <text class="avatar-sleep" x="159" y="60" fill="#3b2f7a" font-family="monospace" font-size="15">z Z</text>
+ <g class="avatar-crash" fill="none" stroke="#3b2f7a" stroke-width="6" stroke-linecap="round"><path d="M74 66l26 26M100 66l-26 26M138 66l26 26M164 66l-26 26"/><path d="M98 118q7-8 14 0t14 0 14 0"/></g>
+ <g fill="none" stroke="#3b2f7a" stroke-width="4"><circle cx="87" cy="80" r="22"/><circle cx="151" cy="80" r="22"/><path d="M108 78q12-7 24 0"/></g>
+ </g>
+</svg>

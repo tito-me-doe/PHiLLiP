@@ -5,6 +5,12 @@ class ToolRegistry
 {
     private static $types = ['int' => 'integer', 'float' => 'number', 'bool' => 'boolean'];
     private $tools = [];
+    /** Lazily built alias index: "<class basename>_<method>" => candidate canonical tool keys, reflecting only already registered callables. */
+    private $aliases = null;
+    /** True only for reflection (documentation, admin listings, tests): register every tool, even one whose dependencies are missing. */
+    private $includeUnavailable;
+
+    public function __construct($includeUnavailable = false) { $this->includeUnavailable = (bool)$includeUnavailable; }
 
     /** Readable tool/field names for progress logs and saved activity alike. */
     public static function label($name)
@@ -58,6 +64,14 @@ class ToolRegistry
 
     public function register($tool)
     {
+        $this->aliases = null;
+        // A tool whose declared dependencies are missing is not offered at all (see Requirements), rather than failing mid-call.
+        $owner = is_array($tool) ? $tool[0] : (is_string($tool) ? explode('::', $tool, 2)[0] : null);
+        if (is_object($owner)) $owner = get_class($owner);
+        if (!$this->includeUnavailable && is_string($owner) && class_exists($owner) && ($unmet = Requirements::tool($owner)) && !$unmet['available']) {
+            Log::writeWarning('Tool %s is unavailable: %s', $owner, implode('; ', array_column($unmet['missing'], 'reason')));
+            return;
+        }
         if (is_string($tool) && class_exists($tool)) {
             foreach ((new \ReflectionClass($tool))->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
                 if ($method->isStatic()) $this->register([$tool, $method->getName()]);
@@ -112,7 +126,49 @@ class ToolRegistry
     }
 
     public function definitions() { return array_column($this->tools, 'definition'); }
-    public function source($name) { return isset($this->tools[$name]) ? $this->tools[$name]['callable'] : null; }
+    public function source($name)
+    {
+        $canonical = $this->resolveToolName($name);
+        return $canonical ? $this->tools[$canonical]['callable'] : null;
+    }
+
+    /**
+     * Resolve a caller-supplied tool name to its canonical registered key.
+     *
+     * Canonical exact names always win. Otherwise a short alias of the form
+     * "<ClassBasename>_<method>" (reflected from an already registered
+     * callable) resolves when exactly one registered callable maps to it.
+     * Nothing is loaded, registered or discovered from the incoming name;
+     * unknown names and ambiguous aliases return null and are rejected by
+     * callers. Both source() and execute() resolve through this method so
+     * before_tool permissions and execution always address the same callable.
+     */
+    private function resolveToolName($name)
+    {
+        if (!is_string($name) || $name === '') return null;
+        if (isset($this->tools[$name])) return $name;
+        $candidates = isset($this->aliasIndex()[$name]) ? array_unique($this->aliasIndex()[$name]) : [];
+        if (count($candidates) !== 1) return null;
+        $canonical = reset($candidates);
+        Log::writeWarning('Resolved tool alias "%s" to canonical tool "%s"', $name, $canonical);
+        return $canonical;
+    }
+
+    /** Index registered class/static callables by their reflected "<Base>_<method>" short alias. */
+    private function aliasIndex()
+    {
+        if ($this->aliases !== null) return $this->aliases;
+        $map = [];
+        foreach ($this->tools as $canonical => $entry) {
+            $reflection = $entry['reflection'];
+            if (!$reflection instanceof \ReflectionMethod) continue;
+            $parts = explode('\\', $reflection->getDeclaringClass()->getName());
+            $base = end($parts);
+            $alias = preg_replace('/[^a-zA-Z0-9_-]/', '_', $base . '_' . $reflection->getName());
+            $map[$alias][] = $canonical;
+        }
+        return $this->aliases = $map;
+    }
 
     private function normalizeArgument($value, \ReflectionParameter $parameter)
     {
@@ -121,25 +177,46 @@ class ToolRegistry
         if (isset(self::$types[$type])) {
             $value = Utilities::cleanup($value, self::$types[$type], $issues);
             if ($issues['errors']) throw new \RuntimeException('Invalid ' . self::$types[$type] . ' tool argument: ' . $parameter->getName());
-        } elseif ($type === 'array' && is_object($value)) $value = (array)$value;
+        } elseif ($type === 'array') {
+            if (is_object($value)) $value = (array)$value;
+            elseif (is_string($value)) {
+                $decoded = json_decode($value, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    Log::writeWarning('Converted JSON string to array for tool argument: %s', $parameter->getName());
+                    $value = $decoded;
+                } else throw new \RuntimeException('Invalid array tool argument: ' . $parameter->getName() . '; use a JSON array/object');
+            } elseif (!is_array($value)) throw new \RuntimeException('Invalid array tool argument: ' . $parameter->getName() . '; use a JSON array/object');
+        }
         return $value;
     }
 
     public function execute(array $call)
     {
         if (empty($call['id'])) throw new \RuntimeException('Tool call has no ID');
-        $name = isset($call['function']['name']) ? $call['function']['name'] : '';
+        $name = isset($call['function']['name']) && is_string($call['function']['name'])
+            ? $call['function']['name'] : '';
         $failed = false;
         $started = microtime(true);
         Log::writeDebug('Tool invocation started', ['id' => $call['id'], 'name' => $name]);
         Log::trace('Tool call', $call);
         Events::emit('tool.start', ['id' => $call['id'], 'name' => $name, 'arguments' => isset($call['function']['arguments']) ? $call['function']['arguments'] : '{}']);
         try {
-            if (!isset($this->tools[$name])) throw new \RuntimeException('Unknown tool: ' . $name);
+            $canonical = $this->resolveToolName($name);
+            if (!$canonical) throw new \RuntimeException('Unknown tool: ' . $name);
+            $name = $canonical;
+            // Data-exit policy enforcement at the tool outbound seam. Inactive
+            // policy preserves current behavior; an active block rejects before
+            // the callable runs, so users cannot bypass it by endpoint choice.
+            DataExitPolicy::enforce(DataExitPolicy::CATEGORY_TOOL);
             $json = isset($call['function']['arguments']) ? $call['function']['arguments'] : '{}';
             $object = json_decode($json);
             if (!is_object($object) || json_last_error() !== JSON_ERROR_NONE) throw new \RuntimeException('Tool arguments must be a JSON object');
             $arguments = (array)$object;
+            if (DataExitPolicy::isActive() && DataExitPolicy::decision(DataExitPolicy::CATEGORY_TOOL) === DataExitPolicy::ACTION_OBFUSCATE) {
+                foreach ($arguments as $key => $value) {
+                    if (is_string($value)) $arguments[$key] = PrivacyTransform::obfuscate($value, DataExitPolicy::CATEGORY_TOOL);
+                }
+            }
             $values = [];
             foreach ($this->tools[$name]['reflection']->getParameters() as $parameter) {
                 $key = $parameter->getName();
@@ -153,7 +230,13 @@ class ToolRegistry
                 else throw new \RuntimeException('Missing tool argument: ' . $key);
                 unset($arguments[$key]);
             }
-            if ($arguments) throw new \RuntimeException('Unknown tool arguments: ' . implode(', ', array_keys($arguments)));
+            if ($arguments) {
+                $accepted = [];
+                foreach ($this->tools[$name]['reflection']->getParameters() as $parameter) {
+                    $accepted[] = $parameter->getName();
+                }
+                throw new \RuntimeException('Unknown tool arguments: ' . implode(', ', array_keys($arguments)) . '; accepted: ' . implode(', ', $accepted));
+            }
             $result = call_user_func_array($this->tools[$name]['callable'], $values);
             // Explicit message payloads retain native content parts; ordinary data stays JSON text.
             if (is_array($result) && isset($result['role']) && $result['role'] === 'tool') {

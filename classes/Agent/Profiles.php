@@ -4,6 +4,7 @@ namespace Agent;
 class Profiles
 {
     const DEFAULT_TASKS = ['embed', 'rerank', 'classify', 'extract', 'generate_titles', 'summarize', 'score'];
+    const TASK_LABELS = ['embed'=>'Embeddings','rerank'=>'Reranking','classify'=>'Classification','extract'=>'Extraction','generate_titles'=>'Conversation titles','summarize'=>'Summaries','score'=>'Benchmark judging'];
 
     /** Explicit task selection only. Pass the current configuration as fallback; otherwise use 'default'. */
     public static function defaultFor($task, $fallback = 'default')
@@ -35,6 +36,20 @@ class Profiles
         if ($profile !== null && !$row) throw new \InvalidArgumentException('Select a saved profile');
         Database::execute('UPDATE profile_defaults SET profileid=? WHERE default_for=?', [$row ? $row['id'] : null, $task]);
         Log::writeSuccess('Task profile default saved', ['default_for' => $task, 'profileid' => $row ? $row['id'] : null]);
+    }
+
+    /** Replace this profile's task assignments, leaving all other assignments intact. */
+    public static function setDefaults($profile, array $tasks)
+    {
+        $row = (new Registry())->profile($profile);
+        if (!$row) throw new \InvalidArgumentException('Select a saved profile');
+        foreach ($tasks as $task) if (!is_string($task) || !in_array($task,self::DEFAULT_TASKS,true)) throw new \InvalidArgumentException('Choose a known task default');
+        State::transaction(function()use($row,$tasks) {
+            Database::rows('SELECT default_for FROM profile_defaults ORDER BY default_for FOR UPDATE');
+            Database::execute('UPDATE profile_defaults SET profileid=NULL WHERE profileid=?',[$row['id']]);
+            foreach (array_unique($tasks) as $task) self::setDefault($task,$row);
+        });
+        Log::writeSuccess('Profile task assignments saved',['profileid'=>$row['id'],'tasks'=>$tasks]);
     }
 
     /** Save either the traditional arguments or a profile row/form payload. Enabling still probes it. */
@@ -85,6 +100,16 @@ class Profiles
         $db->prepare('UPDATE profiles SET ' . implode(', ', $sets) . ', metadata = ?::jsonb, enabled = ?, tested_at = NOW(), updated_at = NOW() WHERE name = ?')->execute($values);
         if (!$working) throw new \RuntimeException('Profile verification failed. Configure a working model endpoint; see the recorded test results.');
         return (new Registry())->profile($name);
+    }
+
+    /** Switch a saved profile on (verifying it first) or off, leaving its configuration alone. */
+    public static function setEnabled($name, $enabled)
+    {
+        $row = (new Registry())->profile($name);
+        if (!$row) throw new \InvalidArgumentException('Unknown profile');
+        if ($enabled) return self::save($row['name'], Config::profile($row), true, (json_decode(is_string($row['metadata']) ? $row['metadata'] : '{}', true) ?: [])['overrides'] ?? []);
+        Database::execute('UPDATE profiles SET enabled = FALSE, updated_at = NOW() WHERE name = ?', [$row['name']]);
+        return (new Registry())->profile($row['name']);
     }
 
     public static function test($config)

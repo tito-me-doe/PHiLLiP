@@ -71,8 +71,29 @@ class AgentCli
                     }
                     break;
                 case 'peek':
-                    $result = Agents::peek($words[0]);
+                    $result = Agents::peek($words[0], isset($options['compact']));
                     break;
+            }
+            if (isset($options['compact'])) {
+                if ($action === 'list') {
+                    $result = array_map(function ($agent) {
+                        $latest = Agents::result($agent['id']);
+                        return ['id' => $agent['id'], 'name' => mb_substr($agent['name'], 0, 160), 'status' => $agent['status'],
+                            'queued' => $agent['queued'], 'assignable' => $agent['assignable'], 'availability' => $agent['availability'],
+                            'latest_run_id' => $latest['run_id'], 'latest_run_status' => $latest['run_id'] === null ? null : $latest['status']];
+                    }, $result);
+                } elseif ($action === 'result') {
+                    foreach (['answer' => 1200, 'error' => 400] as $field => $length) {
+                        if ($result[$field] !== null) $result[$field] = mb_substr($result[$field], 0, $length, 'UTF-8');
+                    }
+                    if ($result['status'] === 'failed') {
+                        $peek = Agents::peek($words[0], true, $result['run_id'] ?? null);
+                        $result['changed_paths'] = array_column($peek['changes'], 'path');
+                        $result['checks'] = $peek['checks'];
+                        $result['tool_errors'] = $peek['tool_errors'];
+                        $result['next'] = 'Inspect the failed run evidence, then assign a follow-up to the same worker.';
+                    }
+                }
             }
             self::output($result);
             $workWaited = $action === 'work' && isset($options['timeout']);
@@ -103,17 +124,17 @@ class AgentCli
         $allowed = [
             'create' => ['persona', 'team', 'profile', 'tools', 'contract', 'workspace'],
             'configure' => ['persona', 'profile', 'tools', 'contract'],
-            'assign' => ['key'], 'message' => [], 'list' => ['team'], 'show' => [],
-            'result' => ['run'], 'wait' => ['run', 'timeout'], 'events' => ['after'],
+            'assign' => ['key'], 'message' => [], 'list' => ['team', 'compact'], 'show' => [],
+            'result' => ['run', 'compact'], 'wait' => ['run', 'timeout'], 'events' => ['after'],
             'pause' => [], 'resume' => [], 'remove' => [], 'stop' => ['team'],
             'approve' => ['file', 'command', 'read', 'patch'], 'revoke' => ['file', 'command', 'read', 'patch'],
             'work' => ['persona', 'profile', 'tools', 'contract', 'team', 'workspace', 'file', 'command', 'key', 'timeout'],
-            'peek' => [], 'help' => []
+            'peek' => ['compact'], 'help' => []
         ];
         $names = ['--persona' => 'persona', '--team' => 'team', '-p' => 'profile', '--profile' => 'profile',
             '-t' => 'tools', '--tool' => 'tools', '-c' => 'contract', '--contract' => 'contract', '--workspace' => 'workspace',
             '--key' => 'key', '--run' => 'run', '--timeout' => 'timeout', '--after' => 'after',
-            '--file' => 'file', '--command' => 'command', '--read' => 'read', '--patch' => 'patch'];
+            '--file' => 'file', '--command' => 'command', '--read' => 'read', '--patch' => 'patch', '--compact' => 'compact'];
         $options = []; $words = []; $literal = false;
         for ($i = 0; $i < count($args); $i++) {
             $argument = $args[$i];
@@ -127,8 +148,9 @@ class AgentCli
             $parts = explode('=', $argument, 2); $option = $parts[0];
             if (!isset($names[$option]) || !in_array($names[$option], $allowed[$action], true)) throw new \InvalidArgumentException('Unsupported option ' . $option . ' for agents ' . $action);
             $name = $names[$option];
-            if ($name === 'read' || $name === 'patch') {
+            if ($name === 'read' || $name === 'patch' || $name === 'compact') {
                 if (isset($parts[1])) throw new \InvalidArgumentException($option . ' does not take a value');
+                if (isset($options[$name])) throw new \InvalidArgumentException('Repeated option ' . $option);
                 $options[$name] = true; continue;
             }
             $value = isset($parts[1]) ? $parts[1] : (isset($args[$i + 1]) && substr($args[$i + 1], 0, 1) !== '-' ? $args[++$i] : null);
@@ -182,9 +204,9 @@ class AgentCli
             . "configure NAME [--persona ID/NAME/JSON] [-p PROFILE] [-t TOOL_CSV] [-c CONTRACT]\n"
             . "assign NAME [TASK] [--key IDEMPOTENCY_KEY]  Queue work; piped input is appended\n"
             . "message NAME [TEXT]                      Send a note between rounds; piped input is appended\n"
-            . "list [--team TEAM]                       List your local workers\n"
+            . "list [--team TEAM] [--compact]           List your local workers\n"
             . "show NAME                               Inspect a worker\n"
-            . "result NAME [--run ID]                   Read latest or specific assignment\n"
+            . "result NAME [--run ID] [--compact]       Read latest or specific assignment\n"
             . "wait NAME [--run ID] [--timeout SECONDS]  Wait up to 30 seconds by default\n"
             . "events NAME [--after ID]                 Read incremental progress\n"
             . "pause NAME | resume NAME                 Control the assignment queue\n"
@@ -194,7 +216,7 @@ class AgentCli
             . "            [--workspace PATH] [--file RELPATH] [--command JSON_ARGV] [--key KEY] [--timeout 0..30]\n"
             . "            Create/reuse, grant explicit access, queue work; piped input is appended\n"
             . "            Repeat --file/--command for grants; --timeout waits for that run\n"
-            . "peek NAME                               Bounded evidence for the active or latest run\n\n"
+            . "peek NAME [--compact]                   Bounded evidence for the active or latest run\n\n"
             . "approve NAME --file RELPATH [--read|--patch]  Grant one file (patch includes read)\n"
             . "approve NAME --command JSON_ARGV         Grant a command's first three words\n\n"
             . "revoke NAME --file RELPATH | --command JSON_ARGV  Remove a workspace grant\n"

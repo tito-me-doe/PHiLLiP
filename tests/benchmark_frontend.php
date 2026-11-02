@@ -42,8 +42,40 @@ try{
     $cliCode=proc_close($cli);rewind($cliOut);$cliJobs=json_decode(stream_get_contents($cliOut),true);rewind($cliErr);$cliLog=stream_get_contents($cliErr);fclose($cliOut);fclose($cliErr);
     check($cliCode===0 && count($cliJobs)===1 && $cliJobs[0]['status']==='completed' && strpos($cliLog,'observing submitted work')!==false,'CLI cooperates with a persistent worker and returns actual final results');
     $raw=$request($base,'/?view=benchmarks&benchmark='.$row['id']);check(strpos($raw['text'],'Raw saved conversation and response')!==false,'Administrator can inspect raw saved question conversations');
-    $editor=$request($base,'/test-suites?edit_test='.$test['id']);check(strpos($editor['text'],'data-question-list')!==false,'Readonly question table loads through its independent permission-checked route');
-    $library=$request($base,'/test-suites');check(strpos($library['text'],'data-test-library')!==false && strpos($library['text'],'data-benchmark-editor')===false,'Test suites open a library rather than a blank editor');
+    $modal=$request($base,'/fragments/dialog?kind=benchmark-run&id='.$row['id']);
+    check($modal['status']===200 && strpos($modal['text'],'Raw saved conversation and response')!==false,'Run details use a PHP-rendered dialog');
+    $metadata=$request($base,'/fragments/dialog?kind=benchmark-metadata&id='.$profile['id']);
+    check($metadata['status']===200 && strpos($metadata['text'],'inspection-json')!==false && strpos($metadata['text'],'benchmark-browser-password')===false,'Raw model metadata has a separate credential-free dialog');
+    foreach (['benchmark-run'=>$row['id'],'benchmark-metadata'=>$profile['id']] as $kind=>$id) check($request($base,'/fragments/dialog?kind='.$kind.'&id='.$id,null,'','user')['status']===403,'Benchmark dialog enforces report permissions: '.$kind);
+    $db->beginTransaction();
+    try {
+        $ranked=[];
+        foreach (['sort-z-fast'=>[.9,2],'sort-a-slow'=>[.9,5],'sort-b-low'=>[.4,.01],'sort-c-zero'=>[0,1],'sort-d-unscored'=>null] as $name=>$ranking) {
+            $candidate=Agent\Profiles::save($name,Agent\Config::profile($profile)); $ranked[]=$candidate['id'];
+            if ($ranking!==null) {
+                $rankRun=Agent\Database::row("INSERT INTO benchmark_runs(testid,profileid,owner_id,status,snapshot,score,elapsed_seconds) SELECT testid,?,owner_id,'completed',snapshot,?,? FROM benchmark_runs WHERE id=? RETURNING id",[$candidate['id'],$ranking[0],$ranking[1],$row['id']]);
+                foreach ([1,2] as $position) Agent\Database::execute("INSERT INTO benchmark_results(benchmark_runid,position,question,status,score,elapsed_seconds) VALUES (?,?,'{}','completed',?,?)",[$rankRun['id'],$position,$ranking[0],$ranking[1]/2]);
+            }
+        }
+        $adapter=new Agent\BenchmarkFrontend($admin);
+        $ranking=array_values(array_filter(array_column($adapter->report($test['id'])['profiles'],'id'),function($id)use($ranked){return in_array($id,$ranked,true);}));
+        check($ranking===$ranked,'Leaderboard sorts score descending, duration ascending, zero scores before unscored profiles, without requiring token metrics');
+        Agent\Database::execute("UPDATE benchmark_runs SET snapshot=jsonb_set(snapshot,'{test,revision}','0') WHERE profileid=?",[$ranked[0]]);
+        $ranking=array_values(array_filter(array_column($adapter->report($test['id'])['profiles'],'id'),function($id)use($ranked){return in_array($id,$ranked,true);}));
+        check($ranking===$ranked,'Old revisions retain scores until rerun');
+        $extra=Agent\Benchmarks::saveTest(['name'=>'aggregation-fixture']);
+        Agent\Benchmarks::saveQuestion($extra['id'],['name'=>'Aggregate question','input'=>['prompt'=>'Return FIXTURE_PASS'],'scoring_type'=>'matches','scoring_criteria'=>'FIXTURE_PASS']);
+        $before=$adapter->report()['profiles'];
+        $before=array_values(array_filter($before,function($p)use($ranked){return $p['id']===$ranked[0];}))[0]['benchmark']['score'];
+        check(abs($before-.9)<.00001,'Adding an unrun test does not invalidate the All-tab score');
+        $aggregateRun=Agent\Database::row("INSERT INTO benchmark_runs(testid,profileid,owner_id,status,snapshot,score,elapsed_seconds) SELECT ?,?,owner_id,'completed',jsonb_set(snapshot,'{questions}','[{}]'::jsonb),0,3 FROM benchmark_runs WHERE id=? RETURNING id",[$extra['id'],$ranked[0],$row['id']]);
+        Agent\Database::execute("INSERT INTO benchmark_results(benchmark_runid,position,question,status,score,elapsed_seconds) VALUES (?,1,'{}','completed',0,3)",[$aggregateRun['id']]);
+        $all=$adapter->report()['profiles'];
+        $combined=array_values(array_filter($all,function($p)use($ranked){return $p['id']===$ranked[0];}))[0]['benchmark'];
+        check(abs($combined['score']-.6)<.00001 && $combined['seen']===3 && $combined['elapsed_seconds']===5.0,'All weights total earned scores by questions seen and sums wall time, not test percentages or token speeds');
+    } finally { $db->rollBack(); }
+    $editor=$request($base,'/benchmarks?test='.$test['id'].'&questions=1');check(strpos($editor['text'],'data-question-list')!==false,'Readonly question editor lives inside Benchmarks');
+    $library=$request($base,'/benchmarks');check(strpos($library['text'],'benchmark-tabs')!==false && strpos($library['text'],'Recent runs')===false && strpos($library['text'],'Queue enabled')===false && $request($base,'/test-suites')['status']===404,'All-tab leaderboard replaces the separate suite page, queue section, and recent runs');
     $definition=Agent\Benchmarks::test($test['id']);
     $save=$request($base,'/',['action'=>'benchmark-save-test','csrf'=>$tokens['admin'],'testid'=>$test['id'],'revision'=>$definition['revision'],'name'=>'Updated browser suite','description'=>'Edited without JavaScript','model_type'=>'chat'],'','admin',true);
     check($save['status']===303 && Agent\Benchmarks::test($test['id'])['name']==='Updated browser suite','Ordinary PHP forms save editor changes and redirect');

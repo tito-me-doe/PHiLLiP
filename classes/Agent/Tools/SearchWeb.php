@@ -3,6 +3,9 @@ namespace Agent\Tools;
 
 class SearchWeb
 {
+    /** Offered only when the service is configured; see Agent\Requirements. */
+    const REQUIRES = ['service:searxng'];
+
     /**
      * Search the web using the configured self-hosted SearXNG service.
      * @param string $query Search terms or question

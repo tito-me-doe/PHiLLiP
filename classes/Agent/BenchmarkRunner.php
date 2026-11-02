@@ -4,12 +4,16 @@ namespace Agent;
 /** One durable queue for CLI/UI. Pause finishes the active question; Stop cancels it. */
 class BenchmarkRunner
 {
-    public static function paused($profileId)
+    const RUNNABLE = "NOT COALESCE((SELECT c.paused FROM benchmark_controls c WHERE c.scope IN ('global','profile:'||r.profileid::text,'test:'||r.testid::text,'profile:'||r.profileid::text||':test:'||r.testid::text) ORDER BY c.version DESC,c.scope DESC LIMIT 1),FALSE)";
+
+    public static function paused($profileId, $testId = null)
     {
-        return (bool)Database::row("SELECT scope FROM benchmark_controls WHERE paused=TRUE AND scope IN ('global',?) LIMIT 1", ['profile:' . (int)$profileId]);
+        $row = Database::row('SELECT paused FROM benchmark_controls WHERE scope IN (?,?,?,?) ORDER BY version DESC,scope DESC LIMIT 1',
+            ['global','profile:'.(int)$profileId,'test:'.(int)$testId,'profile:'.(int)$profileId.':test:'.(int)$testId]);
+        return $row ? (bool)$row['paused'] : false;
     }
 
-    public static function enqueue($profiles = null, $tests = null, $owner = 'benchmark-runner')
+    public static function enqueue($profiles = null, $tests = null, $owner = 'benchmark-runner', $reuse = false)
     {
         $profiles = $profiles === null ? array_column((new Registry())->profiles(), 'id') : self::references($profiles);
         if ($tests === null) {
@@ -25,9 +29,15 @@ class BenchmarkRunner
         } else $tests=self::references($tests);
         if (!$profiles || !$tests) throw new \InvalidArgumentException('Choose at least one profile and test');
         if (count($profiles) * count($tests) > 1000) throw new \InvalidArgumentException('Queue at most 1000 profile/test pairs per request');
-        return State::transaction(function () use ($profiles, $tests, $owner) {
+        return State::transaction(function () use ($profiles, $tests, $owner, $reuse) {
+            Database::row("SELECT scope FROM benchmark_controls WHERE scope='global' FOR UPDATE");
             $jobs = [];
             foreach ($profiles as $profile) foreach ($tests as $test) {
+                if ($reuse) {
+                    $p = (new Registry())->profile($profile); $t = Benchmarks::test($test);
+                    $existing = $p ? Database::row("SELECT id FROM benchmark_runs WHERE profileid=? AND testid=? AND dispatch_mode='queue' AND status IN ('queued','paused','running') ORDER BY id DESC LIMIT 1",[$p['id'],$t['id']]) : null;
+                    if ($existing) continue;
+                }
                 $job = Benchmarks::enqueue($profile, $test, $owner);
                 $kind = $job['snapshot']['test']['model_type'];
                 $capability = ['chat'=>'supports_chat','classify'=>'supports_chat','extract'=>'supports_chat','embed'=>'supports_embeddings','rerank'=>'supports_rerank','vision'=>'supports_vision'][$kind];
@@ -55,16 +65,18 @@ class BenchmarkRunner
         return array_values($result);
     }
 
-    public static function control($action, $profileId = null)
+    public static function control($action, $profileId = null, $testId = null)
     {
         if (!in_array($action, ['pause','resume','stop'], true)) throw new \InvalidArgumentException('Unknown benchmark control');
         if ($profileId !== null && !(new Registry())->profile(['id'=>$profileId])) throw new \InvalidArgumentException('Profile not found');
-        return State::transaction(function () use ($action, $profileId) {
-            $scope = $profileId === null ? 'global' : 'profile:' . (int)$profileId;
+        if ($testId !== null) Benchmarks::test($testId);
+        return State::transaction(function () use ($action, $profileId, $testId) {
+            Database::row("SELECT scope FROM benchmark_controls WHERE scope='global' FOR UPDATE");
+            $scope = $profileId === null ? ($testId === null ? 'global' : 'test:'.(int)$testId) : 'profile:'.(int)$profileId.($testId === null ? '' : ':test:'.(int)$testId);
             Database::execute('INSERT INTO benchmark_controls(scope) VALUES (?) ON CONFLICT DO NOTHING', [$scope]);
             Database::row('SELECT scope FROM benchmark_controls WHERE scope=? FOR UPDATE', [$scope]);
-            Database::execute('UPDATE benchmark_controls SET paused=? WHERE scope=?', [$action !== 'resume' ? 'true' : 'false', $scope]);
-            $where = $profileId === null ? '' : ' AND profileid=' . (int)$profileId;
+            Database::execute("UPDATE benchmark_controls SET paused=?,version=nextval('benchmark_control_revision') WHERE scope=?", [$action !== 'resume' ? 'true' : 'false', $scope]);
+            $where = ($profileId === null ? '' : ' AND profileid='.(int)$profileId).($testId === null ? '' : ' AND testid='.(int)$testId);
             if ($action === 'resume') Database::execute("UPDATE benchmark_runs SET status='queued',worker_pid=NULL WHERE status='paused'" . $where);
             if ($action === 'stop') {
                 $rows = Database::rows("UPDATE benchmark_runs SET status='stopped',error='Stopped by operator',finished_at=NOW() WHERE status IN ('queued','paused','running')" . $where . ' RETURNING id');
@@ -74,7 +86,7 @@ class BenchmarkRunner
                 }
                 foreach ($rows as $row) Database::execute("UPDATE benchmark_results SET status='stopped',score=0,error='Stopped by operator' WHERE benchmark_runid=? AND status='running'", [$row['id']]);
             }
-            Log::writeSuccess('Benchmark control applied', ['action'=>$action,'profileid'=>$profileId]);
+            Log::writeSuccess('Benchmark control applied', ['action'=>$action,'profileid'=>$profileId,'testid'=>$testId]);
             return ['action'=>$action,'scope'=>$scope];
         });
     }
@@ -106,8 +118,7 @@ class BenchmarkRunner
             do {
                 if ($cancel && call_user_func($cancel)) break;
                 if (time()-$lastRecovery >= 10) { self::recover(); $lastRecovery=time(); }
-                $next = Database::row("SELECT r.id FROM benchmark_runs r WHERE r.status='queued' AND r.dispatch_mode='queue'
-                    AND NOT EXISTS(SELECT 1 FROM benchmark_controls c WHERE c.paused AND c.scope IN ('global','profile:'||r.profileid::text)) ORDER BY r.id LIMIT 1");
+                $next = Database::row("SELECT r.id FROM benchmark_runs r WHERE r.status='queued' AND r.dispatch_mode='queue' AND ".self::RUNNABLE.' ORDER BY r.id LIMIT 1');
                 if ($next) {
                     try { $summaries[] = Benchmarks::summary(Benchmarks::execute($next['id'], $cancel)); }
                     catch (\Throwable $e) { Log::writeError('Benchmark dispatch failed', $e->getMessage()); if (!$worker) throw $e; }
@@ -137,7 +148,7 @@ class BenchmarkRunner
                 $watch=$queued?:Database::rows("SELECT id FROM benchmark_runs WHERE dispatch_mode='queue' AND status IN ('queued','running','paused')");
                 $ids=array_column($watch,'id');$retryAt=microtime(true)+2;
                 while($ids && !$cancel()) {
-                    $pending=Database::row("SELECT r.id FROM benchmark_runs r WHERE r.id IN (".implode(',',array_fill(0,count($ids),'?')).") AND (r.status='running' OR (r.status='queued' AND NOT EXISTS(SELECT 1 FROM benchmark_controls c WHERE c.paused AND c.scope IN ('global','profile:'||r.profileid::text)))) LIMIT 1",$ids);
+                    $pending=Database::row("SELECT r.id FROM benchmark_runs r WHERE r.id IN (".implode(',',array_fill(0,count($ids),'?')).") AND (r.status='running' OR (r.status='queued' AND ".self::RUNNABLE.")) LIMIT 1",$ids);
                     if(!$pending)break;
                     usleep(250000);
                     if(microtime(true)>=$retryAt) {

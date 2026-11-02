@@ -29,6 +29,18 @@ try {
     check(!Agent\Pages::allowed('old-user','parsers'),'Previously disabled routes migrate to absent grants for ordinary users');
     check(Agent\Pages::allowed('old-admin','parsers'),'Administrators can access routes regardless of missing grants');
     check(!array_intersect(['enabled','in_navigation'],array_keys(Agent\Pages::get('models'))),'Upgrade removes bespoke route flags');
+    Agent\Identity::grant('user','old-user','page.services');
+    Agent\Identity::grant('user','old-user','page.parsers');
+    Agent\Database::execute("INSERT INTO pages(id,title,path,handler) VALUES ('service-alias','Service alias','/service-alias','services')");
+    $db->exec(file_get_contents(dirname(__DIR__).'/database/031_settings_organization.sql'));
+    check(Agent\Pages::allowed('old-user','tools-services'),'Consolidation preserves old service/parser administration access');
+    check(count(Agent\Mappings::rows('permissions',['scope_type'=>'user','scope_id'=>'old-user','tool'=>'page.tools-services']))===1,'Overlapping old grants merge without duplication');
+    check(!Agent\Database::rows("SELECT * FROM pages WHERE id IN ('services','parsers')") && !Agent\Database::rows("SELECT * FROM permissions WHERE resource IN ('page.services','page.parsers')"),'Removed pages leave no dangling page grants');
+    check(Agent\Pages::get('service-alias')['handler']==='tools-services','Existing route aliases point to the consolidated handler');
+    Agent\Identity::grant('user','old-user','page.test-suites');
+    $db->exec(file_get_contents(dirname(__DIR__).'/database/032_benchmark_tabs.sql'));
+    check(Agent\Pages::allowed('old-user','benchmarks') && !Agent\Database::row("SELECT id FROM pages WHERE id='test-suites'"),'Test editing migrates into the Benchmarks page and permission');
+    check(!Agent\Database::rows("SELECT * FROM permissions WHERE resource='page.test-suites'"),'Consolidated test editing leaves no dangling suite grants');
 } finally {
     $db->rollBack(); // Disposable schema and every fixture row were created inside this transaction.
 }

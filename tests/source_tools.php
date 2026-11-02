@@ -96,6 +96,23 @@ try {
     mkdir($root . '/more', 0700); file_put_contents($root . '/more/long.txt.copy', 'copy');
     try { expectException(function () { Source::read('long.txt.copy'); }, 'Ambiguous'); }
     finally { unlink($root . '/src/long.txt.copy'); unlink($root . '/more/long.txt.copy'); rmdir($root . '/more'); }
+    // Rejected Source paths carry concrete guidance on the workspace-relative format without listing denied or private names.
+    try { Source::read('../escape'); } catch (Throwable $error) {
+        check(strpos($error->getMessage(), 'workspace-relative') !== false, 'Parent-segment rejection names the workspace-relative format');
+    }
+    try { Source::read('/etc/passwd'); } catch (Throwable $error) {
+        check(strpos($error->getMessage(), 'workspace-relative') !== false, 'Absolute-path rejection names the workspace-relative format');
+    }
+    try { Source::read('src\\example.php'); } catch (Throwable $error) {
+        check(strpos($error->getMessage(), 'forward slashes') !== false && strpos($error->getMessage(), 'backslashes') !== false, 'Backslash rejection names the allowed path separator');
+    }
+    try { Source::read('config/secret.txt'); } catch (Throwable $error) {
+        check(stripos($error->getMessage(), 'secret') === false, 'Private-path rejection does not reveal the denied file name');
+    }
+    // Source.files recovery: a non-directory root points at a workspace-relative directory path.
+    try { Source::files('src/example.php'); } catch (Throwable $error) {
+        check(strpos($error->getMessage(), 'directory') !== false && strpos($error->getMessage(), 'workspace-relative') !== false, 'File-as-listing-root offers workspace-relative directory recovery');
+    }
 } finally {
     chdir($previous);
     foreach (array_reverse($files) as $path) if (is_link($root . '/' . $path) || is_file($root . '/' . $path)) unlink($root . '/' . $path);

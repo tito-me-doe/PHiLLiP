@@ -10,7 +10,13 @@ class PersonaCli
         try {
             $command = $args ? array_shift($args) : 'help';
             if (in_array($command, ['help', '--help', '-h'], true)) { Terminal::write(self::help(), 'stdout'); return 0; }
-            if (!in_array($command, ['list', 'show', 'save', 'delete'], true)) throw new \InvalidArgumentException('Unknown personas command; use ok-phill personas --help');
+            if (!in_array($command, ['list', 'show', 'save', 'delete', 'install', 'adult'], true)) throw new \InvalidArgumentException('Unknown personas command; use ok-phill personas --help');
+            if ($command === 'install' || $command === 'adult') {
+                $result = self::manage($command, $args);
+                Terminal::write(json_encode($result, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) . "\n", 'stdout');
+                Log::writeSuccess('Persona %s completed', $command);
+                return 0;
+            }
             $expected = $command === 'list' ? 0 : 1;
             $id = null;
             if ($command === 'save' && count($args) === 3 && $args[1] === '--id') {
@@ -47,8 +53,25 @@ class PersonaCli
         }
     }
 
+    /** Installation-level commands: install the shipped cast, and read or change whether adult-oriented personas are available. */
+    private static function manage($command, array $args)
+    {
+        $identity = Cli::identity();
+        if (!empty($identity['unix']['root']) || !isset($identity['unix']['uid'])) throw new \RuntimeException('Root or unidentified processes cannot manage personas; run as an unprivileged Unix user');
+        if ($command === 'install') {
+            if ($args && $args !== ['--replace']) throw new \InvalidArgumentException('Usage: ok-phill personas install [--replace]');
+            return PersonaSheet::install($args === ['--replace']);
+        }
+        if (count($args) !== 1 || !in_array($args[0], ['on', 'off', 'status'], true)) throw new \InvalidArgumentException('Usage: ok-phill personas adult on|off|status');
+        if ($args[0] !== 'status') {
+            if (empty($identity['user']['is_admin'])) throw new \RuntimeException('Only an administrator can change this');
+            Personas::setAdultEnabled($args[0] === 'on', $identity['user']['id']);
+        }
+        return ['adult_personas' => Personas::adultEnabled()];
+    }
+
     public static function help()
     {
-        return "Usage: ok-phill personas COMMAND\n\nlist                         List visible saved personas\nshow ID_OR_NAME              Show one visible persona\nsave JSON_OR_- [--id ID]     Create or update; - reads up to 1 MiB from stdin\ndelete ID_OR_NAME            Delete an editable persona\n\nDefinitions use name, prompt, optional tools and contract. Omitted update fields are preserved.\nNames must resolve uniquely among visible personas; use an ID if ambiguous.\nResults are JSON on stdout; diagnostics use stderr. Exit codes: 0 success, 1 access/runtime, 2 invalid input.\nUnmapped Unix users own private personas only. Root can read, but cannot modify personas.\n--debug and --verbose use the common CLI logging switches.\n";
+        return "Usage: ok-phill personas COMMAND\n\nlist                         List visible saved personas\nshow ID_OR_NAME              Show one visible persona\nsave JSON_OR_- [--id ID]     Create or update; - reads up to 1 MiB from stdin\ndelete ID_OR_NAME            Delete an editable persona\ninstall [--replace]          Install the shipped persona cast (--replace restores shipped sheets)\nadult on|off|status          Whether adult-oriented personas are available (administrators)\n\nDefinitions use name, prompt, optional tools and contract. Omitted update fields are preserved.\nNames must resolve uniquely among visible personas; use an ID if ambiguous.\nResults are JSON on stdout; diagnostics use stderr. Exit codes: 0 success, 1 access/runtime, 2 invalid input.\nUnmapped Unix users own private personas only. Root can read, but cannot modify personas.\n--debug and --verbose use the common CLI logging switches.\n";
     }
 }

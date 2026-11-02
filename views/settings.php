@@ -2,7 +2,7 @@
 // Compatibility fragment for older clients; each concept has its own view and route.
 $page = Agent\Pages::current([
     'view' => 'settings',
-    'tab' => isset($tab) ? $tab : 'appearance'
+    'tab' => isset($tab) ? $tab : 'personas'
 ]);
 Agent\Pages::authorize($state['user']['id'], $page);
 echo Agent\Views::render('page-header', [

@@ -3,7 +3,7 @@ require __DIR__ . '/helpers.php';
 use Agent\DatabaseResearch;
 use Agent\Tools\SQL;
 
-$registry = new Agent\ToolRegistry(); $registry->register(SQL::class);
+$registry = new Agent\ToolRegistry(true); $registry->register(SQL::class); // reflect the tool whether or not the research service is configured
 check(count($registry->definitions()) === 4, 'SQL exposes only four documented research tools');
 Agent\ToolContext::withValues(['frontend' => true], function () {
     expectException(function () { SQL::tables(); }, 'local CLI');

@@ -21,6 +21,33 @@
     lastText = 0,
     timer,
     thinking = false;
+  // Neutral lines for a persona that defines none of its own; shipped characters speak in their own voices.
+  const defaults = {
+    resting: "Right here with you.",
+    thinking: "Mulling it over…",
+    talking: "Thinking out loud…",
+    happy: "Oh, I like this!",
+    sad: "I’m here with you.",
+    angry: "Let’s sort this out.",
+    surprised: "Well, would you look at that!",
+    love: "A little warmth goes a long way.",
+    wink: "Between you and me…",
+    eyeroll: "Well… that happened.",
+    cool: "All in a day’s work.",
+    party: "A small victory deserves a celebration!",
+    sleepy: "Just resting for a moment.",
+    confused: "Let me think about that.",
+    bsod: "Something broke. Rebooting…",
+  };
+  const lines = () => {
+    let own = {};
+    try {
+      own = JSON.parse(document.querySelector(".chat-companion")?.dataset.reactions || "{}");
+    } catch (error) {
+      own = {};
+    }
+    return { ...defaults, ...own };
+  };
   const paint = () => {
     document.querySelectorAll(".avatar").forEach((node) => {
       classes.forEach((name) =>
@@ -33,26 +60,44 @@
     const companion = document.querySelector(".chat-companion");
     if (!companion) return;
     companion.classList.toggle("reacting", Boolean(emotion));
+    const say = lines();
     companion.querySelector(".companion-bubble").textContent =
-      {
-        bsod: "Thought overflow. Rebooting…",
-        happy: "Oh, I like this!",
-        sad: "I’m here with you.",
-        angry: "Let’s sort this out.",
-        surprised: "Well, would you look at that!",
-        love: "A little warmth goes a long way.",
-        wink: "Between you and me…",
-        eyeroll: "Well… that happened.",
-        cool: "All in a day’s work.",
-        party: "A small victory deserves a celebration!",
-        sleepy: "Just resting my pixels.",
-        confused: "Let me tilt my head at that.",
-      }[emotion] || "Right here with you.";
+      say[emotion] || say.resting;
     companion.querySelector(".companion-status").textContent = A.avatarTalking
-      ? "Thinking out loud…"
+      ? say.talking
       : thinking
-        ? "Mulling it over…"
-        : "PHiLLiP";
+        ? say.thinking
+        : companion.dataset.name || "PHiLLiP";
+  };
+  // The companion is whoever the person is talking to: their avatar and name follow the conversation's persona.
+  A.setCompanion = async (settings = {}) => {
+    const companion = document.querySelector(".chat-companion");
+    if (!companion) return;
+    const name = (settings && settings.assistant_name) || "PHiLLiP";
+    const avatar = /^[a-z][a-z0-9-]*$/.test((settings && settings.avatar) || "")
+      ? settings.avatar
+      : "terminal";
+    companion.dataset.name = name;
+    companion.dataset.reactions = JSON.stringify((settings && settings.reactions) || {});
+    companion.setAttribute("aria-label", name + " companion");
+    companion
+      .querySelector(".companion-character")
+      ?.setAttribute("aria-label", "Say hello to " + name);
+    const node = companion.querySelector(".avatar");
+    if (node && node.dataset.avatar !== avatar) {
+      try {
+        const response = await fetch(`${A.base || ""}/assets/avatars/${avatar}.svg`, {
+          credentials: "same-origin",
+        });
+        if (response.ok) {
+          node.innerHTML = await response.text();
+          node.dataset.avatar = avatar;
+        }
+      } catch (error) {
+        /* keep the current avatar */
+      }
+    }
+    paint();
   };
   A.setTalking = (active) => {
     A.avatarTalking = Boolean(active);

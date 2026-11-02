@@ -15,7 +15,7 @@
       const dialog = link.closest("dialog");
       if (!dialog) return;
       event.preventDefault();
-      dialog.close();
+      if (!PHiLLiP.closeDialog()) return;
       return;
     }
     event.preventDefault();

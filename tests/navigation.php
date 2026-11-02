@@ -21,6 +21,23 @@ try {
     check(count(Agent\Identity::teams($alice))===3,'Membership is additive and Everyone is implicit');
     check(!Agent\Access::inTeam('missing-user','0'),'Everyone does not authenticate an unknown identity');
     check($admin['is_admin'] && $admin['is_developer'],'Initial identity is hydrated with both operator roles');
+    check(Agent\Pages::get('access')['title']==='Users & Groups' && Agent\Pages::get('models')['title']==='Models & Profiles','Page names describe their focused concepts');
+    check(!Agent\Database::rows("SELECT id FROM pages WHERE id IN ('services','parsers')"),'Services and attachment parsing are sections, not separate pages');
+    foreach (['/services','/attachment-parsers'] as $path) check($web->request($path)['status']===404,'Removed page route is absent: '.$path);
+    $toolsHtml = $web->request('/tools-services')['text'];
+    check(strpos($toolsHtml,'id="tools"')!==false && strpos($toolsHtml,'id="attachment-parsing"')!==false && strpos($toolsHtml,'id="services"')!==false,'Tools & Services renders all three sections server-side');
+    check(strpos($web->request('/access')['text'],'id="access-grants"')===false,'Users & Groups has no Permissions section');
+    $modelHtml=$web->request('/models')['text'];
+    check(strpos($modelHtml,'<th>DEFAULT FOR</th>')!==false && strpos($modelHtml,'id="task-defaults"')===false && strpos($modelHtml,'Missing profile: Embeddings')!==false,'Profiles table owns task assignments and reports missing embedding dependencies');
+    $defaults=$web->request('/api/admin/profile-defaults',['profileid'=>$profile['id'],'tasks'=>['generate_titles','summarize']]);
+    check($defaults['status']===200 && Agent\Profiles::assignment('generate_titles')['id']===$profile['id'],'Profile defaults endpoint assigns multiple tasks together');
+    $specialist=Agent\Profiles::save('assignment-fixture',['url'=>$engine.'/v1/chat/completions','model'=>'onboarding-chat']);
+    Agent\Profiles::setDefaults(['id'=>$specialist['id']],['summarize']);
+    Agent\Profiles::setDefaults(['id'=>$profile['id']],[]);
+    check(Agent\Profiles::assignment('generate_titles')===null && Agent\Profiles::assignment('summarize')['id']===$specialist['id'],'Unchecking profile defaults clears only that profile, preserving assignments elsewhere');
+    check($web->request('/api/admin/profile-defaults',['profileid'=>$profile['id'],'tasks'=>['not-a-task']])['status']===400 && Agent\Profiles::assignment('summarize')['id']===$specialist['id'],'Invalid task selection cannot partially mutate assignments');
+    Agent\Profiles::setDefaults(['id'=>$specialist['id']],[]);
+    Agent\Database::execute('DELETE FROM profiles WHERE id=?',[$specialist['id']]);
     check(array_column(Agent\Pages::permitted($alice),'id')===['conversations'],'Everyone grants only chat, not other pages');
     check(count(Agent\Mappings::rows('permissions',['scope_type'=>'team','scope_id'=>'0']))===5,'Everyone starts with exactly chat and four web/memory tool grants');
     foreach (['SearchWeb','Fetch','BrowseWeb','Memory'] as $tool) check(Agent\Access::tool($alice,'Agent\\Tools\\'.$tool),'Default web/memory tool: '.$tool);
@@ -64,6 +81,24 @@ try {
     $manage->action('memberships',['user_id'=>$bob,'group_id'=>'engineering']);
 
     Agent\Identity::grant('user',$alice,'page.access');
+    check($web->request('/api/manage/tools',['resource'=>'Agent\\Tools\\Tasks','allowed_groups'=>['engineering']],'alice')['status']===403,'User management alone cannot grant tool access');
+    check($web->request('/api/manage/permissions',['scope'=>'user:'.$alice,'resource'=>'page.models'],'alice')['status']===403,'User management alone cannot grant page access');
+    Agent\Identity::grant('user',$alice,'page.tools-services');
+    check($web->request('/api/admin/services',null,'alice')['status']===200 && $web->request('/api/admin/attachment-parsers',null,'alice')['status']===200,'Unified page permission governs service and parser APIs');
+    check($web->request('/api/manage/tools',['resource'=>'page.models','allowed_users'=>[$alice]],'alice')['status']===400,'Tool editor cannot mutate page permissions');
+    check($web->request('/api/manage/permissions',['scope'=>'user:'.$alice,'resource'=>'page.models'],'alice')['status']===403,'Tool administration cannot grant navigation access');
+    $manage->action('tools',['resource'=>'Agent\\Tools\\Tasks','allowed_users'=>[$bob],'allowed_groups'=>['engineering']]);
+    check(Agent\Access::tool($bob,'Agent\\Tools\\Tasks') && Agent\Access::tool($alice,'Agent\\Tools\\Tasks'),'Tool editor grants users and groups through the common table');
+    $manage->action('tools',['resource'=>'Agent\\Tools\\Tasks','allowed_users'=>[],'allowed_groups'=>[]]);
+    check(!Agent\Access::tool($bob,'Agent\\Tools\\Tasks') && Agent\Access::tool($admin['id'],'Agent\\Tools\\Tasks'),'Clearing tool grants revokes ordinary access but preserves implicit administrator access');
+    $toolForm = $web->request('/tools-services?edit=tools&resource='.rawurlencode('Agent\\Tools\\Tasks'));
+    check($toolForm['status']===200 && strpos($toolForm['text'],'name="allowed_groups[]"')!==false,'Tool permissions have a PHP-rendered editor without JavaScript');
+    $native=$web->request('/tools-services',['action'=>'save-parsers','csrf'=>$web->tokens['admin'],'parsers'=>'{"text/plain":"default"}'],'admin',true);
+    check($native['status']===303 && Agent\AttachmentParser::configuration()['text/plain']==='default','Parser settings save through ordinary PHP forms');
+    $web->request('/tools-services',['action'=>'save-parsers','csrf'=>$web->tokens['admin'],'parsers'=>'{}'],'admin',true);
+    $services=['searxng'=>['url'=>'http://127.0.0.1:8888'],'camoufox'=>['url'=>'http://127.0.0.1:3000']];
+    $native=$web->request('/tools-services',['action'=>'save-services','csrf'=>$web->tokens['admin'],'services'=>json_encode($services)],'admin',true);
+    check($native['status']===303 && Agent\Config::service('searxng')['url']===$services['searxng']['url'],'Service configuration saves through ordinary PHP forms');
     check($web->request('/api/manage/users',['username'=>'delegated-member','display_name'=>'Delegated member','password'=>'phillip-demo','groups'=>['engineering','finance']],'alice')['status']===200,'Combined access management supports multi-group user creation');
     check($web->request('/api/manage/users',['username'=>'escalation','display_name'=>'Escalation','password'=>'phillip-demo','groups'=>['1']],'alice')['status']===403,'Group selection cannot bypass administrator-account protections');
     check($web->request('/api/manage/users',['id'=>$admin['id'],'username'=>'admin','display_name'=>'Stolen','password'=>'stolen-password-10'],'alice')['status']===403,'Delegated access managers cannot reset administrator accounts');
@@ -106,6 +141,9 @@ try {
     $manage->action('navigation',array_replace(Agent\Pages::get('models'),['allowed_groups'=>['finance'],'allowed_users'=>[]]));
     check($web->request('/local-models',null,'bob')['status']===403,'Removing a direct route grant takes effect immediately');
     check(!array_intersect(['enabled','in_navigation','default_access','section','position'],array_keys(Agent\Pages::get('models'))),'Page records contain no parallel visibility or authorization flags');
+    $native=$web->request('/local-models',['action'=>'profile-defaults','csrf'=>$web->tokens['admin'],'profileid'=>$profile['id'],'tasks'=>['generate_titles']],'admin',true);
+    check($native['status']===303 && Agent\Profiles::assignment('generate_titles')['id']===$profile['id'],'Profile task assignments save without JavaScript through edited database routes');
+    Agent\Profiles::setDefaults(['id'=>$profile['id']],[]);
     $form = $web->request('/access',['action'=>'manage-groups','csrf'=>$web->tokens['admin'],'name'=>'No JavaScript group'],'admin',true);
     check($form['status']===303 && Agent\Mappings::rows('teams',['name'=>'No JavaScript group']),'Ordinary PHP editor forms work without JavaScript');
 
@@ -121,6 +159,7 @@ try {
     check(proc_close($process)===0,'Existing project frontend boundaries still work');
 
     if (in_array('--browser',$argv,true)) {
+        $manage->action('navigation',array_replace(Agent\Pages::get('models'),['title'=>'Models & Profiles']));
         $web->launch([PHP_BINARY,dirname(__DIR__).'/bin/phill-worker']);
         $browser=$web->launch(['python3',__DIR__.'/ui_organization.py',$web->base],true);
         check(proc_close($browser)===0,'Combined access management and sidebar browser workflow');

@@ -105,11 +105,21 @@ try {
     $frontend=new Agent\BenchmarkFrontend($admin);
     $data=$frontend->report($suite['id']);
     check(count($data['profiles'])===1 && !isset($data['profiles'][0]['config']) && count($data['points'])===1,'Report lists profiles and measured results without private config');
-    $front=Agent\BenchmarkFrontend::frontier([['speed'=>5,'score'=>.7],['speed'=>10,'score'=>.7],['speed'=>8,'score'=>.9]]);
+    $front=Agent\BenchmarkFrontend::frontier([['elapsed_seconds'=>5,'score'=>.7],['elapsed_seconds'=>10,'score'=>.7],['elapsed_seconds'=>8,'score'=>.9]]);
     check(count($front)===2,'Pareto frontier excludes dominated points');
     $state=['user'=>$admin,'csrf'=>str_repeat('a',32)];
     $html=Agent\Views::render('benchmarks',['state'=>$state]);
-    check(strpos($html,'Speed versus score')!==false && strpos($html,'benchmark-play')!==false && strpos($html,'Raw metadata')!==false,'PHP report renders chart, controls, and metadata immediately');
+    check(strpos($html,'Wall time versus score')!==false && strpos($html,'benchmark-play')!==false && strpos($html,'Raw metadata')!==false,'PHP report renders wall-time chart, controls, and metadata immediately');
+
+    // Controls follow the work: idle offers Play; running or queued work offers Pause; paused work offers Play and Stop.
+    $controls=function()use($state){$html=Agent\Views::render('benchmarks',['state'=>$state]);preg_match_all('/data-benchmark-control="(play|pause|stop)"/',$html,$m);return $m[1];};
+    check($controls()===['play'],'An idle benchmark offers only Play');
+    Agent\BenchmarkRunner::enqueue('default',[$suite['id']],'fixture-owner');
+    check($controls()===['pause'],'Queued work offers only Pause');
+    Agent\BenchmarkRunner::control('pause');
+    check($controls()===['play','stop'],'Paused work offers Play and Stop');
+    Agent\BenchmarkRunner::control('stop'); Agent\BenchmarkRunner::control('resume');
+    check($controls()===['play'],'Stopped work leaves only Play');
 
     $created=$frontend->action('save-test',['name'=>'Editor test','description'=>'Test editor fixture','model_type'=>'chat']);
     $definition=Agent\Benchmarks::test($created['testid']);
@@ -117,8 +127,8 @@ try {
     $changed=Agent\Benchmarks::test($definition['id']);
     check(count($changed['questions'])===1 && $changed['revision']==$definition['revision']+1,'Editor shares JSON contracts and increments test revisions');
     expectException(function()use($definition){Agent\Benchmarks::saveQuestion($definition['id'],['name'=>'Stale','input'=>['prompt'=>'x'],'scoring_type'=>'matches','scoring_criteria'=>'x'],null,$definition['revision']);},'Test changed');
-    $_GET=['edit_test'=>$changed['id']];
-    $editor=Agent\Views::render('test-suites',['state'=>$state]);
+    $_GET=['test'=>$changed['id']];
+    $editor=Agent\Views::render('benchmark-questions',['state'=>$state]);
     check(strpos($editor,'data-question-list')!==false && strpos($editor,'data-dialog="benchmark-question"')!==false,'Questions are read-only rows with modal editor links');
     $_GET=['test'=>(string)$changed['id'],'question'=>(string)$changed['questions'][0]['id']];
     $form=Agent\Views::render('benchmark-form',['state'=>$state,'kind'=>'benchmark-question']);
@@ -132,6 +142,26 @@ try {
     $frontend->action('play',['profileid'=>$profile['id']]);
     check(Agent\BenchmarkRunner::paused(null),'Per-profile Play does not resume unrelated globally paused work');
     check(!Agent\Database::row('SELECT id FROM benchmark_runs WHERE testid=?',[$changed['id']]),'Implicit queue skips empty draft suites without blocking valid tests');
+    Agent\BenchmarkRunner::control('stop');Agent\BenchmarkRunner::control('resume');
+    $second=Agent\Profiles::save('scope-second',$config);
+    $secondTest=Agent\Benchmarks::saveTest(['name'=>'scope-second-test']);
+    Agent\Benchmarks::saveQuestion($secondTest['id'],['name'=>'Scoped question','input'=>['prompt'=>'Return FIXTURE_PASS'],'scoring_type'=>'matches','scoring_criteria'=>'FIXTURE_PASS']);
+    $batch=Agent\BenchmarkRunner::enqueue([$profile['id'],$second['id']],[$suite['id'],$secondTest['id']],'fixture-owner');
+    Agent\BenchmarkRunner::control('pause');
+    Agent\BenchmarkRunner::control('resume',null,$suite['id']);
+    check(!Agent\BenchmarkRunner::paused($profile['id'],$suite['id']) && !Agent\BenchmarkRunner::paused($second['id'],$suite['id']) && Agent\BenchmarkRunner::paused($profile['id'],$secondTest['id']),'Resuming one test overrides an earlier global pause only for that tab');
+    Agent\BenchmarkRunner::control('pause',$profile['id'],$suite['id']);
+    check(Agent\BenchmarkRunner::paused($profile['id'],$suite['id']) && !Agent\BenchmarkRunner::paused($second['id'],$suite['id']),'Profile row pause targets only its selected profile/test pair');
+    $runnable=Agent\Database::rows("SELECT r.id FROM benchmark_runs r WHERE r.status='queued' AND ".Agent\BenchmarkRunner::RUNNABLE);
+    check(count($runnable)===1,'Worker dispatch uses the exact same scoped pause policy');
+    Agent\BenchmarkRunner::control('stop',$second['id'],$suite['id']);
+    check(Agent\Benchmarks::get($batch[2]['id'])['status']==='stopped' && Agent\Benchmarks::get($batch[3]['id'])['status']==='queued','Scoped Stop does not cancel other tests for that profile');
+    $frontend->action('play',['profileid'=>$second['id'],'testid'=>$suite['id']]);
+    $count=Agent\Database::row('SELECT COUNT(*) AS count FROM benchmark_runs')['count'];
+    $frontend->action('play',['profileid'=>$second['id'],'testid'=>$suite['id']]);
+    check(Agent\Database::row('SELECT COUNT(*) AS count FROM benchmark_runs')['count']===$count && Agent\BenchmarkRunner::paused($second['id'],$secondTest['id']),'Repeated scoped Play reuses unfinished work and leaves other tabs paused');
+    Agent\BenchmarkRunner::control('resume');
+    check(!Agent\BenchmarkRunner::paused($profile['id'],$suite['id']) && !Agent\BenchmarkRunner::paused($second['id'],$secondTest['id']),'All-tab resume clears earlier narrower pauses without discarding runs');
     Agent\BenchmarkRunner::control('stop');Agent\BenchmarkRunner::control('resume');
 } finally {
     if(is_resource($process)){proc_terminate($process);proc_close($process);}

@@ -23,11 +23,22 @@ if (strpos($path, '/assets/') === 0) {
     $assetRoot = realpath(__DIR__ . '/public/assets');
     $file = realpath(__DIR__ . '/public' . $path);
     if ($assetRoot && $file && strpos($file, $assetRoot . DIRECTORY_SEPARATOR) === 0 && is_file($file)) {
-        $types = ['js' => 'text/javascript; charset=utf-8', 'css' => 'text/css; charset=utf-8', 'svg' => 'image/svg+xml',
-            'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif',
-            'webp' => 'image/webp', 'avif' => 'image/avif', 'ico' => 'image/x-icon',
-            'mp3' => 'audio/mpeg', 'ogg' => 'audio/ogg', 'wav' => 'audio/wav'];
-        $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+        $types = [
+            'js'   => 'text/javascript; charset=utf-8',
+            'css'  => 'text/css; charset=utf-8',
+            'svg'  => 'image/svg+xml',
+            'png'  => 'image/png',
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif'  => 'image/gif',
+            'webp' => 'image/webp',
+            'avif' => 'image/avif',
+            'ico'  => 'image/x-icon',
+            'mp3'  => 'audio/mpeg',
+            'ogg'  => 'audio/ogg',
+            'wav'  => 'audio/wav'
+        ];
+        $extension  = strtolower(pathinfo($file, PATHINFO_EXTENSION));
         $sourceName = preg_match('/\\.(?:php[0-9]*|phtml|phar|inc|bak|old|orig|backup|swp|save|tmp)(?:\\.|$)/i', $path . '/' . basename($file));
         foreach (explode(DIRECTORY_SEPARATOR, substr($file, strlen($assetRoot) + 1)) as $segment) {
             if ($segment !== '' && $segment[0] === '.') $sourceName = true;
@@ -64,13 +75,19 @@ if ($path === '/' || $route) {
                 if (\Agent\Onboarding::pending()) throw new \RuntimeException('Finish setup first');
                 \Agent\Administration::form($state);
             }
-            elseif (isset($_POST['action']) && strpos($_POST['action'], 'benchmark-') === 0) { if (\Agent\Onboarding::pending()) throw new \RuntimeException('Finish setup first'); \Agent\BenchmarkFrontend::form($state); }
+            elseif (isset($_POST['action']) && strpos($_POST['action'], 'benchmark-') === 0) {
+                if (\Agent\Onboarding::pending()) throw new \RuntimeException('Finish setup first');
+                \Agent\BenchmarkFrontend::form($state);
+            }
             elseif (isset($_POST['action']) && strpos($_POST['action'], 'project-') === 0) \Agent\ProjectFrontend::form($state);
             else \Agent\PageActions::handle($state);
             return;
+        } catch (\Throwable $e) {
+            http_response_code(\Agent\Runtime::isExpected($e) ? 400 : 500);
+            $pageError = \Agent\Runtime::publicMessage($e);
         }
-        catch (\Throwable $e) { http_response_code(\Agent\Runtime::isExpected($e) ? 400 : 500); $pageError = \Agent\Runtime::publicMessage($e); }
     }
-    require __DIR__ . '/views/document.php'; return;
+    require __DIR__ . '/views/document.php';
+    return;
 }
 http_response_code(404); echo 'Not found';

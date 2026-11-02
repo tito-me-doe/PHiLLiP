@@ -54,6 +54,7 @@ class Agents
             }
             if (!$workspace || $workspace === DIRECTORY_SEPARATOR || !is_dir($workspace) || !is_readable($workspace) || realpath($workspace) !== $workspace) throw new \InvalidArgumentException('Agent workspace must be a readable, specific directory');
             if ($agent) {
+                self::requireAssignable($agent);
                 Database::row('SELECT id FROM threads WHERE id = ? FOR UPDATE', [$agent['thread_id']]);
                 if (($settings || $files || $commands) && Database::row("SELECT id FROM runs WHERE thread_id = ? AND status IN ('queued', 'running') LIMIT 1", [$agent['thread_id']])) throw new \RuntimeException('Wait for or stop all tasks before changing agent settings or workspace grants');
             }
@@ -86,18 +87,29 @@ class Agents
     }
 
     /** Concise durable evidence for the active response, or the latest assignment when idle. */
-    public static function peek($reference)
+    public static function peek($reference, $compact = false, $runId = null)
     {
         $agent = self::get($reference);
-        $run = Database::row('SELECT id, status, error FROM runs WHERE thread_id = ?' . ($agent['active_run_id'] !== null ? ' AND id = ?' : '') . ' ORDER BY id DESC LIMIT 1',
-            $agent['active_run_id'] !== null ? [$agent['thread_id'], $agent['active_run_id']] : [$agent['thread_id']]);
+        $sql = 'SELECT id, status, error FROM runs WHERE thread_id = ?';
+        $params = [$agent['thread_id']];
+        if ($runId !== null) {
+            $sql .= ' AND id = ?';
+            $params[] = self::positive($runId);
+        } elseif ($agent['active_run_id'] !== null) {
+            $sql .= ' AND id = ?';
+            $params[] = $agent['active_run_id'];
+        }
+        $sql .= ' ORDER BY id DESC LIMIT 1';
+        $run = Database::row($sql, $params);
+        if ($runId !== null && !$run) throw new \RuntimeException('Run does not belong to this agent');
         $cursor = Database::row('SELECT COALESCE(MAX(e.id), 0) AS cursor FROM events e JOIN runs r ON r.id = e.run_id WHERE r.thread_id = ?', [$agent['thread_id']]);
         $result = ['agent_id' => $agent['id'], 'name' => $agent['name'], 'team' => $agent['team'], 'status' => $agent['status'], 'queued' => $agent['queued'],
             'active_run_id' => $agent['active_run_id'], 'run' => null, 'changes' => [], 'checks' => [], 'tool_errors' => [], 'cursor' => (int)$cursor['cursor']];
         if (!$run) return $result;
         $answer = Database::row("SELECT data->>'content' AS content FROM events WHERE run_id = ? AND type = 'run.completed' ORDER BY id DESC LIMIT 1", [$run['id']]);
         $result['run'] = ['id' => (int)$run['id'], 'status' => $run['status'], 'error' => $run['error'] === null ? null : self::preview($run['error'], 400), 'answer' => $answer ? self::preview($answer['content'], 1200) : null];
-        $events = Database::rows("SELECT data FROM events WHERE run_id = ? AND type = 'tool.result' ORDER BY id DESC LIMIT 100", [$run['id']]);
+        $filter = $compact ? " AND (data->>'name' ~ '^Agent_Tools_Workspace_(create|write|replace|replaceLines|run)$' OR data->>'_tool_error' = 'true')" : '';
+        $events = Database::rows("SELECT data FROM events WHERE run_id = ? AND type = 'tool.result'" . $filter . " ORDER BY id DESC LIMIT 100", [$run['id']]);
         $changes = [];
         foreach (array_reverse($events) as $event) {
             $data = json_decode($event['data'], true);
@@ -118,12 +130,27 @@ class Agents
                 if (!isset($content['command']) || !is_array($content['command']) || !array_key_exists('exit_code', $content)) continue;
                 $check = array_intersect_key($content, array_flip(['command', 'exit_code', 'timed_out', 'truncated']));
                 if (($content['exit_code'] !== 0 || !empty($content['timed_out'])) && isset($content['stderr']) && is_string($content['stderr'])) $check['stderr'] = self::preview($content['stderr'], 600, true);
-                $result['checks'][] = $check;
+                if ($compact) {
+                    $key = json_encode($content['command']);
+                    unset($result['checks'][$key]);
+                    $result['checks'][$key] = $check;
+                } else $result['checks'][] = $check;
             }
         }
         $result['changes'] = array_values($changes);
         $result['check_count'] = count($result['checks']);
-        $result['checks'] = array_slice($result['checks'], -5);
+        $result['checks'] = array_slice(array_values($result['checks']), -5);
+        if ($compact) {
+            $result['changes'] = array_slice($result['changes'], -10);
+            foreach ($result['tool_errors'] as &$error) $error['name'] = self::preview($error['name'], 160);
+            unset($error);
+            foreach ($result['changes'] as &$change) $change['path'] = self::preview($change['path'], 300);
+            unset($change);
+            foreach ($result['checks'] as &$check) {
+                $check['command'] = array_map(function ($arg) { return self::preview(is_scalar($arg) ? $arg : '', 200); }, array_slice($check['command'], 0, 20));
+            }
+            unset($check);
+        }
         return $result;
     }
 
@@ -171,7 +198,13 @@ class Agents
             Database::row('SELECT pg_advisory_xact_lock(hashtext(?))', ['agents:' . gethostname() . ':' . $identity['unix']['uid'] . ':' . $identity['owner'] . ':' . $team]);
             $params = [gethostname(), $identity['unix']['uid'], (string)$identity['owner'], $team];
             $count = Database::row('SELECT COUNT(*) AS count FROM agents WHERE hostname = ? AND unix_uid = ? AND owner_id = ? AND team = ?', $params);
-            if ((int)$count['count'] >= 16) throw new \RuntimeException('Agent team limit is 16; reuse an existing agent');
+            if ((int)$count['count'] >= 16) {
+                $inspect = 'ok-phill agents list --team ' . escapeshellarg($team) . ' --compact';
+                throw new \RuntimeException(sprintf(
+                    'Agent team %s is at capacity (%d/16 local workers). Inspect your local workers with %s, then reuse an assignable worker with ok-phill agents work <EXISTING_ID> TASK.',
+                    var_export($team, true), (int)$count['count'], $inspect
+                ));
+            }
             if (Database::row('SELECT id FROM agents WHERE hostname = ? AND unix_uid = ? AND owner_id = ? AND team = ? AND name = ?', array_merge($params, [$name]))) throw new \RuntimeException('An agent with this name already exists in this team');
             $settings = ['profile' => $config, 'tools' => $config['tools'], 'contract' => isset($config['contract']) ? $config['contract'] : null,
                 'manual' => true, 'parameters' => [], 'execution_context' => $context];
@@ -281,12 +314,14 @@ class Agents
     public static function assign($reference, $task, $key = null)
     {
         $agent = self::get($reference);
+        self::requireAssignable($agent);
         if (ToolContext::get('run_id')) self::ceiling((new Thread($agent['thread_id']))->get()['settings']['tools']);
         $message = Message::normalize($task);
         if (trim(Message::text($message)) === '') throw new \InvalidArgumentException('An agent task must contain text');
         if ($key !== null) $message['submission_key'] = Submission::key($key);
         $run = State::transaction(function () use ($agent, $message) {
-            Database::row('SELECT id FROM threads WHERE id = ? FOR UPDATE', [$agent['thread_id']]);
+            $thread = Database::row('SELECT id, deletedon FROM threads WHERE id = ? FOR UPDATE', [$agent['thread_id']]);
+            if (!$thread || $thread['deletedon'] !== null) throw new \RuntimeException(self::unavailableMessage());
             return (new Thread($agent['thread_id']))->enqueue($agent['owner_id'], $message);
         });
         // Always nudge: pause/resume may race an assignment; the worker checks durable pause under the thread lock.
@@ -604,7 +639,10 @@ class Agents
         $row['parent_id'] = $row['parent_id'] === null ? null : (int)$row['parent_id'];
         $row['parent_thread_id'] = $row['parent_thread_id'] === null ? null : (int)$row['parent_thread_id'];
         $row['paused'] = self::truth($row['paused']);
-        $settings = (new Thread($row['thread_id']))->get()['settings'];
+        $thread = (new Thread($row['thread_id']))->get();
+        $row['assignable'] = $thread['deletedon'] === null;
+        $row['availability'] = $row['assignable'] ? 'available' : 'deleted';
+        $settings = $thread['settings'];
         $profile = isset($settings['profile']) && is_array($settings['profile']) ? $settings['profile'] : [];
         $row['assistant_name'] = isset($settings['assistant_name']) ? $settings['assistant_name'] : null;
         $row['model'] = isset($profile['model']) ? $profile['model'] : (isset($profile['body']['model']) ? $profile['body']['model'] : null);
@@ -616,7 +654,18 @@ class Agents
             if ($run['status'] === 'running') { $row['status'] = 'running'; $row['active_run_id'] = (int)$run['id']; }
             else { $row['queued']++; if (!$row['paused'] && $row['status'] !== 'running') $row['status'] = 'queued'; }
         }
+        if (!$row['assignable']) $row['status'] = 'unavailable';
         return $row;
+    }
+
+    private static function unavailableMessage()
+    {
+        return 'Agent conversation is deleted and unavailable for assignment. Create a new worker with a different name, or remove this idle worker and create it again; deleted conversations are not restored.';
+    }
+
+    private static function requireAssignable(array $agent)
+    {
+        if (!$agent['assignable']) throw new \RuntimeException(self::unavailableMessage());
     }
 
     private static function label($value, $description)

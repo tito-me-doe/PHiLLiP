@@ -85,6 +85,8 @@ php bin/phill-research-provision
 
 (`bin/phill-research-provision` creates the `phillip_research` role, applies `database/016_engineering_research.sql`, repairs only that role's grants, and stores credentials in private settings.) The agent SQL tools never invoke this command; it is operator-only.
 
+Workers with Workspace access receive their own worker ID and can call `Workspace.context` to inspect their current same-thread file grants and command argv prefixes. The result reflects the current workspace and Unix identity; it does not grant access or include another worker's grants. Recheck after access changes: revocation applies to subsequent operations, which independently enforce the current grant. If a grant is missing, report the exact file or argv prefix to the operator and stop rather than retrying the denial.
+
 ## Workspace writes (CAS)
 
 `Agent\\Tools\\Workspace::write` is hash-guarded: for an **existing** file, the current whole-file SHA-256 (from `Source::read` of the whole original file) must be supplied via `expectedSha256`; a missing or wrong hash refuses without modifying the file. For an **absent** file, no hash is given and the file is created exclusively (`'x'` mode). PHP files and PHP shebang scripts are parsed before publication, without executing them; syntax failures leave existing files intact. `replace` remains exact single-occurrence match support; no search/replace loops; loop guard `max_tool_repeats: 3`. All writes require PATCH approval for the exact path.
@@ -105,6 +107,11 @@ Browser fixtures run inside the app container. Camoufox has its own network name
 `ok-phill agents work NAME TASK --persona Implementer -p nemotron-vl-engineering --file tests/example.php --command '["php","tests/example.php"]'` creates or reuses a worker, applies explicit repeatable `--file` and `--command` JSON argv grants, and assigns the task asynchronously. `--command` authorizes only the program's first three argv words as the Unix user; it is not a shell prefix and not an OS sandbox.
 
 Follow up with `ok-phill agents peek NAME` to read bounded real tool evidence for the active or latest run: run status/error, an answer excerpt, file changes (path/sha256/bytes), command checks, and tool errors. Evidence is not proof of correctness; inspect results and run tests.
+
+Use `--compact` with `agents list`, `agents result`, or `agents peek` for smaller JSON. Compact list reports each worker's status, queue, assignability and latest run without owner or configuration details. Compact result limits answer and error excerpts; when the selected run failed, it also includes that run's changed paths, checks and tool errors plus a follow-up hint. Compact peek reports recent changes, the latest result for each command (up to five), and recent tool errors. Peek considers up to 100 relevant recent tool results, so it is a summary rather than a complete audit. Use the default commands and events for full details.
+
+A worker whose conversation was deleted appears as `unavailable` with `assignable: false`. Create another worker with a different name, or remove the idle unavailable worker and create it again. Existing deleted conversations are never restored by assignment or `work`.
+
 
 ```sh
 ok-phill profiles list

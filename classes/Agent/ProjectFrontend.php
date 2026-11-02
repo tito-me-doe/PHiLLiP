@@ -163,7 +163,7 @@ class ProjectFrontend
             );
         } elseif ($action === 'delete') {
             ProjectAccess::owner($this->userId, $project);
-            $this->frontend->delete($project->get()['thread_id']);
+            $project->delete();
             return null;
         } elseif ($action === 'answer') {
             $decisionId = isset($body['decision_id']) ? $body['decision_id'] : null;

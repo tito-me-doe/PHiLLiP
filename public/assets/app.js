@@ -1,5 +1,85 @@
-/* PHP owns saved HTML. This client only streams, fetches fragments, and enhances interactions. */
 (() => {
+  // The same navigation is a modal drawer only at the mobile breakpoint.
+  const mobileNav = window.matchMedia("(max-width: 720px)");
+  const nav = document.querySelector("#primary-navigation");
+  const backdrop = document.querySelector(".sidebar-backdrop");
+  const routeMenu = nav?.querySelector(".route-menu");
+  let drawerLastTrigger = null;
+  let routeWasOpen = false;
+  const drawerOpen = () => Boolean(nav?.classList.contains("menu-open"));
+  const triggers = () => document.querySelectorAll('[data-action="menu"][aria-controls="primary-navigation"]');
+
+  function closeDrawer(restoreFocus = true) {
+    if (!drawerOpen()) return;
+    nav.classList.remove("menu-open");
+    nav.removeAttribute("role");
+    nav.removeAttribute("aria-modal");
+    if (routeMenu) routeMenu.open = routeWasOpen;
+    triggers().forEach((button) => button.setAttribute("aria-expanded", "false"));
+    if (mobileNav.matches) nav.inert = true;
+    const trigger = drawerLastTrigger;
+    drawerLastTrigger = null;
+    if (restoreFocus && trigger?.isConnected && trigger.getClientRects().length) trigger.focus();
+  }
+
+  function openDrawer(trigger) {
+    if (!nav || !mobileNav.matches || drawerOpen()) return;
+    drawerLastTrigger = trigger;
+    routeWasOpen = Boolean(routeMenu?.open);
+    nav.inert = false;
+    nav.classList.add("menu-open");
+    nav.setAttribute("role", "dialog");
+    nav.setAttribute("aria-modal", "true");
+    triggers().forEach((button) => button.setAttribute("aria-expanded", "true"));
+    if (routeMenu) routeMenu.open = true;
+    nav.querySelector(".mobile-nav-close")?.focus();
+  }
+
+  // Choosing to close the pages menu is remembered for the session; otherwise settings pages render it open.
+  routeMenu?.querySelector("summary")?.addEventListener("click", () => {
+    if (mobileNav.matches) return;
+    if (routeMenu.open) sessionStorage.setItem("phillip.pagesMenu", "closed");
+    else sessionStorage.removeItem("phillip.pagesMenu");
+  });
+  if (routeMenu?.open && !mobileNav.matches && sessionStorage.getItem("phillip.pagesMenu") === "closed") routeMenu.open = false;
+
+  function toggleDrawer(trigger) {
+    if (drawerOpen()) closeDrawer(); else openDrawer(trigger);
+  }
+
+  function syncNavigation() {
+    if (!nav) return;
+    if (!mobileNav.matches) closeDrawer(false);
+    nav.inert = mobileNav.matches && !drawerOpen();
+  }
+  syncNavigation();
+  mobileNav.addEventListener("change", syncNavigation);
+  document.addEventListener("keydown", (event) => {
+    if (!drawerOpen()) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeDrawer();
+    } else if (event.key === "Tab") {
+      const items = Array.from(nav.querySelectorAll('a[href], button:not([disabled]), summary, input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+        .filter((item) => item.getClientRects().length && !item.closest('[inert]'));
+      if (!items.length) { event.preventDefault(); return; }
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !nav.contains(document.activeElement))) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !nav.contains(document.activeElement))) {
+        event.preventDefault(); first.focus();
+      }
+    }
+  }, true);
+  document.addEventListener("click", (event) => {
+    if (!drawerOpen()) return;
+    if (event.target === backdrop || event.target.closest(".mobile-nav-close")) {
+      event.preventDefault(); closeDrawer();
+    } else if (nav.contains(event.target) && event.target.closest("a[href], [data-thread]")) {
+      closeDrawer(Boolean(event.target.closest("[data-thread]")));
+    }
+  });
   const A = (window.PHiLLiP = {
     Log: window.PHiLLiPLog,
     base: document.body.dataset.base || "",
@@ -27,6 +107,48 @@
           "Browser storage is unavailable; UI preferences will last for this page only.",
         );
       }
+    },
+    // User-scoped per-thread composer drafts live in localStorage (UI state, not the database).
+    // A.storageKey already isolates by user id, so logout/user switching gives a fresh key.
+    // Draft text is preserved in full; only the number of stored threads is bounded.
+    draftMaxThreads: 50,
+    draftKey(threadId) {
+      return threadId ? String(threadId) : "new";
+    },
+    saveDraft(text) {
+      if (!A.storageKey) return;
+      const threadId = A.current ? A.current.thread.id : null,
+        key = A.draftKey(threadId),
+        drafts = { ...(A.ui.drafts || {}) };
+      if (text === "" || text == null) {
+        delete drafts[key];
+      } else {
+        drafts[key] = String(text);
+      }
+      // Bound the number of stored thread drafts: drop the first non-active entry
+      // whenever we exceed the limit.
+      let savedKeys = Object.keys(drafts);
+      while (savedKeys.length > A.draftMaxThreads) {
+        let removed = false;
+        for (const k of savedKeys) {
+          if (k !== key) {
+            delete drafts[k];
+            removed = true;
+            break;
+          }
+        }
+        if (!removed) break;
+        savedKeys = Object.keys(drafts);
+      }
+      A.persistUI({ drafts });
+    },
+    restoreDraft() {
+      if (!A.storageKey || !document.querySelector("#prompt")) return "";
+      const threadId = A.current ? A.current.thread.id : null,
+        key = A.draftKey(threadId),
+        saved = (A.ui.drafts && A.ui.drafts[key]) || "";
+      document.querySelector("#prompt").value = saved;
+      return saved;
     },
     newKey() {
       return crypto.randomUUID
@@ -62,14 +184,6 @@
           (A.base || "") +
           "/; SameSite=Lax; Max-Age=31536000" +
           (location.protocol === "https:" ? "; Secure" : "");
-      document
-        .querySelectorAll("[data-theme-choice]")
-        .forEach((b) =>
-          b.setAttribute(
-            "aria-pressed",
-            String(b.dataset.themeChoice === theme),
-          ),
-        );
     },
     operationProgress(container, job, label = "Discovery") {
       const status = job?.status || "queued",
@@ -270,6 +384,7 @@
         const data = JSON.parse(node.textContent);
         A.current = data.thread ? { thread: data.thread, runs: [] } : null;
         A.selectedProfile = data.selectedProfile;
+        A.setCompanion?.(A.current ? A.current.thread.settings : {});
         A.workflowCursor = 0;
         A.adoptWorkflow(data.workflow);
         A.cursor = data.workflow?.event_cursor || 0;
@@ -411,10 +526,22 @@
       A.reasoning = "";
       A.progress = "";
       A.resetAvatar?.();
-      const html = await A.html("/fragments/thread?thread=" + id);
+      let html;
+      try {
+        html = await A.html("/fragments/thread?thread=" + id);
+      } catch (error) {
+        // A failed or superseded navigation must not leave the old view unpollled.
+        if (A.epoch !== epoch) return;
+        A.toast(error.message || "Failed to open conversation.");
+        if (A.current) A.poll();
+        return;
+      }
       if (A.epoch !== epoch) return;
+      const restoreMenuFocus = document.activeElement?.matches('[data-action="menu"][aria-controls="primary-navigation"]');
       document.querySelector("#workspace").innerHTML = html;
+      if (restoreMenuFocus) document.querySelector('[data-action="menu"][aria-controls="primary-navigation"]')?.focus();
       A.readChat();
+      A.restoreDraft();
       history.pushState({}, "", A.threadURL(id));
       const page = A.current.thread.project_id ? "projects" : "conversations";
       document.querySelector("#workspace").dataset.page = page;
@@ -428,13 +555,189 @@
       A.enhance();
       await A.refreshThreads();
       A.poll();
-      document.querySelector(".shell")?.classList.remove("menu-open");
       A.persistUI({
         lastThread: Number(id),
         chatTab: A.current.thread.visibility,
       });
     },
-    async dialog(kind, params = {}) {
+    // Snapshot of an editable dialog form's values, captured after PHP hydration.
+    // File controls compare by stable name+size (File instances are not reusable
+    // across parses); disabled/submitting controls never reach FormData.
+    dialogSnapshot(form) {
+      const fd = new FormData(form),
+        out = [];
+      for (const [name, value] of fd)
+        out.push(
+          value instanceof File
+            ? [name, "file", value.name, value.size]
+            : [name, String(value)],
+        );
+      return out;
+    },
+    // True when the edited form differs from its hydrated baseline.
+    dialogChanged(form) {
+      if (!A._dialogBaseline) return false;
+      return (
+        JSON.stringify(A.dialogSnapshot(form)) !==
+        JSON.stringify(A._dialogBaseline)
+      );
+    },
+    // Shared dismissal guard for Escape, close buttons, and dialog replacement.
+    // savedForm: the form whose save succeeded. Supplied saves close only when
+    // they match the dialog's current form and skip the discard prompt.
+    // Returns false when the user cancels, leaving the edited form untouched.
+    closeDialog(savedForm = null) {
+      const dialog = document.querySelector("#dialog");
+      if (!dialog) return true;
+      const form = dialog.querySelector("form");
+      if (savedForm && savedForm !== form) return true;
+      if (
+        form &&
+        A._dialogBaseline &&
+        !savedForm &&
+        A.dialogChanged(form)
+      ) {
+        if (
+          !confirm(
+            "You have unsaved changes. Discard them and close this dialog?",
+          )
+        )
+          return false;
+      }
+      A._dialogBaseline = null;
+      const trigger = A._dialogTrigger;
+      const descriptor = A._dialogDescriptor;
+      A._dialogTrigger = null;
+      A._dialogDescriptor = null;
+      dialog.close();
+      A.restoreDialogFocus(trigger, descriptor);
+      return true;
+    },
+    // True only when node is connected, rendered, enabled, and not a hidden input.
+    // Truly visible: connected, enabled, not hidden-input, computed visibility
+    // shown, and either offsetParent-placed or having client rects.
+    visibleNode(node) {
+      if (!node || !node.isConnected || node.hidden) return false;
+      if (node.matches("input[type=hidden]")) return false;
+      if (node.disabled) return false;
+      const cs =
+        node.ownerDocument && node.ownerDocument.defaultView
+          ? node.ownerDocument.defaultView.getComputedStyle(node)
+          : undefined;
+      if (cs && (cs.visibility === "hidden" || cs.visibility === "collapse"))
+        return false;
+      if (node.offsetParent !== null) return true;
+      return Boolean(node.getClientRects && node.getClientRects().length);
+    },
+    // First *visibly* focusable interactive element within root, or null.
+    focusableWithin(root) {
+      if (!root) return null;
+      const nodes = root.querySelectorAll(
+        "button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1']):not([disabled])"
+      );
+      for (const node of nodes) {
+        if (this.visibleNode(node)) return node;
+      }
+      return null;
+    },
+    // Move focus to a meaningful element inside the open dialog.
+    focusDialog() {
+      const dialog = document.querySelector("#dialog");
+      if (!dialog || !dialog.open) return;
+      const content = document.querySelector("#dialog-content");
+      let target = this.focusableWithin(content);
+      if (!target) {
+        const title = document.querySelector("#dialog-title");
+        if (title) {
+          // Persistent heading fallback must be focusable before focusing it.
+          if (!title.hasAttribute("tabindex")) title.setAttribute("tabindex", "-1");
+          target = title;
+        }
+      }
+      if (!target) target = dialog;
+      target.focus({ preventScroll: true });
+    },
+
+    // Stable descriptor for an opener trigger: id plus the benchmark
+    // data/href attributes already used by benchmarks' focusKey, so focus can
+    // be restored to the same logical element after a root refresh. Keys are
+    // the live DOM attribute names themselves so a single entries-loop does
+    // the matching without duplicating manual getAttribute checks.
+    dialogDescriptorFor(element) {
+      if (!element) return null;
+      const attrs = [
+        "id",
+        "data-benchmark-control",
+        "data-benchmark-tab",
+        "data-benchmark-result",
+        "data-benchmark-profile-action",
+        "data-benchmark-profile-id",
+        "href",
+      ];
+      const desc = {};
+      for (const name of attrs) {
+        const val = element.getAttribute(name);
+        if (val !== null) desc[name] = val;
+      }
+      return Object.keys(desc).length ? desc : null;
+    },
+    // True when element matches every defined part of a stored descriptor.
+    dialogElementMatches(element, desc) {
+      if (!element || !desc) return false;
+      return Object.entries(desc).every(
+        ([name, val]) => element.getAttribute(name) === val,
+      );
+    },
+    // Restore focus after the dialog closes: preferred trigger if still
+    // visible, otherwise the same logical element matched by descriptor
+    // (survives a root refresh), otherwise the first visible focusable page
+    // element. Never the detached close button or BODY.
+    restoreDialogFocus(preferred, descriptor) {
+      if (preferred && this.visibleNode(preferred)) {
+        preferred.focus({ preventScroll: true });
+        return;
+      }
+      if (descriptor) {
+        const candidates = document.querySelectorAll(
+          "[id], [data-benchmark-control], [data-benchmark-tab], [data-benchmark-result], [data-benchmark-profile-action], a[href]"
+        );
+        for (const node of candidates) {
+          if (
+            this.dialogElementMatches(node, descriptor) &&
+            !node.disabled &&
+            this.visibleNode(node)
+          ) {
+            node.focus({ preventScroll: true });
+            return;
+          }
+        }
+      }
+      const fallback = this.focusableWithin(document.documentElement);
+      if (fallback) fallback.focus({ preventScroll: true });
+    },
+    async dialog(kind, params = {}, opener = null) {
+      // Capture the external opener on the first open. An explicit opener
+      // wins (data-dialog delegates pass the clicked target, important for
+      // SVG graph links); direct API callers fall back to activeElement.
+      // Always capture opener + descriptor on a genuine first open; nested
+      // opens retain the existing original trigger. Duplicate capture
+      // removed from the data-dialog delegate.
+      if (!document.querySelector("#dialog")?.open && !A._dialogTrigger) {
+        A._dialogTrigger = opener ?? (document.activeElement || null);
+        A._dialogDescriptor = A.dialogDescriptorFor(A._dialogTrigger);
+      }
+      const openDialog = document.querySelector("#dialog");
+      if (openDialog && openDialog.open) {
+        const openForm = openDialog.querySelector("form");
+        if (openForm && A._dialogBaseline && A.dialogChanged(openForm)) {
+          if (
+            !confirm(
+              "You have unsaved changes. Discard them and open another dialog?",
+            )
+          )
+            return false;
+        }
+      }
       const query = new URLSearchParams({
         kind,
         ...(A.current ? { thread: A.current.thread.id } : {}),
@@ -443,6 +746,17 @@
       const html = await A.html("/fragments/dialog?" + query),
         dialog = document.querySelector("#dialog");
       document.querySelector("#dialog-content").innerHTML = html;
+      // Expose the PHP-rendered first heading as the dialog's accessible name
+      // on every replacement, so it announces 'Edit question',
+      // 'Conversation settings', etc. Generic 'Dialog' only if there is no
+      // heading.
+      const dlgTitle = document.querySelector("#dialog-title");
+      const heading = dialog.querySelector("h1, h2, h3, h4, h5, h6");
+      if (dlgTitle) {
+        dlgTitle.textContent = heading ? heading.textContent.trim() : "Dialog";
+        dialog.setAttribute("aria-labelledby", "dialog-title");
+        dialog.setAttribute("role", "dialog");
+      }
       if (kind === "chat" && !A.current) {
         const f = document.querySelector("#chat-settings-form");
         if (A.newSettings) {
@@ -467,8 +781,20 @@
       }
       dialog.dataset.kind = kind;
       if (!dialog.open) dialog.showModal();
+      if (!dialog.dataset.cancelBound) {
+        dialog.oncancel = (e) => {
+          e.preventDefault();
+          A.closeDialog();
+        };
+        dialog.dataset.cancelBound = "1";
+      }
       A.bindSettings?.();
       A.bindDialog();
+      const dlgForm = dialog.querySelector("form");
+      A._dialogBaseline = dlgForm ? A.dialogSnapshot(dlgForm) : null;
+      // Focus a meaningful element in the dialog on every replacement,
+      // including nested replacements while the dialog is already open.
+      A.focusDialog();
     },
     bindDialog() {
       const edit = document.querySelector("#edit-message");
@@ -481,7 +807,7 @@
               await A.api("/api/messages/" + edit.dataset.id + "/edit", {
                 content: edit.elements.content.value,
               });
-              document.querySelector("#dialog").close();
+              A.closeDialog(edit);
               A.live = "";
               A.reasoning = "";
               await A.refreshMessages();
@@ -529,7 +855,7 @@
                   draft: { settings, system_prompt: A.newPrompt },
                 });
               }
-              document.querySelector("#dialog").close();
+              A.closeDialog(cfg);
             },
             { form: cfg, success: "Conversation settings saved" },
           );
@@ -545,10 +871,15 @@
                 .map((n) => n.value)
                 .join(", "),
             };
-            await A.dialog("persona");
-            for (const [key, value] of Object.entries(values))
-              document.querySelector("#persona-form").elements[key].value =
-                value;
+            if ((await A.dialog("persona")) === false) return;
+            const personaForm = document.querySelector("#persona-form");
+            for (const [key, value] of Object.entries(values)) {
+              // A character has no raw prompt field: the saved prompt becomes the description of who they are.
+              const field =
+                personaForm.elements[key] ||
+                (key === "prompt" ? personaForm.elements.bio : null);
+              if (field) field.value = value;
+            }
           } catch (error) {
             A.toast(error.message);
           }
@@ -566,6 +897,9 @@
           e.preventDefault();
           form.requestSubmit();
         }
+      };
+      document.querySelector("#prompt").oninput = () => {
+        A.saveDraft(document.querySelector("#prompt").value);
       };
       const personas = document.querySelector("#persona-start");
       if (personas)
@@ -693,11 +1027,27 @@
             },
             systemPrompt: A.newPrompt,
             creating: !A.current,
+            // Composition-slot origin, frozen at compose time so retries after
+            // thread creation clear the slot the text was actually written in
+            // (e.g. "new"), not the live A.current thread that only exists now.
+            originKey: A.draftKey(A.current?.thread.id || null),
             setupApplied: false,
           };
           A.persistUI({ pending });
         }
         let created = false;
+        // Slot that held the composed text before any thread is created; the
+        // clear below must target this slot (e.g. "new"), not the real thread
+        // that only exists after creation succeeds.
+        // Origin of the composition slot, derived from the durable pending
+        // record, not live A.current: between attempts A.current may already
+        // point at a newly created thread while the draft still sits in the
+        // slot it was composed in (e.g. "new").
+        const originatingDraftKey =
+          pending.originKey ??
+          (pending.creating
+            ? A.draftKey(null)
+            : A.draftKey(pending.threadId ?? null));
         if (!A.current) {
           if (!A.selectedProfile)
             throw new Error(
@@ -735,14 +1085,42 @@
           run_id: run.id,
           attachment_count: files.length,
         });
-        if (!A.current.runs.some((r) => r.id === run.id))
+        // View-epoch guard: the user may switch threads while the request is
+        // held. Only mutate the still-visible view when A.current is the same
+        // thread the submission was addressed to.
+        const stillSame = A.current?.thread.id === id;
+        if (stillSame && !A.current.runs.some((r) => r.id === run.id))
           A.current.runs.push(run);
-        input.value = "";
-        A.clearAttachments?.();
+        // Only clear text that is still the submitted text: anything typed
+        // while the request was awaiting API acceptance is newer and kept.
+        // Re-query #prompt: the captured node may be detached after a thread
+        // switch (navigated away and back to the same id). Use the live node.
+        if (stillSame) {
+          const currentInput = document.querySelector("#prompt");
+          if (currentInput.value.trim() === text) currentInput.value = "";
+        }
+        if (stillSame) A.clearAttachments?.();
+        // Clear the composer draft only after successful acceptance. Remove only
+        // the slot the text was composed in (e.g. "new" for a fresh chat), never
+        // the slot keyed by the thread created moments ago, and never another
+        // thread's draft. The durable pending/draft-origin is cleared exactly
+        // for the accepted submission regardless of which thread is visible.
+        const drafts = { ...(A.ui.drafts || {}) };
+        // Drop the submitted draft only if it still holds the submitted text;
+        // newer text typed while the request awaited acceptance is preserved.
+        const prior = drafts[originatingDraftKey];
+        if (prior !== undefined && String(prior).trim() === text)
+          delete drafts[originatingDraftKey];
+        A.persistUI({ drafts });
         A.persistUI({ pending: null });
-        document.querySelector("[name=submission_key]").value = A.newKey();
-        if (created) await A.openThread(id);
-        else {
+        // Only rotate the global submission_key for the thread the submission
+        // was addressed to when that thread is still visible. Rotating it while
+        // another thread is visible would clobber that thread's upcoming key.
+        if (stillSame)
+          document.querySelector("[name=submission_key]").value = A.newKey();
+        if (created) {
+          if (stillSame) await A.openThread(id);
+        } else if (stillSame) {
           await A.refreshMessages();
           await A.refreshThreads();
           A.poll();
@@ -750,7 +1128,10 @@
       } finally {
         A.sending = false;
         const b = document.querySelector("#send-button");
-        if (b) b.disabled = false;
+        // Restore the disabled state of the now-visible thread: a read_only
+        // thread must stay disabled even though this send targeted a different
+        // (or no longer visible) thread.
+        if (b) b.disabled = !!(A.current?.thread.read_only);
       }
     },
     async poll() {
@@ -957,12 +1338,13 @@
       .finally(() => A.syncTools());
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      A.showRename(false);
-      document
-        .querySelectorAll(".tools-menu[open]")
-        .forEach((n) => (n.open = false));
-    }
+    if (e.key !== "Escape") return;
+    const escDialog = document.querySelector("#dialog");
+    if (escDialog && escDialog.open) return;
+    A.showRename(false);
+    document
+      .querySelectorAll(".tools-menu[open]")
+      .forEach((n) => (n.open = false));
   });
   document.addEventListener("pointerdown", (e) => {
     document.querySelectorAll(".tools-menu[open]").forEach((n) => {
@@ -997,7 +1379,7 @@
           ...(target.dataset.decision
             ? { decision: target.dataset.decision }
             : {}),
-        });
+        }, target);
         return;
       }
       switch (target.dataset.action) {
@@ -1019,10 +1401,10 @@
           A.emote("😊 Wonderful to see you!");
           break;
         case "menu":
-          document.querySelector(".shell").classList.toggle("menu-open");
+          toggleDrawer(target);
           break;
         case "close-dialog":
-          document.querySelector("#dialog").close();
+          if (!A.closeDialog()) return;
           break;
         case "attach":
           document.querySelector("#files").click();
@@ -1109,6 +1491,14 @@
     ) {
       document.querySelector("#prompt").value = A.ui.pending.text;
       document.querySelector("[name=submission_key]").value = A.ui.pending.key;
+    }
+    // Restore the unsent composer draft for the current thread (or new-chat draft),
+    // but only if an in-flight pending submission did not already fill the input.
+    if (
+      document.querySelector("#prompt") &&
+      document.querySelector("#prompt").value === ""
+    ) {
+      A.restoreDraft();
     }
     const tab = document.querySelector("[data-settings-page]")?.dataset
       .settingsPage;

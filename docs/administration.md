@@ -34,7 +34,7 @@ Discovery/verification are background jobs with progress and reload-safe results
 
 ## Profiles, discovery, and services
 
-Use **Models** for model/profile administration. Profiles bind a model, endpoint, and parameters. Saving an enabled profile tests its actual capabilities; disabled discovered profiles remain inspectable and usable by trusted code. Arbitrary frontend clients may not substitute their own execution configuration for an enabled reference.
+Use **System Settings** for model administration. One **Models** table lists every discovered engine and its models, with the network scan form in its header; below it are saved **Profiles** (enabled first, with an editable **Default for** column), then **Attachment parsing** and **Services**. Missing chat/embedding dependencies appear under the profiles. Profiles bind a model, endpoint, and parameters. Saving an enabled profile tests its actual capabilities; disabled discovered models remain registered but unavailable to users.
 
 ```sh
 # Substitute your endpoint; host.docker.internal refers to the Docker host.
@@ -48,15 +48,15 @@ docker compose exec -T app ./bin/phill-models --help
 
 `phill-models --save` accepts inline JSON, a file, or `-` for stdin. A payload contains a name/configuration and optional enabling/overrides. `--test` probes without changing the saved profile. Use private stdin/files for credentials, not shared shell history. Profile resolution is database-first, then optional private JSON; see [PHP configuration](php-classes.md#profiles-and-personas).
 
-Configure tool services on **Services** and per-file-type profiles on **Attachment parsing**. Compose supplies SearXNG and Camoufox. Custom database service URLs remain authoritative unless explicitly configured to use runtime environment URLs. Inside a container, `localhost` is that container, not the host or browser service.
+**Attachment parsing** and **Services** (SearXNG and Camoufox, supplied by Compose) are sections of System Settings; their editors open in dialogs (ordinary forms without JavaScript). Custom database service URLs remain authoritative unless explicitly configured to use runtime environment URLs. Tool permissions live on **Permissions & Users**.
 
-Task defaults are configured on **Models** or through `ok-phill profiles defaults` / `ok-phill profiles default TASK PROFILE_OR_none`. Fixed concepts map to a saved profile, never prompt-based routing. Missing assignments retain the current model. See [benchmarks and typed model operations](benchmarks.md).
+Task defaults are configured on **System Settings** or through `ok-phill profiles defaults` / `ok-phill profiles default TASK PROFILE_OR_none`. Fixed concepts map to a saved profile, never prompt-based routing. Missing assignments retain the current model where supported; embeddings require a configured capable endpoint. See [benchmarks and typed model operations](benchmarks.md).
 
 ## Pages, navigation, and permissions
 
-The sidebar combines conversations and projects in one activity-ordered history. Visibility tabs sit above equal-width **+ Chat** / **+ Project** buttons. The top-left hamburger toggles a flat menu sorted by route path; the logo is on its right and the local badge sits beside the profile. Personas, Memory, Benchmarks, Test Suites, Appearance, and administrative concepts have their own pages.
+The sidebar combines conversations and projects in one activity-ordered history. Visibility tabs sit above equal-width **+ Chat** / **+ Project** buttons. The top-left hamburger toggles a flat menu sorted by route path; the logo is aligned on its right and the local badge sits beside the profile. Personas, Memory, Benchmarks, Appearance, and administrative concepts have their own pages. Benchmark tests/questions are edited from their tabs, not a separate Test Suites page.
 
-**Access control** combines Users, Groups, and Permissions on one screen. Lists are read-only tables; icon actions open PHP-rendered modal forms (ordinary editor pages without JavaScript). Creation actions sit in left-aligned table footers. Edit a user's groups in the user editor, or a group's members in the group editor. There is no separate memberships page. Memberships remain many-to-many. **Navigation & routes** shows each page's allowed users and groups and edits those same global permission rows alongside labels and paths. There are no menu sections, manual positions, enabled flags, or menu-visibility flags.
+**Permissions & Users** is one page for administration: **Users**, **Groups**, **Pages** (routes, menu entries and who may open them) and **Tools** (who may make each tool available). Lists are read-only tables; icon actions open PHP-rendered modal forms (ordinary editor pages without JavaScript). Memberships remain many-to-many. The pages menu lists every page except Chat and Project, which are always one click away in the sidebar, and stays open while moving between settings pages.
 
 Every standalone install creates fixed groups **0 Everyone**, **1 Administrators**, and **2 Developers**. Everyone is implicit for each active, signed-in user. It starts with only `/chat` and SearchWeb, Fetch, BrowseWeb, and Memory availability—not other pages or tools. Tool availability still requires explicit selection by the user/agent configuration. The first administrator joins both 1 and 2. Active Administrators automatically have all permissions, including future pages and tools; no explicit grants are needed or stored for group 1. Developers identifies the logging/console audience and does not itself grant other pages. Built-in IDs/names cannot be edited or deleted. Everyone is not offered as a team-sharing folder; use organization visibility for that audience.
 
@@ -64,7 +64,7 @@ The `pages` table is the source for both the menu and HTML routes. A forbidden p
 
 Permissions are additive grants for a resource (`page.models` or a tool class), assigned to a user or group. Except for active Administrators, a matching grant from the user or any group is required; otherwise access is denied. Everyone is simply group 0. There are no deny rules or default-allow pages. Removing one grant does not cancel another. Content visibility separately requires ownership, group membership, or organization visibility; administrator permissions do not expose private or unjoined-group conversations or override message ownership and execution approvals. A permitted page is both routed and shown in the menu. Removing all grants removes access and its menu entry for ordinary users; Administrators retain access automatically. Route editors display this non-editable administrator access explicitly.
 
-Granting Access control or Navigation delegates trusted administrative capabilities. Delegated non-administrator access managers cannot create, modify, or reset administrator accounts. Accounts are deactivated rather than deleted; the current administrator cannot deactivate or demote themselves. User/group editors replace only the memberships shown by that editor, not unrelated users' memberships.
+Granting Access delegates user, group, page and tool administration together. Delegated non-administrator user managers cannot create, modify, or reset administrator accounts. Accounts are deactivated rather than deleted; the current administrator cannot deactivate or demote themselves. User/group editors replace only the memberships shown by that editor, not unrelated users' memberships.
 
 Changes take effect on subsequent requests, including existing sessions. Permission decisions are not held in a long-lived cache. See the [PHP authorization contracts](php-classes.md#frontend-authorization-and-navigation) before extending a frontend boundary.
 
@@ -73,6 +73,10 @@ Migration 028 removes stored deny rules and legacy global rules, establishes Eve
 Migration 029 removes the old route flags. Previously disabled pages become pages without grants; previously hidden but permitted pages appear in the menu. Subsequent access changes are made only through grants.
 
 Migration 030 removes redundant group 1 permission rows. Administrator access derives from active membership in group 1, not stored grant rows or supplied privilege flags. Removing membership revokes implicit permissions on subsequent checks, including existing sessions.
+
+Migration 031 combines the former Services and Attachment parsing pages into Tools & Services. Existing grants to either former page become grants to the unified page; tool availability grants are unchanged. Custom aliases reuse the unified handler. The old standalone page routes are removed.
+
+Migration 032 folds test editing into Benchmarks, merging former Test Suites grants into `page.benchmarks`. It also adds versioned, scoped queue controls so test/profile Play, Pause, and Stop do not affect unrelated work.
 
 ## Users, sharing, and tool authority
 
@@ -118,3 +122,8 @@ Loopback-only HTTP is the default. LAN exposure does not supply TLS; prefer an S
 Use `public/` as the document root and route **all** requests, including assets, through `public/index.php`. This validates asset paths/types; serving arbitrary repository files directly bypasses that boundary. Classes, configuration, templates, dependencies, and storage must remain outside the document root. `APP_BASE_PATH` supplies a URL prefix when mounting under an application route.
 
 Onboarding can independently map users, groups/memberships, and permissions or create the missing tables, with read-only/writable mapping choices and standalone/ERP session modes. These hooks are not evidence that an arbitrary external ERP integration is validated. See [requirements coverage](../REQUIREMENTS.md#what-has-been-validated) and the [integration roadmap](../ROADMAP.md#integration-formats-and-deployment-coverage).
+
+
+Migration 036 merges Navigation & routes and Tools into **Permissions & Users** and the former Tools & Services into **System Settings** (Models & Profiles is renamed). Existing grants follow their content: `page.tools-services` becomes `page.models` and `page.navigation` becomes `page.access`. Personas gain an `enabled` switch; the Personas page is renamed **Personas & Experts**.
+
+Migration 037 renames Access to **Permissions & Users** and drops the Appearance page: the theme toggle is in every page header and Sign out is in the pages menu. Buttons are icon-only and borderless until hovered; only **+ Chat** and **+ Project** are outlined, and every checkbox is drawn as a slide switch. Switched-off rows (personas, experts, profiles, users) are dimmed; turning the 18+ switch off dims the adult personas, which sort last.
