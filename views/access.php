@@ -27,11 +27,13 @@ $descriptions = [
     'Memory' => 'Search and keep knowledge',
     'Tasks' => 'Classify, extract and compare'
 ];
+$isAdmin = !empty($state['user']['is_admin']);
 if (isset($_GET['edit'])):
+    Agent\Administration::requireAdministrator($state['user'], $_GET['edit']);
 ?>
 <section class="card"><?= V::render('management-form', ['state'=>$state]) ?></section>
 <?php else: ?>
-<section class="card">
+<section class="card" id="access-users">
     <div class="card-head"><h2>Users</h2><?= V::editor('users', null, 'New user') ?></div>
     <div class="table-wrap"><table class="registry"><thead><tr><th></th><th>Username</th><th>Name</th><th>Groups</th><th></th></tr></thead><tbody>
     <?php foreach ($data['users'] as $person): ?>
@@ -42,7 +44,7 @@ if (isset($_GET['edit'])):
     <?php endforeach; ?>
     </tbody></table></div>
 </section>
-<section class="card">
+<section class="card" id="access-groups">
     <div class="card-head"><h2>Groups</h2><?= V::editor('groups', null, 'New group') ?></div>
     <div class="table-wrap"><table class="registry"><thead><tr><th>Group</th><th>Members</th><th></th></tr></thead><tbody>
     <?php foreach ($data['groups'] as $group): $id = (string)$group['id']; ?>
@@ -53,23 +55,23 @@ if (isset($_GET['edit'])):
     <?php endforeach; ?>
     </tbody></table></div>
 </section>
-<section class="card">
-    <div class="card-head"><h2>Pages</h2><?= V::editor('navigation', null, 'New page') ?></div>
+<section class="card" id="access-pages">
+    <div class="card-head"><h2>Pages</h2><?= $isAdmin ? V::editor('navigation', null, 'New page') : '' ?></div>
     <div class="table-wrap"><table class="registry"><thead><tr><th>Page</th><th>Route</th><th>Who can open it</th><th></th></tr></thead><tbody>
     <?php foreach ($data['pages'] as $page): ?>
         <tr><td><?= V::h($page['title']) ?><?php if ($page['id'] !== $page['handler']): ?><small>Also needs <?= V::h($page['handler']) ?></small><?php endif; ?></td>
             <td><code><?= V::h($page['path']) ?></code></td><td><?= $who('page.'.$page['id']) ?></td>
-            <td><?= V::editor('navigation', $page['id'], 'Edit page '.$page['title']) ?></td></tr>
+            <td><?= $isAdmin ? V::editor('navigation', $page['id'], 'Edit page '.$page['title']) : '' ?></td></tr>
     <?php endforeach; ?>
     </tbody></table></div>
 </section>
-<section class="card">
+<section class="card" id="tools">
     <div class="card-head"><h2>Tools</h2></div>
     <div class="table-wrap"><table class="registry"><thead><tr><th>Tool</th><th>Who can use it</th><th></th></tr></thead><tbody>
     <?php foreach (Agent\Frontend::TOOLS as $tool): $name = substr($tool, strrpos($tool, '\\') + 1); ?>
         <tr><td><strong><?= V::h(Agent\ToolRegistry::label($name)) ?></strong><small><?= V::h($descriptions[$name] ?? '') ?></small></td>
             <td><?= $who($tool) ?></td>
-            <td><?= V::editor('tools', null, 'Edit tool access '.$name, ['resource'=>$tool]) ?></td></tr>
+            <td><?= $isAdmin ? V::editor('tools', null, 'Edit tool access '.$name, ['resource'=>$tool]) : '' ?></td></tr>
     <?php endforeach; ?>
     </tbody></table></div>
 </section>

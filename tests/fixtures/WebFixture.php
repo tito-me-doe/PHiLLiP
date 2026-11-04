@@ -105,6 +105,13 @@ class WebFixture
         throw new RuntimeException('Fixture server did not start');
     }
 
+    /** The cookie jar of a named client, for tests that issue their own raw requests. */
+    public function cookieFile($client)
+    {
+        if (!isset($this->cookies[$client])) $this->cookies[$client] = tmpfile();
+        return stream_get_meta_data($this->cookies[$client])['uri'];
+    }
+
     public function request($path, $body = null, $client = 'admin', $form = false, $csrf = null)
     {
         if (!isset($this->cookies[$client])) {

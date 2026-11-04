@@ -19,7 +19,7 @@ def main():
         page.fill('input[name="username"]', username)
         page.fill('input[name="password"]', password)
         page.click('#login-form button[type="submit"]')
-        page.wait_for_selector('#message-form', timeout=10000)
+        page.wait_for_selector('.shell', timeout=10000)
 
         # Navigate to thread 1.
         page.goto(f'{base}/chat?thread={thread1}')

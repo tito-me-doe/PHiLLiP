@@ -44,6 +44,8 @@ $outcomes = function (array $response, $priority) {
 };
 try {
     $fixtureUser = Agent\Identity::createUser(['username' => $fixtureUsername, 'password' => 'ACTION_LOGIN_SECRET']);
+    $profile = Agent\Profiles::save('default', ['url' => 'http://127.0.0.1:1/v1/chat/completions', 'model' => 'fixture', 'stream' => true]);
+    Agent\Database::execute('UPDATE profiles SET enabled=TRUE, supports_chat=TRUE WHERE id=?', [$profile['id']]);
     $ready = false;
     for ($i = 0; $i < 40; $i++) {
         if (!is_resource($server) || !proc_get_status($server)['running']) throw new RuntimeException('Action fixture failed to start');

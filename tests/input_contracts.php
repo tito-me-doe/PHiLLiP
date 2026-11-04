@@ -59,7 +59,9 @@ try {
     expectException(function () { Agent\Schema::normalize(['list']); }, 'named keys');
 
     $services = ['searxng' => ['url' => 'http://searxng:8080', 'headers' => ['X-Fixture' => 'value']], 'camoufox' => ['url' => 'http://browser:8000']];
-    foreach ([$services, json_encode($services), json_decode(json_encode($services))] as $input) {
+    // An omitted url_env/token_env is preserved from the stored service; blank ones clear it.
+    $reset = ['searxng' => $services['searxng'] + ['url_env' => '', 'token_env' => ''], 'camoufox' => $services['camoufox'] + ['url_env' => '', 'token_env' => '']];
+    foreach ([$reset, json_encode($reset), json_decode(json_encode($reset))] as $input) {
         check(Agent\Config::configureServices($input) === $services && Agent\Config::service('searxng') === $services['searxng'], 'Service settings share array, JSON, and decoded-object contracts');
     }
     expectException(function () { Agent\Config::configureServices('{"unknown":{"url":"http://localhost"}}'); }, 'Unknown service');
@@ -79,7 +81,7 @@ try {
         putenv('PHILLIP_TEST_SERVICE_URL=file:///etc/passwd');
         expectException(function () { Agent\Config::service('searxng'); }, 'HTTP(S) URL');
         expectException(function () { Agent\Config::configureServices(['searxng' => ['url' => 'http://configured.invalid', 'url_env' => 'BAD NAME']]); }, 'environment variable');
-        Agent\Config::configureServices($services);
+        Agent\Config::configureServices($reset);
         check(Agent\Config::service('searxng') === $services['searxng'], 'Custom services without url_env remain authoritative despite process-wide transport variables');
     } finally { putenv($serviceEnvironment === false ? 'PHILLIP_TEST_SERVICE_URL' : 'PHILLIP_TEST_SERVICE_URL=' . $serviceEnvironment); }
 } finally { $db->rollBack(); }

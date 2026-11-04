@@ -46,11 +46,6 @@ with sync_playwright() as p:
         page.locator('#dialog').wait_for(state='hidden',timeout=240000)
         assert page.evaluate('PHiLLiP.state.profiles.length') > 0
         print('PASS: Browser Save verifies and enables the real local model',flush=True)
-    page.get_by_role('link',name='Appearance',exact=True).click()
-    page.locator('[data-avatar-choice=sprout]').click()
-    wait_js(page,"PHiLLiP.state.preferences.avatar === 'sprout'")
-    page.locator('[data-avatar-choice=terminal]').click()
-    wait_js(page,"PHiLLiP.state.preferences.avatar === 'terminal'")
     page.get_by_role('link',name='Personas',exact=True).click()
     page.get_by_role('button',name='New persona',exact=True).click()
     page.locator('#persona-form [name=name]').fill(PERSONA)

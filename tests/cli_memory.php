@@ -47,7 +47,7 @@ try {
         $command='exec '.escapeshellarg(PHP_BINARY).' '.escapeshellarg(__DIR__.'/fixtures/cli_session.php').' '.escapeshellarg($username).($mode==='expired'?' expired':'');
         $child=proc_open($command,[['file','/dev/null','r'],['pipe','w'],['file','/dev/null','w']],$streams);$testSid=stream_get_contents($streams[1]);fclose($streams[1]);check(proc_close($child)===0 && preg_match('/^[a-zA-Z0-9,-]{16,256}$/D',$testSid),'Created '.$mode.' session fixture');
         $testPath=(ini_get('session.save_path') ?: sys_get_temp_dir()).'/sess_'.$testSid;$sessionPaths[]=$testPath;chown($testPath,33);
-        $result=cliProcess(['-p',json_encode($config),'-s',$testSid,'-t','Memory',$prompt],'',true);
+        $result=cliProcess(['-p',json_encode($config),'-s',$testSid,'-t','Tasks',$prompt],'',true); // Everyone may use Memory; Tasks needs an explicit grant
         check($result['status']===1 && $result['out']==='' && strpos($result['err'],$mode==='expired'?'Session':'permission denied')!==false,'Session-backed CLI rejects '.$mode.' credentials/tools without fallback');
     }
     $headers=['Authorization'=>'Bearer CLI_TEST_AUTH_SECRET'];$credentialRef='credentials.'.hash('sha256',json_encode($headers));

@@ -4,12 +4,13 @@ require __DIR__.'/fixtures/WebFixture.php';
 $web = new WebFixture();
 try {
     $admin = Agent\Installation::install(['auth'=>'standalone'],'admin','phillip-demo','Administrator');
+    Agent\PersonaSheet::install();
     $people = ['admin'=>$admin];
     foreach (['alice','bob','carol','visitor'] as $name) $people[$name] = Agent\Identity::createUser($name,'phillip-demo',ucfirst($name));
     foreach (['engineering'=>'Engineering','finance'=>'Finance','sales'=>'Sales'] as $id=>$name) Agent\Mappings::insert('teams',['id'=>$id,'name'=>$name]);
     foreach ([['alice','engineering'],['alice','finance'],['bob','engineering'],['carol','sales']] as $member) Agent\Mappings::insert('memberships',['user_id'=>$people[$member[0]]['id'],'team_id'=>$member[1]]);
     $engine = $web->server(__DIR__.'/fixtures/onboarding_engine.php');
-    $profile = Agent\Profiles::save('default',['url'=>$engine.'/v1/chat/completions','model'=>'onboarding-chat','stream'=>true,'max_tokens'=>1024]);
+    $profile = Agent\Profiles::save('default',['url'=>$engine.'/v1/chat/completions','model'=>'onboarding-chat','stream'=>true,'max_tokens'=>1024,'context_window'=>32768]);
     Agent\Database::execute('UPDATE profiles SET enabled=TRUE,supports_chat=TRUE,supports_streaming=TRUE,supports_tools=TRUE WHERE id=?',[$profile['id']]);
     $web->server(dirname(__DIR__).'/public/index.php',true);
     foreach (['admin','alice','bob','carol'] as $name) $web->login($name,'phillip-demo',$name);
@@ -21,14 +22,15 @@ try {
     check(count(Agent\Identity::teams($alice))===3,'Membership is additive and Everyone is implicit');
     check(!Agent\Access::inTeam('missing-user','0'),'Everyone does not authenticate an unknown identity');
     check($admin['is_admin'] && $admin['is_developer'],'Initial identity is hydrated with both operator roles');
-    check(Agent\Pages::get('access')['title']==='Users & Groups' && Agent\Pages::get('models')['title']==='Models & Profiles','Page names describe their focused concepts');
+    check(Agent\Pages::get('access')['title']==='Permissions & Users' && Agent\Pages::get('models')['title']==='System Settings','Page names describe their focused concepts');
     check(!Agent\Database::rows("SELECT id FROM pages WHERE id IN ('services','parsers')"),'Services and attachment parsing are sections, not separate pages');
     foreach (['/services','/attachment-parsers'] as $path) check($web->request($path)['status']===404,'Removed page route is absent: '.$path);
-    $toolsHtml = $web->request('/tools-services')['text'];
-    check(strpos($toolsHtml,'id="tools"')!==false && strpos($toolsHtml,'id="attachment-parsing"')!==false && strpos($toolsHtml,'id="services"')!==false,'Tools & Services renders all three sections server-side');
-    check(strpos($web->request('/access')['text'],'id="access-grants"')===false,'Users & Groups has no Permissions section');
+    $settingsHtml = $web->request('/models')['text'];
+    check(strpos($settingsHtml,'id="model-registry"')!==false && strpos($settingsHtml,'id="profiles"')!==false && strpos($settingsHtml,'id="attachment-parsing"')!==false && strpos($settingsHtml,'id="services"')!==false,'System Settings renders models, profiles, attachment parsing and services server-side');
+    $accessHtml = $web->request('/access')['text'];
+    check(strpos($accessHtml,'Edit tool access')!==false && strpos($accessHtml,'<h2>Users</h2>')!==false && strpos($accessHtml,'<h2>Pages</h2>')!==false && strpos($accessHtml,'id="access-grants"')===false,'Permissions & Users holds users, groups, pages and tools');
     $modelHtml=$web->request('/models')['text'];
-    check(strpos($modelHtml,'<th>DEFAULT FOR</th>')!==false && strpos($modelHtml,'id="task-defaults"')===false && strpos($modelHtml,'Missing profile: Embeddings')!==false,'Profiles table owns task assignments and reports missing embedding dependencies');
+    check(strpos($modelHtml,'<th>Default for</th>')!==false && strpos($modelHtml,'id="task-defaults"')===false && strpos($modelHtml,'Missing profile: Embeddings')!==false,'Profiles table owns task assignments and reports missing embedding dependencies');
     $defaults=$web->request('/api/admin/profile-defaults',['profileid'=>$profile['id'],'tasks'=>['generate_titles','summarize']]);
     check($defaults['status']===200 && Agent\Profiles::assignment('generate_titles')['id']===$profile['id'],'Profile defaults endpoint assigns multiple tasks together');
     $specialist=Agent\Profiles::save('assignment-fixture',['url'=>$engine.'/v1/chat/completions','model'=>'onboarding-chat']);
@@ -38,8 +40,8 @@ try {
     check($web->request('/api/admin/profile-defaults',['profileid'=>$profile['id'],'tasks'=>['not-a-task']])['status']===400 && Agent\Profiles::assignment('summarize')['id']===$specialist['id'],'Invalid task selection cannot partially mutate assignments');
     Agent\Profiles::setDefaults(['id'=>$specialist['id']],[]);
     Agent\Database::execute('DELETE FROM profiles WHERE id=?',[$specialist['id']]);
-    check(array_column(Agent\Pages::permitted($alice),'id')===['conversations'],'Everyone grants only chat, not other pages');
-    check(count(Agent\Mappings::rows('permissions',['scope_type'=>'team','scope_id'=>'0']))===5,'Everyone starts with exactly chat and four web/memory tool grants');
+    check(array_column(Agent\Pages::permitted($alice),'id')===['conversations','personas'],'Everyone grants only chat and personas, not other pages');
+    check(count(Agent\Mappings::rows('permissions',['scope_type'=>'team','scope_id'=>'0']))===6,'Everyone starts with exactly chat, personas and four web/memory tool grants');
     foreach (['SearchWeb','Fetch','BrowseWeb','Memory'] as $tool) check(Agent\Access::tool($alice,'Agent\\Tools\\'.$tool),'Default web/memory tool: '.$tool);
     check(Agent\Access::allows($admin['id'],'unknown.resource'),'Administrators automatically have permissions for future resources');
     check(!Agent\Access::allows($bob,'unknown.resource',true),'Legacy defaults cannot grant ordinary users access');
@@ -57,7 +59,8 @@ try {
     check(!Agent\Access::allows($operator['id'],'NewTool') && $web->request('/access',null,'operator')['status']===403,'Removing administrator membership immediately revokes implicit access in existing sessions');
     check(!Agent\Identity::user(['id'=>$bob,'is_admin'=>true])['is_admin'],'Supplied privilege flags cannot manufacture administrator membership');
     check($web->request('/chat',null,'alice')['status']===200,'Everyone can open /chat');
-    foreach (['/projects','/personas','/models','/access','/api/manage/users','/fragments/dialog?kind=manage&entity=users'] as $path) check($web->request($path,null,'alice')['status']===403,'No grant means no access: '.$path);
+    check($web->request('/personas',null,'alice')['status']===200,'Everyone can open /personas');
+    foreach (['/projects','/models','/access','/api/manage/users','/fragments/dialog?kind=manage&entity=users'] as $path) check($web->request($path,null,'alice')['status']===403,'No grant means no access: '.$path);
     $html = $web->request('/chat',null,'alice')['text'];
     check(strpos($html,'data-page="access"')===false && strpos($html,'Recent work')===false,'Forbidden menu entries and old history heading are absent');
 
@@ -83,21 +86,21 @@ try {
     Agent\Identity::grant('user',$alice,'page.access');
     check($web->request('/api/manage/tools',['resource'=>'Agent\\Tools\\Tasks','allowed_groups'=>['engineering']],'alice')['status']===403,'User management alone cannot grant tool access');
     check($web->request('/api/manage/permissions',['scope'=>'user:'.$alice,'resource'=>'page.models'],'alice')['status']===403,'User management alone cannot grant page access');
-    Agent\Identity::grant('user',$alice,'page.tools-services');
+    Agent\Identity::grant('user',$alice,'page.models');
     check($web->request('/api/admin/services',null,'alice')['status']===200 && $web->request('/api/admin/attachment-parsers',null,'alice')['status']===200,'Unified page permission governs service and parser APIs');
-    check($web->request('/api/manage/tools',['resource'=>'page.models','allowed_users'=>[$alice]],'alice')['status']===400,'Tool editor cannot mutate page permissions');
+    check($web->request('/api/manage/tools',['resource'=>'page.models','allowed_users'=>[$alice]],'alice')['status']===403,'Only administrators edit tool access, so it cannot mutate page permissions');
     check($web->request('/api/manage/permissions',['scope'=>'user:'.$alice,'resource'=>'page.models'],'alice')['status']===403,'Tool administration cannot grant navigation access');
     $manage->action('tools',['resource'=>'Agent\\Tools\\Tasks','allowed_users'=>[$bob],'allowed_groups'=>['engineering']]);
     check(Agent\Access::tool($bob,'Agent\\Tools\\Tasks') && Agent\Access::tool($alice,'Agent\\Tools\\Tasks'),'Tool editor grants users and groups through the common table');
     $manage->action('tools',['resource'=>'Agent\\Tools\\Tasks','allowed_users'=>[],'allowed_groups'=>[]]);
     check(!Agent\Access::tool($bob,'Agent\\Tools\\Tasks') && Agent\Access::tool($admin['id'],'Agent\\Tools\\Tasks'),'Clearing tool grants revokes ordinary access but preserves implicit administrator access');
-    $toolForm = $web->request('/tools-services?edit=tools&resource='.rawurlencode('Agent\\Tools\\Tasks'));
+    $toolForm = $web->request('/access?edit=tools&resource='.rawurlencode('Agent\\Tools\\Tasks'));
     check($toolForm['status']===200 && strpos($toolForm['text'],'name="allowed_groups[]"')!==false,'Tool permissions have a PHP-rendered editor without JavaScript');
-    $native=$web->request('/tools-services',['action'=>'save-parsers','csrf'=>$web->tokens['admin'],'parsers'=>'{"text/plain":"default"}'],'admin',true);
+    $native=$web->request('/models',['action'=>'save-parsers','csrf'=>$web->tokens['admin'],'parsers'=>'{"text/plain":"default"}'],'admin',true);
     check($native['status']===303 && Agent\AttachmentParser::configuration()['text/plain']==='default','Parser settings save through ordinary PHP forms');
-    $web->request('/tools-services',['action'=>'save-parsers','csrf'=>$web->tokens['admin'],'parsers'=>'{}'],'admin',true);
-    $services=['searxng'=>['url'=>'http://127.0.0.1:8888'],'camoufox'=>['url'=>'http://127.0.0.1:3000']];
-    $native=$web->request('/tools-services',['action'=>'save-services','csrf'=>$web->tokens['admin'],'services'=>json_encode($services)],'admin',true);
+    $web->request('/models',['action'=>'save-parsers','csrf'=>$web->tokens['admin'],'parsers'=>'{}'],'admin',true);
+    $services=['searxng'=>['url'=>'http://127.0.0.1:8888','url_env'=>''],'camoufox'=>['url'=>'http://127.0.0.1:3000','url_env'=>'']]; // an omitted url_env is preserved; a blank one opts out of the environment override
+    $native=$web->request('/models',['action'=>'save-services','csrf'=>$web->tokens['admin'],'services'=>json_encode($services)],'admin',true);
     check($native['status']===303 && Agent\Config::service('searxng')['url']===$services['searxng']['url'],'Service configuration saves through ordinary PHP forms');
     check($web->request('/api/manage/users',['username'=>'delegated-member','display_name'=>'Delegated member','password'=>'phillip-demo','groups'=>['engineering','finance']],'alice')['status']===200,'Combined access management supports multi-group user creation');
     check($web->request('/api/manage/users',['username'=>'escalation','display_name'=>'Escalation','password'=>'phillip-demo','groups'=>['1']],'alice')['status']===403,'Group selection cannot bypass administrator-account protections');
@@ -159,7 +162,7 @@ try {
     check(proc_close($process)===0,'Existing project frontend boundaries still work');
 
     if (in_array('--browser',$argv,true)) {
-        $manage->action('navigation',array_replace(Agent\Pages::get('models'),['title'=>'Models & Profiles']));
+        $manage->action('navigation',array_replace(Agent\Pages::get('models'),['title'=>'System Settings']));
         $web->launch([PHP_BINARY,dirname(__DIR__).'/bin/phill-worker']);
         $browser=$web->launch(['python3',__DIR__.'/ui_organization.py',$web->base],true);
         check(proc_close($browser)===0,'Combined access management and sidebar browser workflow');

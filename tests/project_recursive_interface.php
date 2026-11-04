@@ -162,17 +162,18 @@ try {
 
     $pagePath = '/?view=projects&project=' . $project->id;
     $page = $request($pagePath);
-    $document = new DOMDocument(); @$document->loadHTML($page['body']); $xpath = new DOMXPath($document);
+    $editor = $request($pagePath . '&decision=' . $root); // the answer form opens as an editor for one decision
+    $document = new DOMDocument(); @$document->loadHTML($editor['body']); $xpath = new DOMXPath($document);
     $form = $xpath->query('//form[@data-project-form="answer:' . $root . '"]');
-    check($page['status'] === 200 && $form->length === 1 && $xpath->query('.//input[@name="csrf"]', $form->item(0))->length === 1 && strpos($page['body'], '&lt;script&gt;question&lt;/script&gt;') !== false && strpos($page['body'], '<script>question') === false && strpos($page['body'], '&lt;script&gt;evidence&lt;/script&gt;') !== false, 'Server HTML renders escaped root question/evidence and ordinary CSRF-protected answer form');
+    check($page['status'] === 200 && $editor['status'] === 200 && $form->length === 1 && $xpath->query('.//input[@name="csrf"]', $form->item(0))->length === 1 && strpos($editor['body'], '&lt;script&gt;question&lt;/script&gt;') !== false && strpos($page['body'], '<script>question') === false && strpos($editor['body'], '<script>question') === false && strpos($page['body'], '&lt;script&gt;evidence&lt;') !== false && strpos($page['body'], '<script>evidence') === false, 'Server HTML renders escaped root question/evidence and ordinary CSRF-protected answer form');
     check($xpath->query('//form[@data-project-form="answer:' . $child . '" or @data-project-form="answer:' . $stale . '" or @data-project-form="answer:' . $apiRoot . '"]')->length === 0, 'Answer panel omits runtime-parent, stale and already-answered questions');
     $formBody = ['action' => 'project-answer', 'project_id' => $project->id, 'decision_id' => $root, 'answer' => 'Ship safely', 'actor_id' => $bob['id'], 'csrf' => 'invalid'];
-    $rejectedForm = $request($pagePath, 'alice', $formBody, '', true);
+    $rejectedForm = $request($pagePath . '&decision=' . $root, 'alice', $formBody, '', true);
     check($rejectedForm['status'] === 400 && strpos($rejectedForm['body'], '>Ship safely</textarea>') !== false, 'Ordinary answer form rejects invalid CSRF and preserves the answer draft');
     $formBody['csrf'] = $tokens['alice'];
-    $posted = $request($pagePath, 'alice', $formBody, '', true);
+    $posted = $request($pagePath . '&decision=' . $root, 'alice', $formBody, '', true);
     $saved = Agent\Database::row('SELECT answer, answered_by FROM project_decisions WHERE id = ?', [$root]);
-    check($posted['status'] === 303 && $posted['headers']['location'] === '/?view=projects&project=' . $project->id && $saved['answer'] === 'Ship safely' && (string)$saved['answered_by'] === (string)$alice['id'], 'No-JavaScript POST answers as authenticated Alice and redirects to the project');
+    check($posted['status'] === 303 && $posted['headers']['location'] === '/projects?project=' . $project->id && $saved['answer'] === 'Ship safely' && (string)$saved['answered_by'] === (string)$alice['id'], 'No-JavaScript POST answers as authenticated Alice and redirects to the project');
     $refreshed = $request('/fragments/project?project=' . $project->id);
     check($refreshed['status'] === 200 && strpos($refreshed['body'], 'data-project-form="answer:' . $root . '"') === false, 'Server fragment refresh removes the answered question');
 } finally {

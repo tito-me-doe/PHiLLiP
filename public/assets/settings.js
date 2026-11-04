@@ -228,9 +228,6 @@
         content: f.get("content"),
       });
     });
-    bind("#services-form", "Service configuration saved", async (f) => {
-      await A.api("/api/admin/services", { services: f.get("services") });
-    });
     bind(
       "#service-form",
       "Service configuration saved",

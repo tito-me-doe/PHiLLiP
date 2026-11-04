@@ -4,10 +4,12 @@ require __DIR__ . '/fixtures/WebFixture.php';
 $web = new WebFixture();
 try {
     $admin = Agent\Installation::install(['auth'=>'standalone'],'admin','phillip-demo','Administrator');
+    $profile = Agent\Profiles::save('default', ['url' => 'http://127.0.0.1:1/v1/chat/completions', 'model' => 'fixture', 'stream' => true]);
+    Agent\Database::execute('UPDATE profiles SET enabled=TRUE, supports_chat=TRUE WHERE id=?', [$profile['id']]);
     $people = ['admin'=>$admin];
     foreach (['alice','bob','carol','visitor'] as $name) $people[$name] = Agent\Identity::createUser($name,'phillip-demo',ucfirst($name));
     $web->server(dirname(__DIR__).'/public/index.php', true);
-    $web->login('admin','phillip-demo','admin');
+    foreach (['admin','alice'] as $name) $web->login($name,'phillip-demo',$name);
     $fixtureTitle = 'Rejected frontend fixture ' . bin2hex(random_bytes(8));
     $raw = function ($path, $method, $body = null) use ($web) {
         $curl = curl_init($web->base . $path);
@@ -15,6 +17,7 @@ try {
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST => $method,
             CURLOPT_TIMEOUT => 15,
+            CURLOPT_COOKIEFILE => $web->cookieFile('admin'),
         ]);
         if ($body !== null) {
             curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($body));

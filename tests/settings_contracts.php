@@ -24,7 +24,7 @@ try {
         check($invalid['status'] === 400 && Agent\Config::profile($name) === $config, 'Invalid raw capability overrides reject the profile without updates');
 
         $permissionUser = Agent\Identity::createUser(['username'=>'settings-permission-' . bin2hex(random_bytes(5)), 'password'=>'contract-password']);
-        $permission = ['scope_type'=>'user','scope_id'=>(string)$permissionUser['id'],'tool'=>\Agent\Tools\Fetch::class,'allowed'=>'false'];
+        $permission = ['scope_type'=>'user','scope_id'=>(string)$permissionUser['id'],'tool'=>\Agent\Tools\Tasks::class,'allowed'=>'false'];
         $result = $web->request('/api/admin/permission', $permission, 'admin');
         check($result['status'] === 200 && !Agent\Access::tool($permissionUser['id'], $permission['tool']), 'HTTP permission contracts accept form-style false without granting access');
         $permission['allowed'] = 'maybe';

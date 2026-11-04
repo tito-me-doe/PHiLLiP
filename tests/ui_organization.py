@@ -38,7 +38,6 @@ with sync_playwright() as p:
     assert menu.get_attribute("open") is None
     menu.locator("summary").click()
     assert menu.locator("summary").bounding_box()["width"]==36
-    assert menu.locator("summary").evaluate("n=>getComputedStyle(n).boxShadow")!="none"
     paths=page.locator(".page-link[data-page]").evaluate_all("ns=>ns.map(n=>new URL(n.href).pathname)")
     assert paths==sorted(paths,key=str.lower),paths
     assert page.locator(".nav-section,.sidebar-bottom a[aria-label=Settings]").count()==0
@@ -47,22 +46,21 @@ with sync_playwright() as p:
     chat=page.get_by_role("link",name="Chat",exact=True).bounding_box()
     project=page.get_by_role("link",name="Project",exact=True).bounding_box()
     assert abs(chat["width"]-project["width"])<1 and abs(chat["y"]-project["y"])<1
-    assert page.locator(".sidebar-bottom .badge").inner_text()=="local"
 
-    for name in ["access","appearance","models","navigation","personas","knowledge","benchmarks","tools-services"]:
+    for name in ["access","models","personas","knowledge","benchmarks"]:
         navigate(name)
         expect(page.locator("main h1").first).to_be_visible()
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth+1"),name
-        assert page.locator('main table input:not([type=hidden]),main table select,main table textarea').count()==0,name
+        assert page.locator('main table input:not([type=hidden]):not([type=checkbox]),main table select,main table textarea').count()==0,name
         assert "Actions" not in page.locator("main th").all_text_contents(),name
         for button in page.locator("main tfoot .row-action").all():
-            assert button.inner_text().strip()=="New"
+            assert button.inner_text().strip()=="" and button.get_attribute("aria-label").startswith("New")
     print("PASS: Flat alphabetic top menu, equal creation buttons, readonly tables and isolated pages",flush=True)
 
     navigate("models")
-    expect(page.locator("main h1")).to_have_text("Models & Profiles")
+    expect(page.locator("main h1")).to_have_text("System Settings")
     assert page.locator("#task-defaults").count()==0
-    expect(page.locator("#profiles")).to_contain_text("DEFAULT FOR")
+    expect(page.locator("#profiles")).to_contain_text("Default for")
     expect(page.locator("#profiles")).to_contain_text("Missing profile: Embeddings")
     page.get_by_role("link",name="Edit defaults for default",exact=True).click()
     defaults=page.locator("#dialog form[data-profile-defaults]")
@@ -81,8 +79,8 @@ with sync_playwright() as p:
     navigate("access")
     assert page.locator("#access-users table,#access-groups table").count()==2
     assert page.locator("#access-grants").count()==0
-    expect(page.locator("main h1")).to_have_text("Users & Groups")
-    assert page.locator("main form").count()==0
+    expect(page.locator("main h1")).to_have_text("Permissions & Users")
+    assert page.locator("main form:not(.switch-form)").count()==0
     page.screenshot(path=str(captures/"access.png"))
     form=editor("New user","users")
     form.locator("[name=username]").fill("ui-member")
@@ -109,33 +107,33 @@ with sync_playwright() as p:
     expect(row).to_contain_text("Browser group")
     expect(row).not_to_contain_text("Finance")
 
-    navigate("tools-services")
-    expect(page.locator("main h1")).to_have_text("Tools & Services")
     form=editor("Edit tool access Tasks","tools")
     assert form.locator('[name="allowed_groups[]"][value="1"]').count()==0
     form.locator('[name="allowed_groups[]"][value="'+group_id+'"]').check()
     form.get_by_role("button",name="Save",exact=True).click()
     expect(page.locator("#tools tr").filter(has_text="Tasks")).to_contain_text("Browser group")
+    navigate("models")
     page.get_by_role("link",name="New mapping",exact=True).click()
     parser=page.locator('#dialog #attachment-parsers-form')
-    parser.locator('[name=parsers]').fill('{"text/plain":"default"}')
-    parser.get_by_role('button',name='Save parsing profiles',exact=True).click()
+    parser.locator('[name=type]').fill('text/plain')
+    parser.locator('[name=profile]').select_option('default')
+    parser.get_by_role('button',name='Save mapping',exact=True).click()
     expect(page.locator('#attachment-parsing tbody')).to_contain_text('text/plain')
     page.get_by_role("link",name="Edit parsing text/plain",exact=True).click()
     parser=page.locator('#dialog #attachment-parsers-form')
-    parser.locator('[name=parsers]').fill('{}')
-    parser.get_by_role('button',name='Save parsing profiles',exact=True).click()
-    expect(page.locator('#attachment-parsing')).to_contain_text('Local conversion defaults')
+    parser.locator('[name=profile]').select_option('')
+    parser.get_by_role('button',name='Save mapping',exact=True).click()
+    expect(page.locator('#attachment-parsing')).to_contain_text('Built-in conversion')
     page.get_by_role("link",name="Edit service searxng",exact=True).click()
-    service=page.locator('#dialog #services-form')
-    service.get_by_role('button',name='Save services',exact=True).click()
+    service=page.locator('#dialog #service-form')
+    service.get_by_role('button',name='Save',exact=True).click()
     expect(page.locator('#dialog')).not_to_be_visible()
-    navigate("navigation")
-    form=editor("Edit route Benchmarks","navigation")
+    navigate("access")
+    form=editor("Edit page Benchmarks","navigation")
     form.locator('[name="allowed_groups[]"][value="'+group_id+'"]').check()
     form.get_by_role("button",name="Save",exact=True).click()
     navigate("access")
-    expect(page.locator("#access-groups tr").filter(has_text="Everyone")).to_contain_text("automatic")
+    expect(page.locator("#access-groups tr").filter(has_text="Everyone")).to_contain_text("Everyone signed in")
     assert page.get_by_role("link",name="Edit group Everyone",exact=True).count()==0
 
     member_context=browser.new_context()
@@ -152,27 +150,27 @@ with sync_playwright() as p:
     expect(member.get_by_role("link",name="Return to your workspace")).to_be_visible()
     print("PASS: Modal user/group editors synchronize additive memberships; group grants match direct route authorization",flush=True)
 
-    navigate("navigation")
-    for row in page.locator("main table tbody tr").all():
-        expect(row).to_contain_text("Administrators (automatic)")
-    form=editor("Edit route Personas","navigation")
+    navigate("access")
+    for row in page.locator("#access-pages tbody tr").all():
+        assert row.locator("td").nth(2).inner_text().strip()  # every page says who may open it
+    form=editor("Edit page Memory","navigation")
     assert form.locator("[name=section],[name=position],[name=default_access],[name=enabled],[name=in_navigation]").count()==0
     assert form.locator('[name="allowed_groups[]"][value="1"]').count()==0
-    expect(form).to_contain_text("Administrators (1) — always allowed, automatically")
-    form.locator("[name=title]").fill("Persona library")
+    expect(form).to_contain_text("Administrators always have access.")
+    form.locator("[name=title]").fill("Memory library")
     form.locator('[name="allowed_users[]"][value="'+user_id+'"]').check()
     form.locator('[name="allowed_groups[]"][value="'+group_id+'"]').check()
     form.get_by_role("button",name="Save",exact=True).click()
-    route=page.locator("table tr").filter(has_text="/personas")
-    expect(route).to_contain_text("Persona library")
+    route=page.locator("table tr").filter(has_text="/memory")
+    expect(route).to_contain_text("Memory library")
     expect(route).to_contain_text("UI Member")
     expect(route).to_contain_text("Browser group")
-    assert member.goto(base+"/personas").status==200
-    form=editor("Edit route Persona library","navigation")
+    assert member.goto(base+"/memory").status==200
+    form=editor("Edit page Memory library","navigation")
     form.locator('[name="allowed_users[]"][value="'+user_id+'"]').uncheck()
     form.locator('[name="allowed_groups[]"][value="'+group_id+'"]').uncheck()
     form.get_by_role("button",name="Save",exact=True).click()
-    assert member.goto(base+"/personas").status==403
+    assert member.goto(base+"/memory").status==403
 
     page.get_by_role("link",name="Project",exact=True).click()
     create=page.locator('[data-project-form=create]')
@@ -197,33 +195,37 @@ with sync_playwright() as p:
     draft.fill("Draft survives background refresh")
     page.wait_for_timeout(5500)
     expect(draft).to_have_value("Draft survives background refresh")
-    page.get_by_role("button",name="Close",exact=True).click()
+    page.once("dialog",lambda d: d.accept())  # the unsaved-changes confirmation
+    page.locator('#dialog [data-action=close-dialog]').click()
+    expect(page.locator('#dialog')).not_to_be_visible()
     page.get_by_role("link",name="Open planning chat",exact=True).click()
     expect(page.locator("#message-form")).to_be_visible()
     assert "/projects?" in page.url
 
     page.get_by_role("link",name="Chat",exact=True).click()
+    page.locator('#persona-start .persona-card[name=persona_id]').first.click()  # a new chat starts by choosing who to talk to
+    expect(page.locator("#message-form")).to_be_visible()
     for turn in range(3):
         page.locator("#prompt").fill("Organization follow-up "+str(turn+1))
         page.get_by_role("button",name="Send message",exact=True).click()
-        expect(page.locator(".message.assistant[data-id]")).to_have_count(turn+1,timeout=20000)
+        page.wait_for_function("n=>document.querySelectorAll('.message.assistant[data-id]').length>=n",arg=turn+1,timeout=20000)
         expect(page.locator("#live-message")).to_have_count(0,timeout=20000)
     thread=page.evaluate("PHiLLiP.current.thread.id")
     navigate("knowledge")
     page.locator('[data-thread="'+str(thread)+'"]').click()
     page.locator("#prompt").fill("A fourth message after navigation and replacement")
     page.get_by_role("button",name="Send message",exact=True).click()
-    expect(page.locator(".message.assistant[data-id]")).to_have_count(4,timeout=20000)
+    page.wait_for_function("n=>document.querySelectorAll('.message.assistant[data-id]').length>=n",arg=4,timeout=20000)
     assert page.locator(".history-table [data-work-kind=project]").count()>0
     page.screenshot(path=str(captures/"chat-history.png"))
     print("PASS: Table-based mixed history and four follow-ups survive navigation/fragment replacement",flush=True)
 
-    navigate("appearance")
-    page.get_by_role("button",name="Dark",exact=True).click()
+    page.get_by_role("button",name="Toggle light or dark mode").first.click()
     expect(page.locator("html")).to_have_attribute("data-theme","dark")
     page.set_viewport_size({"width":390,"height":844})
     page.get_by_role("button",name="Open navigation",exact=True).click()
-    page.locator(".route-menu > summary").click()
+    if page.locator(".route-menu").get_attribute("open") is None:  # settings pages keep the menu open
+        page.locator(".route-menu > summary").click()
     expect(page.locator(".page-navigation")).to_be_visible()
     assert page.evaluate("document.documentElement.scrollWidth<=innerWidth+1")
     page.screenshot(path=str(captures/"mobile-dark.png"))

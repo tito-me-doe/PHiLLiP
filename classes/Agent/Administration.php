@@ -31,6 +31,14 @@ class Administration
         return 'access';
     }
 
+    /** Users, groups and memberships may be delegated with the page; pages, tool access and permissions stay with administrators. */
+    public static function requireAdministrator(array $user, $entity)
+    {
+        if (in_array($entity, ['navigation', 'permissions', 'tools'], true) && empty($user['is_admin'])) {
+            throw new \RuntimeException('Only an administrator may change pages, tool access and permissions');
+        }
+    }
+
     public function data($page)
     {
         Pages::authorize($this->user['id'], self::page($page));
@@ -50,6 +58,7 @@ class Administration
             throw new \InvalidArgumentException('Unknown management page');
         }
         Pages::authorize($this->user['id'], self::page($page, $input));
+        self::requireAdministrator($this->user, $page);
         return State::transaction(function () use ($page, $input) {
             Database::row("SELECT pg_advisory_xact_lock(hashtext('phillip-identity-management'))");
             $this->user = Access::authenticated($this->user['id']);

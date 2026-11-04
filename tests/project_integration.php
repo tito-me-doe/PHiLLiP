@@ -79,7 +79,7 @@ try {
     expectException(function () use ($project, $alice) { $project->start($alice['id']); }, 'planning conversation work');
     Agent\Database::execute("UPDATE runs SET status = 'running' WHERE id = ?", [$planningRun['id']]);
     expectException(function () use ($project, $alice) { $project->start($alice['id']); }, 'planning conversation work');
-    expectException(function () use ($frontend, $planning) { $frontend->delete($planning->id); }, 'active planning run');
+    expectException(function () use ($project) { $project->delete(); }, 'active planning run');
     Agent\Database::execute("UPDATE runs SET status = 'stopped' WHERE id = ?", [$planningRun['id']]);
     $project->start($alice['id']);
     check($project->get()['status'] === 'running', 'Human Start proceeds after outstanding planning work has finished');

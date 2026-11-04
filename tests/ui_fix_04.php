@@ -9,6 +9,7 @@ putenv('FIX04_THREAD_B=');
 $web = new WebFixture();
 try {
     $admin = Agent\Installation::install(['auth' => 'standalone'], 'admin', 'phillip-demo', 'Administrator');
+    Agent\PersonaSheet::install();
     $people = ['admin' => $admin];
     foreach (['alice', 'bob'] as $name) $people[$name] = Agent\Identity::createUser($name, 'phillip-demo', ucfirst($name));
     $engine = $web->server(__DIR__ . '/fixtures/onboarding_engine.php');

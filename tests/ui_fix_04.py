@@ -41,54 +41,14 @@ with sync_playwright() as p:
 
     login("alice")
 
-    # --- Test 1: New-chat draft (separate slot) on welcome screen ---
-    # On login there is no current thread; the composer draft lives under the "new" key.
-    expect(page.locator("#prompt")).to_be_visible()
-    expect(page.locator("#prompt")).to_have_value("")
-    type_composer("New chat draft")
-    expect(page.locator("#prompt")).to_have_value("New chat draft")
-    print("PASS: New-chat draft on welcome screen", flush=True)
-
-    # --- Regression R1: new-chat create succeeds, its /messages request is
-    #     aborted, retry succeeds, origin 'new' draft cleared so the next
-    #     + Chat is empty; assert interception and await the failure first. ---
-    # The "new"-slot draft may hold Test 1's "New chat draft"; fill() below
-    # replaces it wholesale, so R1 is self-contained either way.
-    intercepted_r1 = []
-    page.route(
-        "**/api/threads/*/messages",
-        lambda route: intercepted_r1.append(route) or route.abort(),
-    )
-
-    type_composer("New-chat abort then retry")
-    send_composer()
-    # Await the observed failure before retrying.
-    err_loc = page.locator(
-        ".phillip-message.log-error,.phillip-message.log-warning"
-    )
-    expect(err_loc).to_have_count(err_loc.count() + 1, timeout=10000)
-    assert len(intercepted_r1) >= 1, (
-        "Expected the new-chat /messages request to be intercepted"
-    )
-    page.unroute("**/api/threads/*/messages")
-    # Retry: the thread was created by the first attempt, so /messages now succeeds.
-    send_composer()
-    expect(page.locator("#prompt")).to_have_value("")
-    # Origin 'new' draft cleared after successful acceptance: the next + Chat opens empty.
-    page.locator(".new-chat").click()
-    expect(page.locator("#message-form")).to_be_visible()
-    expect(
-        page.locator("#message-form input[name=thread_id]")
-    ).to_have_value("")
-    expect(page.locator("#prompt")).to_have_value("")
-    print(
-        "PASS: new-chat create / abort / retry clears origin 'new' draft",
-        flush=True,
-    )
+    # --- Test 1: A new chat starts by choosing who to talk to: no composer, so no new-chat draft ---
+    expect(page.locator("#persona-start")).to_be_visible()
+    expect(page.locator("#prompt")).to_be_hidden()
+    print("PASS: A new chat shows only the persona cards until someone is chosen", flush=True)
 
     # --- Test 2: Per-thread draft survives switching threads ---
     open_thread(thread_a)
-    # Thread A composer starts empty; the new-chat draft stays under "new".
+    # Thread A composer starts empty.
     expect(page.locator("#prompt")).to_have_value("")
     type_composer("Draft for thread A")
     expect(page.locator("#prompt")).to_have_value("Draft for thread A")
@@ -303,6 +263,8 @@ with sync_playwright() as p:
     page.get_by_role("button", name="Sign out", exact=True).click()
     expect(page.locator("#login-form")).to_be_visible()
     login("bob")
+    page.locator('#persona-start .persona-card[name=persona_id]').first.click()
+    expect(page.locator("#message-form")).to_be_visible()
     expect(page.locator("#prompt")).to_have_value("")
     type_composer("Bob's private draft")
     expect(page.locator("#prompt")).to_have_value("Bob's private draft")

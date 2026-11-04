@@ -79,12 +79,7 @@ with sync_playwright() as p:
     key=panel.get_attribute('data-key');page.reload();page.locator('#message-form').wait_for()
     assert page.locator('details[data-key="'+key+'"]').get_attribute('open') is not None
     print('PASS: Expanded panels persist in local storage across a server-rendered page reload',flush=True)
-    page.get_by_role('link',name='Settings',exact=True).click();page.get_by_role('link',name='Appearance',exact=True).click()
-    page.locator('[data-avatar-choice=sprout]').click()
-    wait(page,"PHiLLiP.state.preferences.avatar==='sprout'")
-    assert page.evaluate('JSON.parse(localStorage.getItem(PHiLLiP.storageKey)).avatar')=='sprout'
-    page.locator('[data-avatar-choice=terminal]').click();wait(page,"PHiLLiP.state.preferences.avatar==='terminal'")
     assert not errors,errors
     page.evaluate("async id=>await PHiLLiP.api('/api/threads/'+id+'/delete',{})",captured['thread'])
-    print('PASS: Avatar selection is browser-local; no JavaScript errors',flush=True)
+    print('PASS: No JavaScript errors',flush=True)
     browser.close()

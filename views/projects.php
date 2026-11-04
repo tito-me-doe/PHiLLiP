@@ -116,7 +116,7 @@ $editor = function ($todo = null, $parentId = null) use ($state, $hidden, $proje
     <form method="post" class="form-stack" action="<?= V::url('?view=projects&project='.$project->id) ?>" data-project-form="answer:<?= $decision['id'] ?>" data-project-api="/api/projects/<?= $project->id ?>/decisions/<?= $decision['id'] ?>/answer">
         <?php $hidden('answer'); ?><input type="hidden" name="decision_id" value="<?= $decision['id'] ?>">
         <p><?= V::h($decision['question']) ?></p>
-        <label>Your decision<textarea name="answer" required rows="4"></textarea></label>
+        <label>Your decision<textarea name="answer" required rows="4"><?= V::h($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['decision_id'] ?? '') === (string)$decision['id'] && is_string($_POST['answer'] ?? null) ? $_POST['answer'] : '') ?></textarea></label>
         <button type="submit" class="primary">Answer decision</button><div class="form-error" role="alert"></div>
     </form>
 <?php if (empty($decisionEditor)) echo '</div></section>'; return; endif; ?>

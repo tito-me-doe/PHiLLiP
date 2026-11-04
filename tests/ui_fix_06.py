@@ -20,7 +20,7 @@ def main():
         page.locator('input[name="username"]').fill(username)
         page.locator('input[name="password"]').fill(password)
         page.locator('#login-form button').click()
-        page.wait_for_selector('#message-form', timeout=10000)
+        page.wait_for_selector('.shell', timeout=10000)
 
         # --- Child execution thread: read-only ---
         page.goto(f"{base}/?thread={childThread}")
