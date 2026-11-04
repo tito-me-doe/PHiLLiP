@@ -358,6 +358,8 @@ class ProjectRunner
     {
         $row = $project->get();
         $plan = array_intersect_key($row, array_flip(['id', 'title', 'goal', 'requirements', 'context', 'gates', 'revision']));
+        // A project is a titled container: empty project-level fields are noise that invites false "gaps" about them.
+        foreach (['goal', 'requirements', 'context', 'gates'] as $field) if (empty($plan[$field])) unset($plan[$field]);
         $plan['todos'] = array_map([self::class, 'task'], $project->todos());
         return $plan;
     }

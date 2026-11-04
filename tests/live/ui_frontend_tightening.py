@@ -12,7 +12,7 @@ with sync_playwright() as p:
     page.locator('[name=username]').fill('alice')
     page.locator('[name=password]').fill('phillip-demo')
     page.locator('#login-form button').click()
-    page.locator('#message-form').wait_for()
+    page.locator('#persona-start').wait_for()  # a new chat starts with the persona cards
     success_id = page.locator('.log-success').last.get_attribute('data-log-id')
     page.get_by_role('button', name='Chat settings', exact=True).click()
     page.locator('#chat-settings-form').wait_for()
@@ -40,7 +40,8 @@ with sync_playwright() as p:
     page.route('**/api/personas', lambda route: route.fulfill(status=503, content_type='application/json', body=json.dumps({'error': 'Fixture service unavailable'})))
     page.evaluate("async () => await PHiLLiP.dialog('persona')")
     page.locator('#persona-form [name=name]').fill('Action fixture')
-    page.locator('#persona-form [name=prompt]').fill('PRIVATE_TRACE_FIXTURE')
+    page.locator('#persona-form [name=tagline]').fill('A fixture.')
+    page.locator('#persona-form [name=bio]').fill('PRIVATE_TRACE_FIXTURE')
     page.locator('#persona-form button.primary').click()
     page.locator('#persona-form .form-error').filter(has_text='Fixture service unavailable').wait_for()
     assert page.locator('#persona-form button.primary').is_enabled()
@@ -73,7 +74,7 @@ with sync_playwright() as p:
     admin_page.locator('[name=username]').fill('admin')
     admin_page.locator('[name=password]').fill('phillip-demo')
     admin_page.locator('#login-form button').click()
-    admin_page.locator('#message-form').wait_for()
+    admin_page.locator('#persona-start').wait_for()
     admin_page.route('**/api/personas', lambda route: route.fulfill(status=503, content_type='application/json', body=json.dumps({'error': 'Fixture service unavailable'})))
     privileged = admin_page.evaluate("""async () => {
       PHiLLiPLog.minLogPriority=-4;

@@ -2,9 +2,11 @@
 require __DIR__ . '/helpers.php';
 
 // Explicit live-model smoke test, not a mock and not an alternate model client.
-// docker compose exec -T --user 1002:1002 app php tests/cli_dogfood.php [PROFILE]
+// php tests/cli_dogfood.php [PROFILE]   (as an unprivileged Unix user; the default profile is production's `default`)
 if (Agent\Runtime::unixIdentity()['root']) throw new RuntimeException('Run this live CLI test as an unprivileged Unix user');
-$profile = isset($argv[1]) ? $argv[1] : 'nemotron-vl-work';
+$profile = isset($argv[1]) ? $argv[1] : 'default';
+require __DIR__ . '/fixtures/live_profile.php';
+borrowLiveProfile($profile); // read from production, verified and enabled in this test's own database
 $prompt = 'Use Source.read to inspect classes/Agent/Cli.php and classes/Agent/Terminal.php. '
     . 'Find where ok-phill sanitizes its final answer before stdout, and identify the shared method that removes terminal escape sequences. '
     . 'Answer concisely with the two file paths and the method call chain. Do not propose changes or run commands; inspect only.';
@@ -22,7 +24,7 @@ try {
     $status = proc_close($process);
     rewind($diagnostics); $stderr = stream_get_contents($diagnostics);
     check($status === 0, 'Live ok-phill delegation completes successfully');
-    check(strpos($stderr, 'Using Agent_Tools_Source_read') !== false, 'Live CLI agent actually reads source through the registered tool');
+    check(strpos($stderr, 'Using Source read') !== false, 'Live CLI agent actually reads source through the registered tool');
     check(strpos($answer, 'classes/Agent/Cli.php') !== false && strpos($answer, 'classes/Agent/Terminal.php') !== false
         && strpos($answer, 'strip') !== false && strpos($answer, 'stdout') !== false,
         'Live CLI answer identifies the verified final-answer sanitization path');

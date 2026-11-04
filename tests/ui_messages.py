@@ -1,4 +1,4 @@
-"""Isolated PHP fixture: automatic audiences, header/footer delivery, and browser-only logging."""
+"""Invoked by tests/ui_messages.php inside its disposable database: automatic audiences, header/footer delivery, and browser-only logging."""
 import base64
 import json
 import os
@@ -12,9 +12,8 @@ from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parents[1]
 with socket.socket() as sock:
     sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
-db_host=subprocess.check_output(['docker','inspect','--format','{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}','phillip-postgres-1'],text=True).strip()
 with tempfile.TemporaryDirectory(prefix='phillip-log-sessions-') as sessions:
-    env=dict(os.environ,DB_DSN='pgsql:host='+db_host+';dbname=phillip',PHILLIP_TEST_SESSION_PATH=sessions,LOG_MIN_FILE='3')
+    env=dict(os.environ,PHILLIP_TEST_SESSION_PATH=sessions,LOG_MIN_FILE='3')  # DB_DSN is inherited: the parent test's disposable database
     env.pop('PHP_CLI_SERVER_WORKERS',None)
     server=subprocess.Popen(['php','-S','127.0.0.1:'+str(port),str(ROOT/'tests/fixtures/logging.php')],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     try:

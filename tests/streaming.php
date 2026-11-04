@@ -1,5 +1,7 @@
 <?php
 require __DIR__ . '/helpers.php';
+require __DIR__ . '/fixtures/live_profile.php';
+borrowLiveProfile('default'); // the live model, borrowed read-only from production into this test's own database
 $events = [];
 $request = new Agent\Request(['preset' => 'default', 'stream' => true, 'temperature' => 0, 'max_tokens' => 256,
     'on_event' => function ($event) use (&$events) { $events[] = $event; }]);

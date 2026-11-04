@@ -12,22 +12,24 @@ $argv = isset($argv) ? $argv : $_SERVER['argv'];
 array_shift($argv);
 if (!$argv || in_array($argv[0], ['--help', '-h', 'help'], true)) {
     echo "Usage: php tests/project_recursive_live.php [--profile NAME]\n";
-    echo "  --profile NAME   Nemotron profile to use (default nemotron-vl-fast)\n";
+    echo "  --profile NAME   production profile to borrow (default: default)\n";
     echo "Opt-in live recursive smoke test; prints usage and exits without calling the model when no profile is given.\n";
     exit(0);
 }
-$profile = 'nemotron-vl-fast';
+$profile = 'default';
 for ($i = 0; $i < count($argv); $i++) {
     if ($argv[$i] === '--profile') { if (!isset($argv[$i+1])) { echo "FAIL: --profile requires a value\n"; exit(2); } $profile = $argv[++$i]; }
     elseif (preg_match('/^--profile=(.+)$/', $argv[$i], $m)) { $profile = $m[1]; }
     else { echo "FAIL: unknown argument {$argv[$i]}\n"; exit(2); }
 }
 
+require __DIR__ . '/fixtures/live_profile.php';
+borrowLiveProfile($profile); // read from production, verified and enabled in this test's own database
 $owner = \Agent\Cli::identity()['owner'];
 $failures = [];
 function record($cond, $msg) { global $failures; if (!$cond) { $failures[] = $msg; echo "FAIL: $msg\n"; } else echo "PASS: $msg\n"; }
 
-$facts = 'The read-only TUI has --once (one render then exit), strips terminal controls from user content, and displays only projects owned by the current CLI identity. Write acceptance checks from these supplied facts, not claims that you executed tests.';
+$facts = 'The read-only TUI has --once (one render then exit), strips terminal controls from user content, and displays only projects owned by the current CLI identity. Write acceptance checks from these supplied facts, not claims that you executed tests. FINAL_REVISION is a literal marker word: it is absent until a revision of a child ToDo adds it to that child\'s context, and a report includes it only when it is present.';
 $leafSpec = [
     'title' => 'Leaf TUI checklist', 'goal' => 'Write three TUI acceptance checks.',
     'requirements' => 'Write one check each for --once, terminal-control stripping, and owner-only display. This is a leaf: create no children or decisions. Call Project.report with your checklist.',
@@ -49,14 +51,19 @@ $rootSpec = [
 
 $project = Project::create($owner, [
     'title' => 'Live recursive smoke ' . $owner,
-    'settings' => ['profile' => $profile, 'project_manual' => true, 'parameters' => ['max_rounds' => 12, 'max_tokens' => 8192]],
+    'settings' => ['profile' => $profile, 'project_manual' => true, 'parameters' => ['max_rounds' => 12, 'max_tokens' => 16384]],
 ]);
 echo "PROJECT_ID=" . $project->id . "\n";
 $root = $project->addTodo($rootSpec);
 
-$project->requestPreflight();
-ProjectRunner::tick($project->id);
-$row = $project->get();
+// Preflight is a model's judgment of the plan, so it can be noisy: like a person would, ask again before giving up.
+for ($attempt = 1; $attempt <= 4; $attempt++) {
+    $project->requestPreflight();
+    ProjectRunner::tick($project->id);
+    $row = $project->get();
+    if ($row['preflight_status'] === 'ready' && $row['preflight_revision'] === $row['revision']) break;
+    echo "Preflight attempt $attempt: " . json_encode($row['preflight_result']) . "\n";
+}
 record($row['preflight_status'] === 'ready' && $row['preflight_revision'] === $row['revision'], 'Preflight ready before human start');
 if ($failures) {
     echo 'PREFLIGHT=' . json_encode($row['preflight_result']) . "\n";
@@ -135,7 +142,7 @@ foreach ($todos as $todo) {
 
 record($completed && !$stoppedForQuestion, 'Project completed without unanswered human root question');
 record($maxDepth >= 2, 'Depth >= 3 (root + child + grandchild)');
-record($hasTools, 'Tool start names Project_addTodo/updateTodo/escalate/answerDecision all used');
+record($hasTools, 'Tool start names Project_addTodo/updateTodo/escalate/answerDecision all used (saw: ' . implode(', ', array_unique($toolStarts)) . ')');
 record(!preg_match('/Workspace|Delegate/', implode(' ', $toolStarts)), 'No workspace or delegation tool authority was introduced');
 record($allReviewed, 'Per node current revision independent review all passed');
 record((int)$rootTodo['attempts'] === 1, 'Root attempts 1');

@@ -15,34 +15,42 @@ def wait(page, expression, timeout=150):
 with sync_playwright() as p:
     browser=p.chromium.launch();context=browser.new_context();page=context.new_page();errors=[]
     page.on('pageerror',lambda e:errors.append(str(e)))
-    page.goto(BASE+'/?new=1');page.locator('[name=username]').fill('alice');page.locator('[name=password]').fill('phillip-demo');page.locator('#login-form button').click();page.locator('#message-form').wait_for()
+    page.goto(BASE+'/?new=1');page.locator('[name=username]').fill('alice');page.locator('[name=password]').fill('phillip-demo');page.locator('#login-form button').click();page.locator('#persona-start').wait_for()
     page.get_by_role('button',name='Chat settings',exact=True).click()
     page.locator('#chat-settings-form [name=max_tokens]').fill('1024')
     page.locator('#chat-settings-form [name=system_prompt]').fill('Reply concisely and follow instructions.')
     page.get_by_role('button',name='Save settings',exact=True).click();page.locator('#dialog').wait_for(state='hidden')
     # Settings for an unsent conversation are local UI state, not server workflow state.
     assert page.evaluate('JSON.parse(localStorage.getItem(PHiLLiP.storageKey)).draft.settings.parameters.max_tokens')==1024
-    page.locator('#files').set_input_files({'name':'retry.txt','mimeType':'text/plain','buffer':b'Retry fixture attachment. No actions required.'})
-    wait(page,'PHiLLiP.attachments.length===1 && !PHiLLiP.uploading')
-    file_id=page.evaluate('PHiLLiP.attachments[0].id')
-    captured={}
+    # A conversation starts when someone is chosen. Lose that acknowledgement after the server commits: the retry must open the same thread.
+    captured={};before=page.locator('#thread-list [data-thread]').count()
     def lose_creation(route):
         response=route.fetch();assert response.ok
         captured['thread']=response.json()['thread']['id'];route.abort()
     page.route('**/api/threads',lose_creation)
-    page.locator('#prompt').fill('Reply exactly RETRY_READY.')
-    page.get_by_role('button',name='Send message',exact=True).click()
-    wait(page,"!PHiLLiP.sending && !!PHiLLiP.ui.pending")
-    first_key=page.evaluate('PHiLLiP.ui.pending.key')
+    page.locator('#persona-start .persona-card[name=persona_id]').first.click()
+    wait(page,'!PHiLLiP.choosingPersona')
     page.unroute('**/api/threads',lose_creation)
-    assert page.locator('#prompt').input_value()=='Reply exactly RETRY_READY.'
+    assert 'thread' in captured and page.locator('#persona-start').is_visible()
+    page.locator('#persona-start .persona-card[name=persona_id]').first.click()
+    page.locator('#message-form').wait_for()
+    assert page.evaluate('PHiLLiP.current.thread.id')==captured['thread']
+    wait(page,'!PHiLLiP.sending')
+    page.evaluate('PHiLLiP.refreshThreads()');page.wait_for_timeout(800)
+    assert page.locator('#thread-list [data-thread]').count()==before+1
+    print('PASS: A lost persona-choice acknowledgement is retried into the same single thread',flush=True)
+    page.locator('#files').set_input_files({'name':'retry.txt','mimeType':'text/plain','buffer':b'Retry fixture attachment. No actions required.'})
+    wait(page,'PHiLLiP.attachments.length===1 && !PHiLLiP.uploading')
+    file_id=page.evaluate('PHiLLiP.attachments[0].id')
+    page.locator('#prompt').fill('Reply exactly RETRY_READY.')
     def lose_message(route):
         response=route.fetch();assert response.ok
         captured['run']=response.json()['run']['id'];route.abort()
     page.route('**/api/threads/*/messages',lose_message)
     page.get_by_role('button',name='Send message',exact=True).click()
-    wait(page,"!PHiLLiP.sending && PHiLLiP.ui.pending.threadId !== null")
-    assert page.evaluate('PHiLLiP.ui.pending.key')==first_key
+    wait(page,"!PHiLLiP.sending && !!PHiLLiP.ui.pending")
+    first_key=page.evaluate('PHiLLiP.ui.pending.key')
+    assert page.locator('#prompt').input_value()=='Reply exactly RETRY_READY.'
     page.unroute('**/api/threads/*/messages',lose_message)
     page.reload();page.locator('#message-form').wait_for()
     wait(page,'!PHiLLiP.restoringAttachments')

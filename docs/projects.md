@@ -139,7 +139,7 @@ phill-dev ask -p nemotron-vl-fast 'Summarize the supplied text.'
 phill-dev research web-research 'Compare the supplied public documentation.'
 phill-dev test projects project_runner project_integration project_frontend project_cli --docker
 phill-dev check
-PHILLIP_PROFILE=nemotron-vl-fast python3 tests/ui_projects.py
+php tests/live_ui.php ui_projects   # borrows production's enabled `default` profile into a disposable database
 ```
 
 `status` reports Compose health and your active agents/projects without calling a model. `test` selects the shared test runner; `check` combines current-runtime PHP syntax checks with curated regression smoke tests. Functional checks use native PHP 8.3 and Docker PHP 8.5; PHP 7.x is unsupported. PostgreSQL is the current Project storage target; SQLite Project support is not this release's focus.
@@ -153,9 +153,9 @@ The Project suites cover core state, orchestration, integration/policy boundarie
 - `tests/project_tui.php` — read-only monitor rendering and access.
 - `tests/agent_messages.php` — agent message feedback during active assignment.
 
-`tests/project_recursive_live.php` is an opt-in real-model smoke test: `php tests/project_recursive_live.php --profile nemotron-vl-fast` calls an explicitly real Nemotron model and retains the created project. `--help` or no args prints usage and never calls the model.
+`tests/project_recursive_live.php` is an opt-in real-model smoke test: `php tests/project_recursive_live.php --profile default` borrows production's enabled profile and calls the real model and retains the created project. `--help` or no args prints usage and never calls the model.
 
-`ui_projects.py` uses the real enabled model: it checks incomplete plans, preserved drafts/focus, nested edits, readiness invalidation, explicit Start, reopening the page, child-before-parent execution, and passing evidence for every gate. It requires Python Playwright/Chromium, the running demo installation/workers, and configured model profiles; it removes its own fixtures.
+`tests/live/ui_projects.py` (run through `tests/live_ui.php`) uses the real enabled model: it checks incomplete plans, preserved drafts/focus, nested edits, readiness invalidation, explicit Start, reopening the page, child-before-parent execution, and passing evidence for every gate. It requires Python Playwright/Chromium, the running demo installation/workers, and configured model profiles; it removes its own fixtures.
 
 ### Passive engineering evidence
 

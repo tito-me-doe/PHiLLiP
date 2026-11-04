@@ -10,12 +10,12 @@ with sync_playwright() as p:
     context=browser.new_context(java_script_enabled=False)
     page=context.new_page();page.goto(BASE)
     page.locator('[name=username]').fill('admin');page.locator('[name=password]').fill('phillip-demo')
-    page.locator('#login-form button').click();page.locator('#message-form').wait_for()
+    page.locator('#login-form button').click();page.locator('#persona-start').wait_for()
     assert 'password=' not in page.url
     print('PASS: Sign in using a CSRF-protected PHP form with JavaScript disabled',flush=True)
-    page.get_by_role('button', name='Thought partner', exact=False).click()
+    page.locator('.persona-card[title="PHiLLiP"]').click()
     page.locator('#message-form').wait_for()
-    fixture=subprocess.check_output(['php','-r','require "tests/fixtures/media.php"; echo fixturePdf("INVOICE 8127 - Total 49 dollars");'],cwd=Path(__file__).resolve().parents[1])
+    fixture=subprocess.check_output(['php','-r','require "tests/fixtures/media.php"; echo fixturePdf("INVOICE 8127 - Total 49 dollars");'],cwd=Path(__file__).resolve().parents[2])
     page.locator('#files').set_input_files({'name':'invoice.pdf','mimeType':'application/pdf','buffer':fixture})
     page.locator('#prompt').fill('Read the attached invoice. Reply SERVER_FORM_READY followed by the invoice number.')
     page.get_by_role('button',name='Send message',exact=True).click()
@@ -27,7 +27,7 @@ with sync_playwright() as p:
         page.wait_for_timeout(500);page.reload()
     else:raise AssertionError('Server-only chat did not finish')
     assert '8127' in page.locator('.message.assistant .message-body').last.inner_text()
-    assert 'Thought partner' in page.locator('.message.assistant .message-head').last.inner_text()
+    assert 'PHiLLiP' in page.locator('.message.assistant .message-head').last.inner_text()
     assert page.locator('.message.user .attachment-chips a').count()==1
     print('PASS: PDF upload and local text conversion work without JavaScript',flush=True)
     page.locator('#prompt').fill('Reply SERVER_FOLLOWUP_READY followed by the invoice number from the previous file.')
@@ -41,11 +41,11 @@ with sync_playwright() as p:
     assert '8127' in page.locator('.message.assistant .message-body').last.inner_text()
     assert page.locator('.message.user').count()==2
     assert page.locator('.message.assistant[data-id]').count()>=2
-    assert 'Thought partner' in page.locator('.message.assistant .message-head').last.inner_text()
+    assert 'PHiLLiP' in page.locator('.message.assistant .message-head').last.inner_text()
     print('PASS: Persona selection and assistant naming work on initial and follow-up PHP forms without JavaScript',flush=True)
     print('PASS: Initial message and follow-up save and render entirely through PHP forms and pages',flush=True)
     # API cleanup from the test harness; JavaScript remains disabled in the page.
-    csrf=page.locator('[name=csrf]').input_value();thread=url.split('thread=')[1]
+    csrf=page.locator('#message-form [name=csrf]').input_value();thread=url.split('thread=')[1]
     response=context.request.post(BASE+'/api/threads/'+thread+'/delete',data={},headers={'X-CSRF-Token':csrf,'Content-Type':'application/json'})
     assert response.ok
     browser.close()

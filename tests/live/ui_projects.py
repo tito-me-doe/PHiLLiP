@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlparse
 from playwright.sync_api import sync_playwright
 
 BASE = os.environ.get('PHILLIP_URL', 'http://127.0.0.1:8088')
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 MARKER = 'Browser project ' + str(time.time_ns())
 
 
@@ -33,7 +33,7 @@ with sync_playwright() as playwright:
     page.locator('[name=username]').fill('admin')
     page.locator('[name=password]').fill('phillip-demo')
     page.locator('#login-form button').click()
-    page.locator('#message-form').wait_for()
+    page.locator('#persona-start').wait_for()
     page.wait_for_function('() => !!window.PHiLLiP')
     csrf = page.evaluate('PHiLLiP.state.csrf')
 
@@ -92,7 +92,7 @@ with sync_playwright() as playwright:
         project_id = int(result['project']['id'])
         page.locator('[data-project-id="' + str(project_id) + '"]').wait_for()
         # Bound actual task replies while keeping all model calls real.
-        api('/api/projects/' + str(project_id) + '/settings', {'settings': {'parameters': {'temperature': 0, 'max_tokens': 1024, 'stream': True}}})
+        api('/api/projects/' + str(project_id) + '/settings', {'settings': {'parameters': {'temperature': 0, 'max_tokens': int(os.environ.get('PHILLIP_MAX_TOKENS', '8192')), 'stream': True}}})
         page.reload()
         page.get_by_role('link',name='New ToDo',exact=True).click()
         parent_form = page.locator('#dialog form[data-project-form="add:root"]')

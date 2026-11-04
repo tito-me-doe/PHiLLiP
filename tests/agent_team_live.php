@@ -7,7 +7,9 @@ use Agent\Runtime;
 // Explicit live-model smoke test of the agent CLI team flow.
 // php tests/agent_team_live.php [PROFILE]
 if (Runtime::unixIdentity()['root']) throw new RuntimeException('Run this live CLI test as an unprivileged Unix user');
-$profile = isset($argv[1]) ? $argv[1] : 'nemotron-vl-work';
+$profile = isset($argv[1]) ? $argv[1] : 'default';
+require __DIR__ . '/fixtures/live_profile.php';
+borrowLiveProfile($profile); // read from production, verified and enabled in this test's own database
 $suffix = substr(uniqid('', true), -8);
 $team = 'live_team_' . $suffix;
 $agentPhp = 'live_agent_php_' . $suffix;

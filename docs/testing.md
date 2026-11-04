@@ -57,20 +57,35 @@ the `phillip_test_template` template and drops it when the process exits.
 temp directory) because tests use fixed ports, so one test process runs at a time even when several agents call it; run output strips `[Debug]`, `[Info]`, and `[Success]`
 lines.
 
-## Known failing tests (all pre-date the isolation)
+## Running the tests
 
-At the last full run 99 of 117 tests passed, none wrote to the database or the repository, and nothing that passed
-against a copy of production fails now. The 18 failures also failed before isolation existed:
+`tests/run-all.sh` runs everything deterministic and prints only what fails; add `--live` for the tests that call a real
+model. A single test is `php tests/NAME.php`. Browser tests need Python Playwright and are skipped by nothing: they launch
+their own disposable server.
 
-- Environment only on a development host: `infrastructure` (needs `pdo_mysql`), `mappings` (needs `pdo_sqlite`),
-  `attachment_media` (needs `tesseract`), `browser` (needs the remote browser service). All four pass in the application
-  container: `docker compose exec --user 1002:1002 app php tests/NAME.php`. Never run a test that calls a fixed
-  address (see rule 3) inside that container.
-- Live models or services: `agent_team_live`, `cli_dogfood`, `attachment_vision` (times out at 240 s calling a real model).
-- Fixture hang: `project_recursive` (times out at 240 s). Browser UI: `ui_fix_09`, `ui_fix_12` (Playwright).
-- Stale against the current product code (they assert behavior the code no longer produces): `input_contracts`,
-  `navigation`, `settings_contracts`, `frontend_tightening`, `project_integration`, `project_recursive_interface`,
-  `user_actions`, and `cli_memory` (its Unix-user fixture needs to switch UID, so it needs root).
+- **On the host:** almost everything.
+- **In the application container** (`docker compose exec -T app php tests/NAME.php`): `browser` (needs the remote browser
+  service), `infrastructure` (`pdo_mysql`), `mappings` (`pdo_sqlite`), `cli_memory` (the mapped `www-data` Unix account)
+  and `attachment_media` (OCR tools). `run-all.sh` does this for you. Never run a test that calls a fixed address (rule 3)
+  inside that container.
+- **Opt-in live-model tests** (`--live`): `streaming`, `attachment_vision`, `cli_dogfood`, `agent_team_live`,
+  `tests/live_ui.php` and `tests/project_recursive_live.php`. They use `tests/fixtures/live_profile.php`, which *reads* the
+  enabled `default` profile from production, verifies it against the live endpoint and enables it in the test's own
+  database. Nothing is written to production.
+
+`tests/live_ui.php [--profile NAME] [script ...]` runs the browser scripts in `tests/live/` (`ui_server`, `ui_submissions`,
+`ui_attachments`, `ui_frontend_tightening`, `ui_followups`, and `ui_projects` when asked for by name) against a private
+installation: this process's database, its own web server and workers, and the borrowed model. They read the model's real
+answers, so they are slower and can fail when the model is slow or unavailable; the deterministic suite does not.
+
+`ui_messages` (log delivery in a real browser) is deterministic and runs in the ordinary suite.
+
+## Known noisy
+
+Project preflight is a model's judgment of a plan ("reply exactly `ready`"). With `nemotron-3.5-super-vl` it sometimes
+reports gaps that are not there (a "project-level gates array" that does not exist), so `tests/project_recursive_live.php`
+asks up to four times, and a live run can still occasionally stop at preflight. Reasoning models also need a generous
+`max_tokens` (the live scripts use 8192 and 16384); with 1024 the preflight ends with "token limit reached".
 
 ## Audit appendix
 

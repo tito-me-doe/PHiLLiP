@@ -1,11 +1,13 @@
 """Real local-model regression: repeated PHP fragment replacement must not break events."""
 import os
+import json
 import time
+import urllib.request
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 BASE=os.environ.get('PHILLIP_URL','http://127.0.0.1:8088')
-ROOT=Path(__file__).resolve().parents[1]
+ROOT=Path(__file__).resolve().parents[2]
 
 def wait(page, expression, timeout=180):
     deadline=time.monotonic()+timeout
@@ -21,7 +23,7 @@ with sync_playwright() as p:
     page.on('pageerror',lambda e:errors.append(str(e)))
     page.goto(BASE)
     page.locator('[name=username]').fill('admin');page.locator('[name=password]').fill('phillip-demo');page.locator('#login-form button').click()
-    page.locator('#message-form').wait_for()
+    page.locator('#persona-start').wait_for()  # a new chat starts with the persona cards
     # Observe the actual client without substituting model responses or event traffic.
     page.evaluate("""() => {
       const A=PHiLLiP;
@@ -37,6 +39,7 @@ with sync_playwright() as p:
     page.locator('#chat-settings-form [name=max_tokens]').fill(os.environ.get('PHILLIP_MAX_TOKENS','2048'))
     page.locator('#chat-settings-form [name=system_prompt]').fill('Follow the user requests concisely. Use tools when explicitly requested.')
     page.get_by_role('button',name='Save settings',exact=True).click();page.locator('#dialog').wait_for(state='hidden')
+    page.locator('#persona-start .persona-card[name=persona_id]').first.click();page.locator('#message-form').wait_for()
 
     def submit(text, enter=True):
         before=page.evaluate('trace.requests.length')
@@ -63,7 +66,8 @@ with sync_playwright() as p:
         completed(first,'TURN_ONE');thread_id=page.evaluate('PHiLLiP.current.thread.id')
         second=submit('What was the secret word? Reply TURN_TWO followed by the secret word, then 30 brief PHP tips.',False)
         completed(second,'TURN_TWO')
-        assert 'cobalt' in page.locator('.message.assistant').last.inner_text().lower()
+        reply=page.locator('.message.assistant .message-body').filter(has_text='TURN_TWO').last.inner_text()
+        assert 'cobalt' in reply.lower(),'The model should recall the secret word: '+reply[:300]
         third=submit('Reply TURN_THREE and then a fenced PHP code block containing echo "three";')
         completed(third,'TURN_THREE');assert page.locator('pre code.hljs').count()>=1
 
@@ -71,11 +75,11 @@ with sync_playwright() as p:
         page.get_by_role('button',name='Chat settings',exact=True).click()
         page.locator('#chat-settings-form input[name=tools][value="Agent\\\\Tools\\\\Fetch"]').check()
         page.get_by_role('button',name='Save settings',exact=True).click();page.locator('#dialog').wait_for(state='hidden')
-        fourth=submit('Use the Fetch tool to fetch http://phillip.internal:8080/health. Then reply TURN_FOUR followed by the PHP version from the fetched result.')
+        fourth=submit('Use the Fetch tool to fetch '+BASE+'/health. Then reply TURN_FOUR followed by the PHP version from the fetched result.')
         completed(fourth,'TURN_FOUR')
         assert page.locator('details.activity summary').filter(has_text='Fetch').count()>=1
         assert page.evaluate(f"trace.events.some(e=>e.run=={fourth}&&e.type==='tool.result')")
-        assert '8.5' in page.locator('.message.assistant').last.inner_text()
+        php=json.load(urllib.request.urlopen(BASE+'/health'))['php'];assert '.'.join(php.split('.')[:2]) in page.locator('.message.assistant').last.inner_text()
         print('PASS: Tool progress and results still work after multiple replacements',flush=True)
 
         # Delay actual event replies, without faking their content, to expose overlapping polls.
@@ -94,8 +98,10 @@ with sync_playwright() as p:
         # Stop remains interactive after the thread element has repeatedly been replaced.
         long=submit('Write 100 detailed numbered PHP tips. Do not use tools. Finish with SHOULD_BE_STOPPED.')
         wait(page,f"PHiLLiP.current.runs.some(r=>r.id=={long}&&r.status==='running')",30)
-        page.get_by_role('button',name='Stop agent',exact=True).click()
+        page.get_by_role('button',name='Stop agent',exact=True).click()  # asks the agent to wrap up
         wait(page,f"trace.events.some(e=>e.run=={long}&&e.type==='run.stop_requested')",20)
+        wait(page,f"PHiLLiP.current.runs.some(r=>r.id=={long}&&r.stop_level>=1)",20)
+        page.get_by_role('button',name='Stop agent',exact=True).click()  # a second press cancels generation
         wait(page,f"PHiLLiP.current.runs.some(r=>r.id=={long}&&r.status==='stopped')")
         after=submit('Reply exactly AFTER_STOP.')
         completed(after,'AFTER_STOP')

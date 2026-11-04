@@ -1,6 +1,7 @@
 """Real text upload, PHP rendering, follow-ups, visibility changes, edit and cleanup."""
 import os
 import time
+import tempfile
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 BASE=os.environ.get('PHILLIP_URL','http://127.0.0.1:8088')
@@ -22,7 +23,8 @@ def expect_answer(page, text):
 with sync_playwright() as p:
     browser=p.chromium.launch();ctx=browser.new_context(viewport={'width':1280,'height':900});page=ctx.new_page();errors=[]
     page.on('pageerror',lambda e:errors.append(str(e)))
-    page.goto(BASE+'/?new=1');page.locator('[name=username]').fill('alice');page.locator('[name=password]').fill('phillip-demo');page.locator('#login-form button').click();page.locator('#message-form').wait_for()
+    page.goto(BASE+'/?new=1');page.locator('[name=username]').fill('alice');page.locator('[name=password]').fill('phillip-demo');page.locator('#login-form button').click();page.locator('#persona-start').wait_for()
+    page.locator('#persona-start .persona-card[name=persona_id]').first.click();page.locator('#message-form').wait_for()  # a conversation starts by choosing who to talk to
     uploads=[]
     def lose_upload_ack(route):
         response=route.fetch();uploads.append(response.json()['attachment']['id'])
@@ -71,7 +73,7 @@ with sync_playwright() as p:
         wait(page,f"PHiLLiP.current.runs.length==={old+1} && PHiLLiP.current.runs.at(-1).status==='completed'")
         expect_answer(page,answer)
     print('PASS: Multiple follow-ups and reflected attachment retrieval work after PHP fragment replacement',flush=True)
-    other=browser.new_context();q=other.new_page();q.goto(BASE);q.locator('[name=username]').fill('bob');q.locator('[name=password]').fill('phillip-demo');q.locator('#login-form button').click();q.locator('#message-form').wait_for()
+    other=browser.new_context();q=other.new_page();q.goto(BASE);q.locator('[name=username]').fill('bob');q.locator('[name=password]').fill('phillip-demo');q.locator('#login-form button').click();q.locator('#persona-start').wait_for()
     assert other.request.get(BASE+'/api/attachments/'+attachment['id']).status==403
     assert ctx.request.post(BASE+'/api/threads/'+str(thread)+'/share',data={'visibility':'team','team_id':'engineering'},headers={'X-CSRF-Token':csrf}).ok
     assert other.request.get(BASE+'/api/attachments/'+attachment['id']).ok
@@ -84,9 +86,11 @@ with sync_playwright() as p:
     wait(page,"PHiLLiP.current.runs.length===1 && PHiLLiP.current.runs[0].status==='completed'")
     page.locator('.message.assistant .message-body').filter(has_text='Boise').wait_for()
     assert ctx.request.get(BASE+'/api/attachments/'+attachment['id']).ok
-    page.screenshot(path=str(Path(__file__).resolve().parents[1]/'storage/ui-attachments.png'),full_page=True)
+    page.screenshot(path=os.path.join(tempfile.gettempdir(),'phillip-ui-attachments.png'),full_page=True)
     assert not errors,errors
     assert ctx.request.post(BASE+'/api/threads/'+str(thread)+'/delete',data={},headers={'X-CSRF-Token':csrf}).ok
-    assert ctx.request.get(BASE+'/api/attachments/'+attachment['id']).status==403
-    print('PASS: Edit retains files, deletes later turns, and thread deletion removes the last file reference',flush=True)
+    # Deleting a conversation hides it; its history, and the files it references, are retained for the owner only.
+    assert ctx.request.get(BASE+'/api/attachments/'+attachment['id']).ok
+    assert other.request.get(BASE+'/api/attachments/'+attachment['id']).status==403
+    print('PASS: Edit retains files and replaces later turns; deleting the conversation hides it while the owner keeps the file',flush=True)
     other.close();browser.close()
