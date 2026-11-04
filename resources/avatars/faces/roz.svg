@@ -1,0 +1,17 @@
+ <g class="avatar-face" fill="none" stroke="{{ink}}" stroke-width="6" stroke-linecap="round">
+  <g class="avatar-eyes" stroke="none">
+   <g class="eye-left"><ellipse cx="87" cy="80" rx="13" ry="17" fill="#ffffff"/><g class="avatar-pupil"><ellipse cx="89" cy="82" rx="7" ry="10" fill="#7a3b2e"/><ellipse cx="90" cy="83" rx="4" ry="7" fill="#1c0a0a"/><circle cx="85" cy="76" r="3" fill="#ffffff"/></g><g class="lids" fill="{{lid}}" stroke="none"><ellipse class="lid lid-a" cx="87" cy="80" rx="14" ry="18.5" opacity="0"/><ellipse class="lid lid-b" cx="87" cy="80" rx="14" ry="18.5" opacity="0"/><ellipse class="lid lid-c" cx="87" cy="80" rx="14" ry="18.5" opacity="0"/></g></g>
+   <g class="eye-right"><ellipse cx="151" cy="80" rx="13" ry="17" fill="#ffffff"/><g class="avatar-pupil"><ellipse cx="149" cy="82" rx="7" ry="10" fill="#7a3b2e"/><ellipse cx="148" cy="83" rx="4" ry="7" fill="#1c0a0a"/><circle cx="145" cy="76" r="3" fill="#ffffff"/></g><g class="lids" fill="{{lid}}" stroke="none"><ellipse class="lid lid-a" cx="151" cy="80" rx="14" ry="18.5" opacity="0"/><ellipse class="lid lid-b" cx="151" cy="80" rx="14" ry="18.5" opacity="0"/><ellipse class="lid lid-c" cx="151" cy="80" rx="14" ry="18.5" opacity="0"/></g></g>
+  </g>
+  <path class="avatar-mouth" d="M102 111Q120 126 138 111" stroke="#b01830"/>
+  <ellipse class="avatar-speaking-mouth" cx="120" cy="118" rx="13" ry="10" fill="{{ink}}" stroke="#b01830" stroke-width="4"/>
+  <path class="avatar-brow brow-left" d="M77 61l17-3" opacity="0"/><path class="avatar-brow brow-right" d="M144 58l17 3" opacity="0"/>
+ </g>
+ <g class="avatar-heart-eyes" fill="#d6283f"><path d="M87 91L74 77C63 62 88 59 87 72C89 59 111 62 100 77Z"/><path d="M151 91L138 77C127 62 152 59 151 72C153 59 175 62 164 77Z"/></g>
+ <g class="avatar-shades" fill="#1c0a0a" stroke="#d6283f" stroke-width="2"><path d="M70 69h34v18q-17 13-34-1ZM134 69h34v17q-17 14-34 1Z"/><path d="M104 75h30"/></g>
+ <g class="avatar-tears" stroke="#84cbd6" stroke-width="4" stroke-linecap="round"><path d="M78 96l-2 10M160 96l2 10"/></g>
+ <g class="avatar-confetti" fill="#d6283f"><path d="m54 24 6-7 3 11ZM182 13l4 9 7-8ZM120 5l4 7-9 1Z"/><circle cx="66" cy="11" r="3"/><circle cx="173" cy="30" r="3"/></g>
+ <text class="avatar-sleep" x="159" y="60" fill="{{ink}}" font-family="monospace" font-size="15">z Z</text>
+<!--over-->
+ <g class="avatar-crash" fill="none" stroke="{{ink}}" stroke-width="6" stroke-linecap="round"><path d="M74 66l26 26M100 66l-26 26M138 66l26 26M164 66l-26 26"/><path d="M98 118q7-8 14 0t14 0 14 0"/></g>
+ <path d="M72 66l-9-4M77 61l-5-7M166 66l9-4M161 61l5-7" fill="none" stroke="{{ink}}" stroke-width="3" stroke-linecap="round"/><circle cx="170" cy="104" r="2.5" fill="{{ink}}"/>

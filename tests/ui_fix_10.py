@@ -29,12 +29,21 @@ def main():
 
                 # The companion lives in Chat, perched on the composer, and nowhere else.
                 page.wait_for_selector('.composer > .chat-companion', state='visible', timeout=10000)
+                # The chosen card's avatar glides into place (a view transition); wait for it to land.
+                page.wait_for_timeout(900)
                 box = page.locator('.chat-companion').bounding_box()
                 composer = page.locator('.composer').bounding_box()
                 assert box['y'] < composer['y'] and box['y'] + box['height'] > composer['y'], 'the companion sits on the composer edge'
                 assert box['width'] >= (100 if vw > 600 else 70), f'the companion is prominent ({box["width"]}px)'
                 page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
                 assert page.locator('.chat-companion').evaluate("el => el.classList.contains('reacting')"), 'clicking the companion reacts'
+
+                # While a tool runs the companion gets its working look and the composer takes on its mood.
+                resting = page.locator('.composer').evaluate('n => getComputedStyle(n).borderColor')
+                page.evaluate("() => { PHiLLiP.resetAvatar(); PHiLLiP.emote('', 'working'); }")
+                assert page.locator('.chat-companion .avatar').evaluate("n => n.classList.contains('working')"), 'working look'
+                page.wait_for_function("(c) => getComputedStyle(document.querySelector('.composer')).borderColor !== c", arg=resting)
+                page.evaluate("() => PHiLLiP.resetAvatar()")
 
                 for path in ['/access', '/models', '/personas', '/memory', '/benchmarks']:
                     page.goto(BASE + path)

@@ -75,7 +75,23 @@ def main():
             alice_page.locator('#persona-form [name=name]').fill('Juniper')
             alice_page.locator('#persona-form [name=pronouns]').fill('she/her')
             alice_page.locator('#persona-form [name=tagline]').fill('A gentle gardener.')
-            alice_page.locator('label.avatar-choice:has(input[value=sprout])').click()
+            # The dressing room: arrows change the body, the pill changes the face, keys and swipes work too.
+            stage = alice_page.locator('.dressing-room .stage')
+            def step(kind, by, until):
+                for _ in range(400):
+                    if until():
+                        return
+                    stage.locator(f'[data-step={kind}][data-by="{by}"]').first.click()
+                raise AssertionError('never reached ' + kind)
+            body_label = lambda: alice_page.locator('.stage-label').inner_text().split(' ·')[0]
+            step('body', 1, lambda: body_label().lower() == 'a cheerful leafy companion')
+            step('face', 1, lambda: alice_page.locator('.face-name').inner_text() == 'Sprout')
+            alice_page.wait_for_function("() => document.querySelector('.dressing-room input[name=avatar]').value === 'sprout' && document.querySelector('.dressing-room .avatar').dataset.avatar === 'sprout'")
+            assert alice_page.locator('.dressing-room .avatar svg .avatar-body').count() == 1, 'the avatar is composed on the server'
+            stage.focus(); alice_page.keyboard.press('ArrowRight')
+            alice_page.wait_for_function("() => document.querySelector('.dressing-room input[name=avatar]').value.includes('.sprout')")
+            stage.focus(); alice_page.keyboard.press('ArrowLeft')
+            alice_page.wait_for_function("() => document.querySelector('.dressing-room input[name=avatar]').value === 'sprout'")
             preview = alice_page.locator('.persona-preview')
             expect(preview).to_contain_text('Juniper')
             expect(preview).to_contain_text('she/her')

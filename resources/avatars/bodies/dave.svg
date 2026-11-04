@@ -1,0 +1,10 @@
+ <path d="M100 30q-8-8 0-15t0-13M122 30q-8-8 0-15t0-13M144 30q-8-8 0-15t0-13" fill="none" stroke="#bfb29a" stroke-width="4" stroke-linecap="round" opacity=".75"/>
+ <path d="M186 76h12q22 0 22 30t-22 30h-12" fill="none" stroke="#8a6d4b" stroke-width="13" stroke-linecap="round"/>
+ <path d="M186 76h12q16 0 16 30t-16 30h-12" fill="none" stroke="#e8d6b2" stroke-width="4" stroke-linecap="round"/>
+ <path d="M54 42h132v126q0 22-22 22H76q-22 0-22-22Z" fill="#f1e3c7" stroke="#8a6d4b" stroke-width="4"/>
+ <path d="M54 148h132v20q0 22-22 22H76q-22 0-22-22Z" fill="#b5483a"/>
+ <path d="M54 160h132M54 176h132M80 148v42M106 148v42M132 148v42M158 148v42" stroke="#7e2f25" stroke-width="3" opacity=".7"/>
+ <path d="M54 148h132" stroke="#8a6d4b" stroke-width="3"/>
+ <rect x="50" y="34" width="140" height="13" rx="6.5" fill="#e6d3ad" stroke="#8a6d4b" stroke-width="3"/>
+<!--over-->
+

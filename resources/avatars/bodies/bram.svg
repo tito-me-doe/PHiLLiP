@@ -1,0 +1,9 @@
+ <rect x="24" y="24" width="192" height="162" rx="12" fill="#7a4b2a" stroke="#4a2c16" stroke-width="4"/>
+ <rect x="36" y="34" width="168" height="142" rx="6" fill="#f6ead2" stroke="#d8c39a" stroke-width="2"/>
+ <path d="M120 34V176" stroke="#d8c39a" stroke-width="3"/>
+ <path d="M50 150h54M136 150h54M50 160h40M136 160h46" stroke="#e1cfa6" stroke-width="3" stroke-linecap="round"/>
+ <rect x="206" y="84" width="14" height="34" rx="3" fill="#d4a24c" stroke="#8d6a2a" stroke-width="2"/>
+ <path d="M24 24l14 0 0 14Z M216 24l-14 0 0 14Z M24 186l14 0 0-14Z M216 186l-14 0 0-14Z" fill="#d4a24c"/>
+ <path d="M158 176v28l9-6 9 6v-28Z" fill="#c43b3b" stroke="#8a2424" stroke-width="2"/>
+<!--over-->
+

@@ -928,7 +928,13 @@
                 A.newSettings = null;
                 A.newPrompt = null;
                 A.persistUI({ draft: null });
-                await A.openThread(thread.id);
+                const open = () => A.openThread(thread.id),
+                  avatar = e.submitter.querySelector(".avatar");
+                // The chosen card's avatar glides to the companion's place; browsers without view transitions just swap.
+                if (avatar && document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+                  avatar.style.viewTransitionName = "persona";
+                  await document.startViewTransition(open).updateCallbackDone;
+                } else await open();
                 document.querySelector("#prompt").focus();
               },
               { form: personas, success: "Persona selected" },
@@ -1168,8 +1174,16 @@
           A.cursor = Number(event.id);
           if (event.type === "log.message") A.Log.accept(event.data);
           if (!active.has(String(event.run_id))) continue;
-          if (event.type === "text.delta") A.emote(event.data.content);
+          if (event.type === "text.delta") {
+            A.emote(event.data.content, "");
+            A.setTalking?.(true);
+          }
           if (event.type === "reasoning.delta") A.emote("", "thinking");
+          if (event.type === "tool.start" || event.type === "tool.progress")
+            A.emote("", "working");
+          // A finished answer may arrive whole, between two polls: the avatar still gets to say it.
+          if (event.type === "message" && event.data?.role === "assistant" && event.data.content)
+            A.setTalking?.(true, 3200);
           if (event.type === "message") refresh = true;
           if (event.type === "tool.result" || event.type.startsWith("run."))
             refresh = true;
@@ -1190,7 +1204,7 @@
         );
       } catch (e) {
         if (A.epoch !== epoch) return;
-        A.setTalking?.(false);
+        A.setTalking?.(false, true);
         A.toast(e.message);
         if ([401, 403].includes(e.status)) {
           clearTimeout(A.pollTimer);
@@ -1227,10 +1241,17 @@
         assistant.textContent = running?.assistant_name || "PHiLLiP";
       if (!running) {
         live?.remove();
-        A.emote();
+        A.emote("", "");
       }
       const thisRun = running && String(running.id) === A.liveRunId;
-      A.setTalking?.(Boolean(thisRun && A.live));
+      // The server's phase is the source of truth for what the avatar is doing; talking is extended only as text grows.
+      if (running) {
+        const phase = running.state?.phase;
+        A.emote("", phase === "tool" ? "working" : phase === "writing" ? "" : "thinking");
+      }
+      const spoken = thisRun ? A.live.length : 0;
+      if (spoken > (A.spokenLength || 0)) A.setTalking?.(true);
+      A.spokenLength = spoken;
       const body = document.querySelector("#live-body");
       if (body) body.textContent = thisRun ? A.live : "";
       const reason = document.querySelector("#live-reasoning");

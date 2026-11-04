@@ -19,6 +19,13 @@ elseif ($base) { http_response_code(404); echo 'Not found'; return; }
 if ($path === '/index.php') $path = '/';
 if (strpos($path, '/api/') === 0) { \Agent\Controller::handle($path); return; }
 if (strpos($path, '/fragments/') === 0) { \Agent\Views::fragment($path); return; }
+// Avatars are composed on demand from metadata: /avatar/<id>.svg, where <id> is a shipped character or body.face.
+if (preg_match('~^/avatar/([a-z][a-z0-9.-]{0,80})\.svg$~', $path, $m) && \Agent\Avatar::valid($m[1])) {
+    header('Content-Type: image/svg+xml'); header('X-Content-Type-Options: nosniff'); header('Cache-Control: public, max-age=3600');
+    if (!isset($_SERVER['REQUEST_METHOD']) || $_SERVER['REQUEST_METHOD'] !== 'HEAD') echo \Agent\Avatar::render($m[1]);
+    return;
+}
+if (strpos($path, '/avatar/') === 0) { http_response_code(404); echo 'Not found'; return; }
 if (strpos($path, '/assets/') === 0) {
     $assetRoot = realpath(__DIR__ . '/public/assets');
     $file = realpath(__DIR__ . '/public' . $path);

@@ -185,6 +185,8 @@ class Views
             'close' => 'm6 6 12 12M6 18 18 6',
             'menu' => 'M4 6h16M4 12h16M4 18h16',
             'edit' => 'm15 4 5 5-11 11H4v-5zM13 6l5 5',
+            'chevron-left' => 'm15 5-7 7 7 7',
+            'chevron-right' => 'm9 5 7 7-7 7',
             'copy' => 'M9 9h11v11H9zM5 15V4h11',
             'attach' => 'm8 13 7-7a3 3 0 0 1 4 4L9 20a5 5 0 0 1-7-7L12 3',
             'tools' => 'm14 5 5 5M4 20l10-10M14 3a6 6 0 0 0-7 7L3 14v6h6l4-4a6 6 0 0 0 7-7l-5 2-2-2z'
@@ -196,16 +198,17 @@ class Views
     public static function avatar($state, $extra = '', $name = null)
     {
         $name = $name ?: (isset($state['preferences']['avatar']) ? $state['preferences']['avatar'] : 'terminal');
-        // Any shipped character (a persona's avatar, or the original terminal and sprout) may be shown; anything else falls back to the terminal.
-        if (!is_string($name) || !preg_match('/^[a-z][a-z0-9-]*$/D', $name) || !is_file(dirname(__DIR__, 2) . '/public/assets/avatars/' . $name . '.svg')) {
-            $name = 'terminal';
-        }
+        // An avatar is composed from metadata (a shipped character, or any body.face); anything unknown falls back to the terminal.
+        if (!Avatar::valid($name)) $name = 'terminal';
+        $face = Avatar::resolve($name)['face'];
+        // Each avatar gets its own blink phase, so several on a page never blink in unison.
         return '<span class="avatar ' .
             self::h($extra) .
             '" data-avatar="' .
             $name .
-            '">' .
-            file_get_contents(dirname(__DIR__, 2) . '/public/assets/avatars/' . $name . '.svg') .
+            '" data-face="' . $face .
+            '" style=""--seed:-' . (random_int(0, 1999) / 100) . 's">' .
+            Avatar::render($name) .
             '</span>';
     }
     public static function markdown($text)

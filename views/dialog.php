@@ -98,14 +98,21 @@ $lines = function ($list) { return V::h(implode("\n", is_array($list) ? $list : 
 $chosenAvatar = !empty($p['avatar']) ? $p['avatar'] : 'terminal';
 if ($character): ?>
 <form method="post" id="persona-form" class="form-stack persona-editor" data-id="<?= V::h($p['id']) ?>">
-<div class="persona-preview" aria-hidden="true"><?= V::avatar($state, 'persona-avatar', $chosenAvatar) ?><span class="pv-tagline"><?= $val(!empty($p['tagline']) ? $p['tagline'] : 'Their tagline') ?></span><span class="persona-line"><strong class="pv-name"><?= $val($p['name'] !== '' ? $p['name'] : 'Their name') ?></strong><em class="pv-pronouns"><?= $val($p['pronouns'] ?? '') ?></em></span></div>
+<div class="persona-preview dressing-room" data-dressing-room data-bodies="<?= V::h(json_encode(Agent\Avatar::bodies())) ?>" data-faces="<?= V::h(json_encode(Agent\Avatar::faces())) ?>">
+<input type="hidden" name="avatar" value="<?= V::h($chosenAvatar) ?>">
+<div class="stage" tabindex="0" role="group" aria-label="Choose a look: left and right arrows change the body, up and down change the face">
+<span class="stage-label" aria-hidden="true"></span>
+<button type="button" class="stage-arrow prev" data-step="body" data-by="-1" aria-label="Previous body"><?= V::icon('chevron-left') ?></button>
+<?= V::avatar($state, 'persona-avatar', $chosenAvatar) ?>
+<button type="button" class="stage-arrow next" data-step="body" data-by="1" aria-label="Next body"><?= V::icon('chevron-right') ?></button>
+<div class="face-picker" role="group" aria-label="Face"><button type="button" class="icon" data-step="face" data-by="-1" aria-label="Previous face"><?= V::icon('chevron-left') ?></button><span class="face-name"></span><button type="button" class="icon" data-step="face" data-by="1" aria-label="Next face"><?= V::icon('chevron-right') ?></button></div>
+</div>
+<p class="sr-only" role="status" aria-live="polite" data-look-status></p>
+<div class="pv-card"><span class="pv-tagline"><?= $val(!empty($p['tagline']) ? $p['tagline'] : 'Their tagline') ?></span><span class="persona-line"><strong class="pv-name"><?= $val($p['name'] !== '' ? $p['name'] : 'Their name') ?></strong><em class="pv-pronouns"><?= $val($p['pronouns'] ?? '') ?></em></span></div>
+</div>
 <div class="grid"><label>Name<input name="name" value="<?= $val($p['name']) ?>" maxlength="80" required></label>
 <label>Pronouns (optional)<input name="pronouns" value="<?= $val($p['pronouns'] ?? '') ?>" maxlength="40" placeholder="she/her, he/him, they/them…"></label></div>
 <label>Tagline<input name="tagline" value="<?= $val($p['tagline'] ?? '') ?>" maxlength="140" required placeholder="One line that sums them up"></label>
-<fieldset class="avatar-gallery"><legend>Look</legend><div class="avatar-choices">
-<?php foreach (Agent\PersonaSheet::avatars() as $avatar): ?>
-<label class="avatar-choice" title="<?= V::h(ucfirst($avatar)) ?>"><input type="radio" name="avatar" value="<?= V::h($avatar) ?>" <?= $avatar === $chosenAvatar ? 'checked' : '' ?>><?= V::avatar($state, 'persona-avatar', $avatar) ?><span class="sr-only"><?= V::h(ucfirst($avatar)) ?></span></label>
-<?php endforeach; ?></div></fieldset>
 <label>Who are they?<textarea name="bio" rows="4" required placeholder="Age, background, quirks, what they care about"><?= $val($sheet['bio'] ?? '') ?></textarea></label>
 <label>How do they sound? (optional)<input name="voice_summary" value="<?= $val($voice['summary'] ?? '') ?>" maxlength="400" placeholder="Warm and dry, quick and teasing, slow and calm…"></label>
 <div class="grid"><label>Sense of humor (optional)<input name="humor" value="<?= $val($voice['humor'] ?? '') ?>" maxlength="400"></label>

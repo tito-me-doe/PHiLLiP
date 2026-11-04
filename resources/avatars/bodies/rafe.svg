@@ -1,0 +1,8 @@
+ <rect x="24" y="30" width="192" height="156" rx="16" fill="#e0833b" stroke="#8a4a1a" stroke-width="4"/>
+ <circle cx="38" cy="44" r="4" fill="#8a4a1a"/><circle cx="202" cy="44" r="4" fill="#8a4a1a"/><circle cx="38" cy="172" r="4" fill="#8a4a1a"/><circle cx="202" cy="172" r="4" fill="#8a4a1a"/>
+ <rect x="42" y="46" width="156" height="92" rx="8" fill="#f6ecd2" stroke="#b9945a" stroke-width="2"/>
+ <rect x="42" y="46" width="156" height="11" rx="5" fill="#2a7f86"/>
+ <rect x="72" y="146" width="96" height="30" rx="15" fill="#2a2018" stroke="#8a4a1a" stroke-width="3"/>
+ <circle cx="96" cy="161" r="9.5" fill="#f6ecd2"/><circle cx="144" cy="161" r="9.5" fill="#f6ecd2"/><circle cx="96" cy="161" r="3.5" fill="#2a2018"/><circle cx="144" cy="161" r="3.5" fill="#2a2018"/>
+<!--over-->
+

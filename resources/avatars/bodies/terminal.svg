@@ -1,0 +1,9 @@
+<path d="M42 175Q120 161 198 175L211 197Q120 210 29 197Z" fill="#d6c8ad" stroke="#8d8065" stroke-width="3"/>
+ <path d="M81 169L86 151H155L160 169" fill="#b7aa8c" stroke="#8d8065" stroke-width="3"/>
+ <rect x="30" y="22" width="180" height="145" rx="22" fill="#ecdfc2" stroke="#8d8065" stroke-width="3"/>
+ <path d="M45 34H190" stroke="#fff5de" stroke-width="5" stroke-linecap="round"/>
+ <rect class="avatar-screen" x="47" y="39" width="146" height="107" rx="13" fill="#354d45"/>
+<!--over-->
+ <path class="avatar-scanlines" d="M52 50h136M52 60h136M52 70h136M52 80h136M52 90h136M52 100h136M52 110h136M52 120h136M52 130h136" stroke="#c1dbb0" stroke-opacity=".05"/>
+ <circle cx="184" cy="155" r="3" fill="#8baf70"/><path d="M63 155h32" stroke="#b8a989" stroke-width="3" stroke-linecap="round"/>
+ <g stroke="#a69778" stroke-width="3" stroke-linecap="round"><path d="M64 183h110M60 190h120"/></g>

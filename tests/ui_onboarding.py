@@ -7,21 +7,25 @@ base = os.environ['ONBOARDING_URL']
 password = os.environ['ONBOARDING_PASSWORD']
 
 def assert_blinking(avatars, soft=False):
+    """Every avatar blinks with eyelids: three independent lids per eye (or the sprout's own eye strokes), all looping forever."""
     for avatar in avatars.all():
         result=avatar.evaluate("""(node,soft) => {
-          const eyes=['.eye-left','.eye-right'].map(s=>node.querySelector(s));
-          const name=soft?'avatar-soft-blink':'avatar-blink-eye';
-          const animations=eyes.map(n=>n.getAnimations().find(a=>a.animationName===name));
-          if(animations.some(a=>!a))return {running:false};
-          const running=animations.every(a=>a.playState==='running'&&a.effect.getTiming().iterations===Infinity);
-          const times=animations.map(a=>a.currentTime);
-          animations.forEach(a=>{a.pause();a.currentTime=7300*.29;});
-          const phases=eyes.map(n=>getComputedStyle(n)[soft?'opacity':'transform']);
-          const delay=getComputedStyle(eyes[1]).animationDelay;
-          animations.forEach((a,i)=>{a.currentTime=times[i];a.play();});
-          return {running,phases,delay};
+          if(node.dataset.avatar==='sprout'){
+            const name=soft?'avatar-soft-blink':'avatar-sprout-blink';
+            const all=['.eye-left','.eye-right'].map(s=>node.querySelector(s).getAnimations().find(a=>a.animationName===name));
+            return {ok: all.every(a=>a&&a.playState==='running'&&a.effect.getTiming().iterations===Infinity)};
+          }
+          const names=soft?['avatar-soft-lid']:['avatar-blink-a','avatar-blink-b','avatar-blink-c'];
+          const found=['.eye-left','.eye-right'].map(side=>names.map(name=>[...node.querySelectorAll(side+' .lid')].flatMap(l=>l.getAnimations()).find(a=>a.animationName===name)));
+          const ok=found.every(row=>row.every(a=>a&&a.playState==='running'&&a.effect.getTiming().iterations===Infinity));
+          const periods=!soft&&found[0].map(a=>a.effect.getTiming().duration);
+          const lag=parseFloat(getComputedStyle(node.querySelector('.eye-right .lid-a')).animationDelay)-parseFloat(getComputedStyle(node.querySelector('.eye-left .lid-a')).animationDelay);
+          return {ok,periods,lag};
         }""",soft)
-        assert result['running'] and result['delay']=='0.045s' and result['phases'][0]!=result['phases'][1],result
+        assert result['ok'],result
+        if not soft and 'periods' in result and result['periods']:
+            assert len(set(result['periods']))==3,result  # independent timings, so blinks drift in and out of phase
+            assert abs(result['lag']-0.04)<0.005,result   # the right eye follows the left by a few milliseconds
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
@@ -69,16 +73,16 @@ with sync_playwright() as p:
     page.screenshot(path=str(screenshots / 'onboarding-mobile.png'), full_page=True)
     page.set_viewport_size({'width': 1440, 'height': 1050})
     page.get_by_role('button', name='Open my first conversation').click()
-    page.locator('#message-form').wait_for()
+    page.locator('#persona-start').wait_for()  # a new chat shows only the persona cards until one is chosen
     assert page.locator('.tabs a[href*="tab=team"]').count() == 0
     assert page.locator('[data-suggestion], #persona').count() == 0
     assert page.locator('.persona-card[title="Thoughtful teammate"]').count() == 1
     assert page.locator('.persona-card[title="Fixture researcher"]').count() == 1
     disabled=page.locator('.persona-card').evaluate_all('nodes=>nodes.map(n=>n.disabled)')
     assert not any(disabled)  # a character always starts; it simply goes without tools this account may not use
-    assert page.get_by_role('button',name='AAA unavailable persona').is_enabled()
+    assert page.locator('.persona-card[title="AAA unavailable persona"]').is_enabled()
     assert page.locator('.persona-card.persona-new').count() == 1
-    page.get_by_role('button', name='Thoughtful teammate').click()
+    page.locator('.persona-card[title="Thoughtful teammate"]').click()
     page.wait_for_function("() => !!window.PHiLLiP.current")
     assert page.locator('.persona-card, #persona').count() == 0
     assert page.locator('.chat-companion .avatar').count() == 1
@@ -189,7 +193,7 @@ with sync_playwright() as p:
     page.locator(f'.thread-row:has([data-thread="{thread_id}"]) .thread-delete').click()
     page.wait_for_url('**/chat?new=1')
     assert page.locator(f'[data-thread="{thread_id}"]').count() == 0
-    page.get_by_role('button', name='Fixture researcher').click()
+    page.locator('.persona-card[title="Fixture researcher"]').click()
     page.wait_for_function("() => !!PHiLLiP.current")
     page.locator('.tools-menu > summary').click()
     assert page.locator('[data-chat-tool][value$="Fetch"]').is_checked()
@@ -201,7 +205,7 @@ with sync_playwright() as p:
     page.goto(base + '/?view=settings&tab=models')
     page.locator('#scan-form [name=cidr]').fill('127.0.0.1/32')
     page.locator('#scan-form [name=ports]').fill(os.environ['ONBOARDING_ENGINE'].rsplit(':', 1)[1])
-    page.locator('#scan-form').get_by_role('button', name='Scan network').click()
+    page.locator('#scan-form').get_by_role('button', name='Scan').click()
     page.locator('#scan-status progress').wait_for()
     page.wait_for_function("() => document.querySelector('#scan-status')?.dataset.status === 'completed'", timeout=30000)
     assert 'Refresh' not in page.locator('#scan-status').inner_text()
@@ -213,8 +217,8 @@ with sync_playwright() as p:
     form.locator('[name=username]').fill('browser_admin')
     form.locator('[name=password]').fill('My very own private password 123!')
     form.get_by_role('button', name='Make yourself at home').click()
-    form.locator('#message-form').wait_for()
-    form.get_by_role('button', name='Thoughtful teammate').click()
+    form.locator('#persona-start').wait_for()
+    form.locator('.persona-card[title="Thoughtful teammate"]').click()
     form.locator('#message-form').wait_for()
     assert form.locator('.persona-card, #persona').count() == 0
     form.locator('#prompt').fill('No JavaScript needed.')

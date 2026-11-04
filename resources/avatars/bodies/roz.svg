@@ -1,0 +1,9 @@
+ <rect x="113" y="148" width="14" height="32" fill="#dbeef5" stroke="#7aa5b5" stroke-width="3"/>
+ <ellipse cx="120" cy="190" rx="44" ry="9" fill="#dbeef5" stroke="#7aa5b5" stroke-width="3"/>
+ <path d="M26 48Q26 142 120 150Q214 142 214 48Z" fill="#ffb3be" stroke="#7aa5b5" stroke-width="4"/>
+ <path d="M32 58H208" stroke="#ffffff" stroke-opacity=".55" stroke-width="4" stroke-linecap="round"/>
+ <path d="M22 46H218" stroke="#d6283f" stroke-width="9" stroke-linecap="round"/>
+ <path d="M208 10L192 66" stroke="#b9a37a" stroke-width="3" stroke-linecap="round"/>
+ <ellipse cx="190" cy="72" rx="11" ry="8.5" fill="#9aa84a" stroke="#6e7a2c" stroke-width="2"/><circle cx="190" cy="72" r="3.5" fill="#d6283f"/>
+<!--over-->
+

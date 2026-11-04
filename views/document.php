@@ -24,7 +24,7 @@ header(
     isset($state['preferences']['theme']) ? $state['preferences']['theme'] : 'light'
 ) ?>"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PHiLLiP · A little intelligence, a lot of character</title>
-<link rel="icon" href="<?= $assetBase ?>/assets/avatars/terminal.svg" type="image/svg+xml">
+<link rel="icon" href="<?= $assetBase ?>/avatar/terminal.svg" type="image/svg+xml">
 <link rel="stylesheet" href="<?= $assetBase ?>/assets/vendor.css">
 <link rel="stylesheet" href="<?= $assetBase ?>/assets/app.css">
 <link rel="stylesheet" href="<?= $assetBase ?>/assets/messages.css">

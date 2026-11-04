@@ -1,0 +1,9 @@
+ <defs><clipPath id="priya-bulb"><circle cx="120" cy="118" r="79"/></clipPath></defs>
+ <rect x="102" y="14" width="36" height="52" fill="#e6f7fa" stroke="#6aa6b2" stroke-width="4"/>
+ <rect x="95" y="8" width="50" height="11" rx="5.5" fill="#d7f1f5" stroke="#6aa6b2" stroke-width="4"/>
+ <circle cx="120" cy="118" r="82" fill="#e6f7fa" stroke="#6aa6b2" stroke-width="4"/>
+ <g clip-path="url(#priya-bulb)"><path d="M30 144Q75 130 120 144T210 144V210H30Z" fill="#7a5cff" opacity=".42"/></g>
+ <circle cx="92" cy="170" r="5" fill="#fff" opacity=".65" stroke="#bfa8ff" stroke-width="1.5"/><circle cx="146" cy="178" r="7" fill="#fff" opacity=".65" stroke="#bfa8ff" stroke-width="1.5"/><circle cx="118" cy="160" r="3" fill="#fff" opacity=".7"/>
+ <path d="M64 58Q52 78 56 100" fill="none" stroke="#ffffff" stroke-opacity=".8" stroke-width="5" stroke-linecap="round"/>
+<!--over-->
+

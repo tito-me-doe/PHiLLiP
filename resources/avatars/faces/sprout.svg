@@ -1,0 +1,5 @@
+ <g class="avatar-face" fill="none" stroke="{{ink}}" stroke-width="5" stroke-linecap="round"><g class="avatar-eyes"><path class="eye-left" d="M95 148v8"/><path class="eye-right" d="M145 148v8"/></g><path class="avatar-mouth" d="M106 168Q120 180 134 168"/><path class="avatar-brow brow-left" d="M85 138l15-3" opacity="0"/><path class="avatar-brow brow-right" d="M140 135l15 3" opacity="0"/></g>
+ <ellipse class="avatar-speaking-mouth" cx="120" cy="173" rx="12" ry="9" fill="#704731" stroke="{{ink}}" stroke-width="4"/>
+ <circle cx="82" cy="165" r="6" fill="#d48d7d" opacity=".5"/><circle cx="158" cy="165" r="6" fill="#d48d7d" opacity=".5"/>
+<!--over-->
+ <g class="avatar-crash" fill="{{ink}}" font-family="monospace" font-size="12"><text x="85" y="158">oh, wow!</text></g>

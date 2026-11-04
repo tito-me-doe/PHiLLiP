@@ -56,8 +56,81 @@
         b.textContent = "Save profile";
       }
     });
-    // A live preview of the card they are making, as it will appear on the welcome screen.
+    // The dressing room: step through every body and face, with the avatar (composed on the server) shown live.
     const personaForm = document.querySelector("#persona-form");
+    const room = personaForm?.querySelector("[data-dressing-room]");
+    if (room) {
+      const bodies = JSON.parse(room.dataset.bodies),
+        faces = JSON.parse(room.dataset.faces),
+        input = room.querySelector("input[name=avatar]"),
+        slot = room.querySelector(".avatar"),
+        label = room.querySelector(".stage-label"),
+        faceName = room.querySelector(".face-name"),
+        status = room.querySelector("[data-look-status]"),
+        cache = new Map();
+      const [first, second] = input.value.split(".");
+      let body = Math.max(0, bodies.findIndex((b) => b.id === first)),
+        face = Math.max(0, faces.findIndex((f) => f.id === (second || first)));
+      const idOf = (b, f) => (bodies[b].own && bodies[b].id === faces[f].id ? bodies[b].id : `${bodies[b].id}.${faces[f].id}`);
+      const wrap = (n, size) => (n + size) % size;
+      const load = (id) => {
+        if (!cache.has(id)) cache.set(id, fetch(`${A.base || ""}/avatar/${id}.svg`, { credentials: "same-origin" }).then((r) => (r.ok ? r.text() : "")));
+        return cache.get(id);
+      };
+      let shown = "";
+      const show = async (pop) => {
+        const id = idOf(body, face);
+        input.value = id;
+        label.textContent = `${bodies[body].label} · ${body + 1} / ${bodies.length}`;
+        faceName.textContent = faces[face].label;
+        status.textContent = `Body: ${bodies[body].label}. Face: ${faces[face].label}.`;
+        const svg = await load(id);
+        if (!svg || input.value !== id || shown === id) return;
+        shown = id;
+        slot.innerHTML = svg;
+        slot.dataset.avatar = id;
+        slot.dataset.face = faces[face].id;
+        if (pop) {
+          slot.classList.remove("swap");
+          void slot.offsetWidth;
+          slot.classList.add("swap");
+        }
+        // Warm the neighbours so stepping stays instant.
+        [idOf(wrap(body + 1, bodies.length), face), idOf(wrap(body - 1, bodies.length), face), idOf(body, wrap(face + 1, faces.length)), idOf(body, wrap(face - 1, faces.length))].forEach(load);
+      };
+      const step = (kind, by) => {
+        if (kind === "body") body = wrap(body + by, bodies.length);
+        else face = wrap(face + by, faces.length);
+        personaForm.dispatchEvent(new Event("input", { bubbles: true }));
+        show(true);
+      };
+      room.addEventListener("click", (e) => {
+        const button = e.target.closest("[data-step]");
+        if (button) step(button.dataset.step, Number(button.dataset.by));
+      });
+      const stage = room.querySelector(".stage");
+      stage.addEventListener("keydown", (e) => {
+        const move = { ArrowLeft: ["body", -1], ArrowRight: ["body", 1], ArrowUp: ["face", -1], ArrowDown: ["face", 1] }[e.key];
+        if (!move) return;
+        e.preventDefault();
+        step(...move);
+      });
+      // Swipe the stage sideways to change bodies.
+      let start = null;
+      stage.addEventListener("pointerdown", (e) => {
+        if (!e.target.closest("button")) start = { x: e.clientX, y: e.clientY };
+      });
+      stage.addEventListener("pointerup", (e) => {
+        if (!start) return;
+        const dx = e.clientX - start.x,
+          dy = e.clientY - start.y;
+        start = null;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) step("body", dx < 0 ? 1 : -1);
+      });
+      stage.addEventListener("pointercancel", () => (start = null));
+      show(false);
+    }
+    // A live preview of the card they are making, as it will appear on the welcome screen.
     const preview = personaForm?.querySelector(".persona-preview");
     if (preview) {
       const refresh = () => {
@@ -65,15 +138,6 @@
         preview.querySelector(".pv-name").textContent = get("name") || "Their name";
         preview.querySelector(".pv-pronouns").textContent = get("pronouns");
         preview.querySelector(".pv-tagline").textContent = get("tagline") || "Their tagline";
-        const svg = personaForm
-          .querySelector("input[name=avatar]:checked")
-          ?.closest(".avatar-choice")
-          ?.querySelector(".avatar svg");
-        const slot = preview.querySelector(".avatar");
-        if (svg && slot) {
-          slot.innerHTML = svg.outerHTML;
-          slot.dataset.avatar = personaForm.querySelector("input[name=avatar]:checked").value;
-        }
       };
       personaForm.addEventListener("input", refresh);
       refresh();

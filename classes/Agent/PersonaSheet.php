@@ -48,13 +48,10 @@ TXT;
         return $all[$slug];
     }
 
-    /** Avatar files that may be chosen for a persona: every SVG in public/assets/avatars. @return list<string> */
+    /** The shipped characters' avatar ids; any body and face from Agent\Avatar may also be chosen. @return list<string> */
     public static function avatars()
     {
-        $names = [];
-        foreach (glob(Runtime::root() . '/public/assets/avatars/*.svg') as $file) $names[] = basename($file, '.svg');
-        sort($names);
-        return $names;
+        return Avatar::presets();
     }
 
     /** @return list<string> problems with a SHIPPED sheet; an empty list means it meets the shipping standard. */
@@ -90,8 +87,8 @@ TXT;
         foreach (self::REACTIONS as $key) if (!$text($reactions[$key] ?? null) || mb_strlen($reactions[$key]) > 60) $problems[] = "reactions.$key is required (one short line, at most 60 characters)";
         $avatar = isset($s['avatar']) && is_array($s['avatar']) ? $s['avatar'] : [];
         if (!$text($avatar['object'] ?? null)) $problems[] = 'avatar.object is required (what the character looks like)';
-        if (!$text($avatar['file'] ?? null) || !preg_match('/^[a-z][a-z0-9-]*\.svg$/D', $avatar['file'])) $problems[] = 'avatar.file must be a plain .svg file name';
-        elseif (!is_file(Runtime::root() . '/public/assets/avatars/' . $avatar['file'])) $problems[] = 'avatar file does not exist: ' . $avatar['file'];
+        if (!$text($avatar['file'] ?? null) || !preg_match('/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)?\.svg$/D', $avatar['file'])) $problems[] = 'avatar.file must be an avatar id with .svg (a shipped character, or body.face)';
+        elseif (!Avatar::valid(substr($avatar['file'], 0, -4))) $problems[] = 'avatar does not exist: ' . $avatar['file'];
         return $problems;
     }
 
@@ -148,7 +145,7 @@ TXT;
         foreach (['name' => 'A name', 'tagline' => 'A one-line tagline', 'bio' => 'A description of who they are'] as $key => $label) if (!is_string($s[$key] ?? null) || trim($s[$key]) === '') $problems[] = "$label is required";
         if (!in_array($s['maturity'] ?? 'everyone', self::MATURITY, true)) $problems[] = 'maturity must be one of: ' . implode(', ', self::MATURITY);
         $file = isset($s['avatar']['file']) ? (string)$s['avatar']['file'] : '';
-        if (!preg_match('/^[a-z][a-z0-9-]*\.svg$/D', $file) || !in_array(substr($file, 0, -4), self::avatars(), true)) $problems[] = 'Choose one of the available avatars';
+        if (!preg_match('/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)?\.svg$/D', $file) || !Avatar::valid(substr($file, 0, -4))) $problems[] = 'Choose one of the available avatars';
         return $problems;
     }
 

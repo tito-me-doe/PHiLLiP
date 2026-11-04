@@ -1,0 +1,10 @@
+ <rect x="44" y="22" width="152" height="172" rx="12" fill="#c79a63" stroke="#8a6a3f" stroke-width="4"/>
+ <rect x="56" y="42" width="128" height="140" rx="6" fill="#fffdf7" stroke="#e5dccb" stroke-width="2"/>
+ <rect x="92" y="10" width="56" height="30" rx="8" fill="#a9adb5" stroke="#6c7078" stroke-width="3"/><rect x="104" y="16" width="32" height="8" rx="4" fill="#d9dce2"/>
+ <g stroke-linecap="round" stroke-linejoin="round" fill="none">
+  <rect x="72" y="140" width="11" height="11" rx="2.5" stroke="#8fd0f5" stroke-width="3"/><path d="M74.5 145.5l3 3 5-7" stroke="#8fd0f5" stroke-width="3"/><path d="M92 146h72" stroke="#dfe3ea" stroke-width="3"/>
+  <rect x="72" y="156" width="11" height="11" rx="2.5" stroke="#f4a9c8" stroke-width="3"/><path d="M74.5 161.5l3 3 5-7" stroke="#f4a9c8" stroke-width="3"/><path d="M92 162h56" stroke="#dfe3ea" stroke-width="3"/>
+  <rect x="72" y="172" width="11" height="11" rx="2.5" stroke="#b9c0cc" stroke-width="3"/><path d="M92 178h64" stroke="#dfe3ea" stroke-width="3"/>
+ </g>
+<!--over-->
+

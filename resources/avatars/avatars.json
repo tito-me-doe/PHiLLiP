@@ -1,0 +1,2189 @@
+{
+ "faces": {
+  "arthur": {
+   "label": "Arthur",
+   "w": 100,
+   "center": [
+    120,
+    95
+   ],
+   "ink": "#2c3a2f",
+   "eye": "#f1f8f1"
+  },
+  "bram": {
+   "label": "Bram",
+   "w": 100,
+   "center": [
+    120,
+    95
+   ],
+   "ink": "#4a3320",
+   "eye": "#fffaf0"
+  },
+  "dave": {
+   "label": "Dave",
+   "w": 100,
+   "center": [
+    120,
+    95
+   ],
+   "ink": "#5b4630",
+   "eye": "#fffaf0"
+  },
+  "imani": {
+   "label": "Imani",
+   "w": 100,
+   "center": [
+    120,
+    95
+   ],
+   "ink": "#3d4a5c",
+   "eye": "#ffffff"
+  },
+  "mika": {
+   "label": "Mika",
+   "w": 100,
+   "center": [
+    120,
+    95
+   ],
+   "ink": "#7ff7e4",
+   "eye": "#d6fff8"
+  },
+  "priya": {
+   "label": "Priya",
+   "w": 100,
+   "center": [
+    120,
+    95
+   ],
+   "ink": "#3b2f7a",
+   "eye": "#ffffff"
+  },
+  "rafe": {
+   "label": "Rafe",
+   "w": 100,
+   "center": [
+    120,
+    95
+   ],
+   "ink": "#4a3320",
+   "eye": "#fffaf0"
+  },
+  "roz": {
+   "label": "Roz",
+   "w": 100,
+   "center": [
+    120,
+    95
+   ],
+   "ink": "#5a1020",
+   "eye": "#ffffff"
+  },
+  "sprout": {
+   "label": "Sprout",
+   "w": 62,
+   "center": [
+    120,
+    158
+   ],
+   "ink": "#5b4a36",
+   "eye": null
+  },
+  "terminal": {
+   "label": "PHiLLiP",
+   "w": 100,
+   "center": [
+    120,
+    95
+   ],
+   "ink": "#c3f3a5",
+   "eye": "#bce4a9"
+  },
+  "vesper": {
+   "label": "Vesper",
+   "w": 100,
+   "center": [
+    120,
+    95
+   ],
+   "ink": "#f3d9a8",
+   "eye": "#f6e7c8"
+  }
+ },
+ "bodies": {
+  "arthur": {
+   "label": "a navy desk calculator with brass keys",
+   "shadow": 80.0,
+   "face": {
+    "x": 120,
+    "y": 95,
+    "w": 100
+   },
+   "lid": "#cfe0cf",
+   "source": "PHiLLiP",
+   "license": "Apache-2.0"
+  },
+  "bram": {
+   "label": "an open leather storybook with glowing pages",
+   "shadow": 100.0,
+   "face": {
+    "x": 120,
+    "y": 95,
+    "w": 100
+   },
+   "lid": "#f6ead2",
+   "source": "PHiLLiP",
+   "license": "Apache-2.0"
+  },
+  "dave": {
+   "label": "a sturdy coffee mug in flannel red",
+   "shadow": 74.0,
+   "face": {
+    "x": 120,
+    "y": 95,
+    "w": 100
+   },
+   "lid": "#f1e3c7",
+   "source": "PHiLLiP",
+   "license": "Apache-2.0"
+  },
+  "imani": {
+   "label": "a clipboard with a checklist in soft blue, pink and white",
+   "shadow": 80.0,
+   "face": {
+    "x": 120,
+    "y": 95,
+    "w": 100
+   },
+   "lid": "#fffdf7",
+   "source": "PHiLLiP",
+   "license": "Apache-2.0"
+  },
+  "mika": {
+   "label": "a glowing game controller in midnight purple",
+   "shadow": 100.0,
+   "face": {
+    "x": 120,
+    "y": 95,
+    "w": 100
+   },
+   "lid": "#2d2a4a",
+   "source": "PHiLLiP",
+   "license": "Apache-2.0"
+  },
+  "priya": {
+   "label": "a round-bottomed laboratory flask with violet liquid",
+   "shadow": 92.0,
+   "face": {
+    "x": 120,
+    "y": 95,
+    "w": 100
+   },
+   "lid": "#e6f7fa",
+   "source": "PHiLLiP",
+   "license": "Apache-2.0"
+  },
+  "rafe": {
+   "label": "a warm orange cassette tape with a laid-back look",
+   "shadow": 100.0,
+   "face": {
+    "x": 120,
+    "y": 95,
+    "w": 100
+   },
+   "lid": "#f6ecd2",
+   "source": "PHiLLiP",
+   "license": "Apache-2.0"
+  },
+  "roz": {
+   "label": "a cocktail glass with an olive and a lipstick-red rim",
+   "shadow": 52.0,
+   "face": {
+    "x": 120,
+    "y": 95,
+    "w": 100
+   },
+   "lid": "#ffb3be",
+   "source": "PHiLLiP",
+   "license": "Apache-2.0"
+  },
+  "sprout": {
+   "label": "a cheerful leafy companion",
+   "shadow": 60.0,
+   "face": {
+    "x": 120,
+    "y": 158,
+    "w": 62
+   },
+   "lid": "#ddb695",
+   "source": "PHiLLiP",
+   "license": "Apache-2.0"
+  },
+  "terminal": {
+   "label": "a friendly beige terminal",
+   "shadow": 78.0,
+   "face": {
+    "x": 120,
+    "y": 95,
+    "w": 100
+   },
+   "lid": "#354d45",
+   "source": "PHiLLiP",
+   "license": "Apache-2.0"
+  },
+  "vesper": {
+   "label": "a vintage velvet microphone in wine red and brass",
+   "shadow": 58.0,
+   "face": {
+    "x": 120,
+    "y": 95,
+    "w": 100
+   },
+   "lid": "#5b1e3a",
+   "source": "PHiLLiP",
+   "license": "Apache-2.0"
+  },
+  "noto-1f332": {
+   "label": "evergreen tree",
+   "shadow": 74.5,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 90.6
+   },
+   "lid": "#029734",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f333": {
+   "label": "deciduous tree",
+   "shadow": 74.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 91.2
+   },
+   "lid": "#6ba624",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f337": {
+   "label": "tulip",
+   "shadow": 57.6,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 70.1
+   },
+   "lid": "#f387ab",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f339": {
+   "label": "rose",
+   "shadow": 58.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 71.5
+   },
+   "lid": "#d71026",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f33b": {
+   "label": "sunflower",
+   "shadow": 64.2,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 78.1
+   },
+   "lid": "#6d4d42",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f33c": {
+   "label": "blossom",
+   "shadow": 84.8,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#ffd553",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f347": {
+   "label": "grapes",
+   "shadow": 72.1,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 87.8
+   },
+   "lid": "#683083",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f348": {
+   "label": "melon",
+   "shadow": 73.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 89.8
+   },
+   "lid": "#dbe292",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f34b": {
+   "label": "lemon",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 106.7,
+    "w": 92.3
+   },
+   "lid": "#fcc72f",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f34d": {
+   "label": "pineapple",
+   "shadow": 52.3,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 63.7
+   },
+   "lid": "#709921",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f34e": {
+   "label": "red apple",
+   "shadow": 78.4,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 95.4
+   },
+   "lid": "#ff5117",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f34f": {
+   "label": "green apple",
+   "shadow": 79.6,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 97.0
+   },
+   "lid": "#87c244",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f354": {
+   "label": "hamburger",
+   "shadow": 79.4,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 96.6
+   },
+   "lid": "#efa032",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f35a": {
+   "label": "cooked rice",
+   "shadow": 85.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#f2f2f2",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f35b": {
+   "label": "curry and rice",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 110.0,
+    "w": 88.8
+   },
+   "lid": "#fefefe",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f370": {
+   "label": "shortcake",
+   "shadow": 75.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 91.3
+   },
+   "lid": "#ffffff",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f373": {
+   "label": "cooking",
+   "shadow": 69.5,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 84.6
+   },
+   "lid": "#ffffff",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f37f": {
+   "label": "popcorn",
+   "shadow": 68.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 83.6
+   },
+   "lid": "#ef7b57",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f382": {
+   "label": "birthday cake",
+   "shadow": 65.2,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 79.4
+   },
+   "lid": "#fab09d",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f383": {
+   "label": "jack-o-lantern",
+   "shadow": 87.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#f99c15",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f388": {
+   "label": "balloon",
+   "shadow": 58.5,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 71.3
+   },
+   "lid": "#f44336",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f391": {
+   "label": "moon viewing ceremony",
+   "shadow": 83.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#ffe558",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f39a": {
+   "label": "level slider",
+   "shadow": 57.6,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 70.1
+   },
+   "lid": "#717171",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f3a5": {
+   "label": "movie camera",
+   "shadow": 83.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#504f4f",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f3a8": {
+   "label": "artist palette",
+   "shadow": 89.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#f2a259",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f3ab": {
+   "label": "ticket",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 131.4,
+    "w": 66.2
+   },
+   "lid": "#ffd54f",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f3ae": {
+   "label": "video game",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 121.1,
+    "w": 77.1
+   },
+   "lid": "#949597",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f3b2": {
+   "label": "game die",
+   "shadow": 79.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 97.0
+   },
+   "lid": "#cecece",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f3c6": {
+   "label": "trophy",
+   "shadow": 85.1,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#fcc117",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f3d0": {
+   "label": "volleyball",
+   "shadow": 84.1,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#d5cdcb",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f3e0": {
+   "label": "house building",
+   "shadow": 84.8,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#fff3e1",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f3e2": {
+   "label": "office building",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 100.8,
+    "w": 98.5
+   },
+   "lid": "#7bacb2",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f3e3": {
+   "label": "japanese post office",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 108.7,
+    "w": 90.1
+   },
+   "lid": "#dfdfdf",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f3e6": {
+   "label": "bank",
+   "shadow": 83.4,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.5
+   },
+   "lid": "#cddfee",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f3ee": {
+   "label": "izakaya lantern",
+   "shadow": 54.4,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 66.2
+   },
+   "lid": "#fd870b",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f3f7": {
+   "label": "label",
+   "shadow": 79.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 97.2
+   },
+   "lid": "#fdd89e",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f3fa": {
+   "label": "amphora",
+   "shadow": 51.6,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 62.9
+   },
+   "lid": "#8b4a28",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f490": {
+   "label": "bouquet",
+   "shadow": 69.2,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 84.2
+   },
+   "lid": "#92a21f",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4a1": {
+   "label": "electric light bulb",
+   "shadow": 53.4,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 65.0
+   },
+   "lid": "#ffd600",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4a7": {
+   "label": "droplet",
+   "shadow": 51.5,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 62.6
+   },
+   "lid": "#4ec1f5",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4ad": {
+   "label": "thought balloon",
+   "shadow": 83.6,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.7
+   },
+   "lid": "#ffffff",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4ae": {
+   "label": "white flower",
+   "shadow": 85.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#ffffff",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4b3": {
+   "label": "credit card",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 128.2,
+    "w": 69.5
+   },
+   "lid": "#dca912",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4bc": {
+   "label": "briefcase",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 101.4,
+    "w": 97.9
+   },
+   "lid": "#7a442c",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4c1": {
+   "label": "file folder",
+   "shadow": 89.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#ffe36c",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4c2": {
+   "label": "open file folder",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 111.8,
+    "w": 86.8
+   },
+   "lid": "#f9c759",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4c3": {
+   "label": "page with curl",
+   "shadow": 75.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 92.4
+   },
+   "lid": "#ffffff",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4c4": {
+   "label": "page facing up",
+   "shadow": 69.6,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 84.7
+   },
+   "lid": "#ffffff",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4c9": {
+   "label": "chart with downwards trend",
+   "shadow": 83.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#bfdbea",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4ca": {
+   "label": "bar chart",
+   "shadow": 83.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#ffffff",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4cb": {
+   "label": "clipboard",
+   "shadow": 64.3,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 78.3
+   },
+   "lid": "#f1f3f5",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4cc": {
+   "label": "pushpin",
+   "shadow": 85.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#dc342e",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4cd": {
+   "label": "round pushpin",
+   "shadow": 39.8,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 56.0
+   },
+   "lid": "#f44336",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4d2": {
+   "label": "ledger",
+   "shadow": 71.8,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 87.4
+   },
+   "lid": "#ffca28",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4d5": {
+   "label": "closed book",
+   "shadow": 69.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 85.2
+   },
+   "lid": "#f44336",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4d7": {
+   "label": "green book",
+   "shadow": 69.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 85.2
+   },
+   "lid": "#9ccc65",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4d8": {
+   "label": "blue book",
+   "shadow": 69.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 85.2
+   },
+   "lid": "#0091ea",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4d9": {
+   "label": "orange book",
+   "shadow": 69.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 85.2
+   },
+   "lid": "#ff9f12",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4dc": {
+   "label": "scroll",
+   "shadow": 87.4,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#ffd8a1",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4df": {
+   "label": "pager",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 124.5,
+    "w": 73.5
+   },
+   "lid": "#73a63a",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4e1": {
+   "label": "satellite antenna",
+   "shadow": 78.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 95.8
+   },
+   "lid": "#e0e0e0",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4e4": {
+   "label": "outbox tray",
+   "shadow": 82.3,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 100.2
+   },
+   "lid": "#4e342e",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4e5": {
+   "label": "inbox tray",
+   "shadow": 82.3,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 100.2
+   },
+   "lid": "#4e342e",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4ee": {
+   "label": "postbox",
+   "shadow": 57.8,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 70.3
+   },
+   "lid": "#ffffff",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4f0": {
+   "label": "newspaper",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 110.6,
+    "w": 88.1
+   },
+   "lid": "#eeeeee",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4f1": {
+   "label": "mobile phone",
+   "shadow": 44.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 56.0
+   },
+   "lid": "#000908",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4f9": {
+   "label": "video camera",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 101.4,
+    "w": 97.9
+   },
+   "lid": "#546e7a",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f4fc": {
+   "label": "videocassette",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 131.7,
+    "w": 65.9
+   },
+   "lid": "#eba2a0",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f50b": {
+   "label": "battery",
+   "shadow": 41.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 56.0
+   },
+   "lid": "#fbfdf9",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f510": {
+   "label": "closed lock with key",
+   "shadow": 84.1,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#fed12e",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f512": {
+   "label": "lock",
+   "shadow": 58.1,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 70.8
+   },
+   "lid": "#fdd835",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f52e": {
+   "label": "crystal ball",
+   "shadow": 68.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 82.8
+   },
+   "lid": "#9065c6",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f683": {
+   "label": "railway car",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 116.1,
+    "w": 82.3
+   },
+   "lid": "#6d8696",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f686": {
+   "label": "train",
+   "shadow": 60.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 73.9
+   },
+   "lid": "#2581c0",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f687": {
+   "label": "metro",
+   "shadow": 83.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#bce3fd",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f688": {
+   "label": "light rail",
+   "shadow": 82.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 100.9
+   },
+   "lid": "#9aa1a4",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f68a": {
+   "label": "tram",
+   "shadow": 83.5,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.7
+   },
+   "lid": "#bae2fd",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f68b": {
+   "label": "tram car",
+   "shadow": 82.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 100.7
+   },
+   "lid": "#b2b2b2",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f68c": {
+   "label": "bus",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 122.5,
+    "w": 75.5
+   },
+   "lid": "#afe3fb",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f68d": {
+   "label": "oncoming bus",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 97.6,
+    "w": 101.8
+   },
+   "lid": "#afe3fb",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f691": {
+   "label": "ambulance",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 105.2,
+    "w": 93.8
+   },
+   "lid": "#c8e2ee",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f692": {
+   "label": "fire engine",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 113.9,
+    "w": 84.7
+   },
+   "lid": "#ff2a23",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f698": {
+   "label": "oncoming automobile",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 107.4,
+    "w": 91.5
+   },
+   "lid": "#bd4544",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f699": {
+   "label": "recreational vehicle",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 127.9,
+    "w": 69.8
+   },
+   "lid": "#2f75bc",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f69d": {
+   "label": "monorail",
+   "shadow": 83.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#f44336",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f9c2": {
+   "label": "salt shaker",
+   "shadow": 50.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 60.9
+   },
+   "lid": "#c5e0e8",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f9c4": {
+   "label": "garlic",
+   "shadow": 67.2,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 81.8
+   },
+   "lid": "#e9d3d6",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f9c5": {
+   "label": "onion",
+   "shadow": 72.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 87.7
+   },
+   "lid": "#fedba6",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f9e2": {
+   "label": "billed cap",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 116.5,
+    "w": 81.9
+   },
+   "lid": "#2196f3",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f9e3": {
+   "label": "scarf",
+   "shadow": 57.3,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 69.8
+   },
+   "lid": "#ec5b43",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f9e5": {
+   "label": "coat",
+   "shadow": 72.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 88.7
+   },
+   "lid": "#d5aa67",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f9f0": {
+   "label": "toolbox",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 100.9,
+    "w": 98.3
+   },
+   "lid": "#c62828",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f9f1": {
+   "label": "brick",
+   "shadow": 83.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#dac9c5",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f9f6": {
+   "label": "ball of yarn",
+   "shadow": 76.4,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 93.0
+   },
+   "lid": "#ee5186",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f9fa": {
+   "label": "basket",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 99.0,
+    "w": 100.4
+   },
+   "lid": "#ffcc80",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f9fc": {
+   "label": "bar of soap",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 107.9,
+    "w": 91.0
+   },
+   "lid": "#ffb6c1",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f9fe": {
+   "label": "receipt",
+   "shadow": 76.2,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 92.8
+   },
+   "lid": "#edf3f6",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fa79": {
+   "label": "adhesive bandage",
+   "shadow": 82.3,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 100.2
+   },
+   "lid": "#e0e1e0",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fa91": {
+   "label": "chair",
+   "shadow": 52.4,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 63.8
+   },
+   "lid": "#f0aa6b",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fa96": {
+   "label": "military helmet",
+   "shadow": 88.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#506b3f",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fa97": {
+   "label": "accordion",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 102.6,
+    "w": 96.6
+   },
+   "lid": "#8f715c",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fa98": {
+   "label": "long drum",
+   "shadow": 55.8,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 67.9
+   },
+   "lid": "#e18123",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fa99": {
+   "label": "coin",
+   "shadow": 80.2,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 97.7
+   },
+   "lid": "#e7b637",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1faa6": {
+   "label": "headstone",
+   "shadow": 66.3,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 80.7
+   },
+   "lid": "#a2a4a5",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1faa8": {
+   "label": "rock",
+   "shadow": 81.5,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 99.3
+   },
+   "lid": "#9c938d",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1faab": {
+   "label": "low battery",
+   "shadow": 42.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 56.0
+   },
+   "lid": "#f9fafb",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fab0": {
+   "label": "fly",
+   "shadow": 70.8,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 86.2
+   },
+   "lid": "#799094",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fab5": {
+   "label": "wood",
+   "shadow": 65.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 80.2
+   },
+   "lid": "#ad7156",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fab6": {
+   "label": "feather",
+   "shadow": 85.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#b1763d",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fab7": {
+   "label": "lotus",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 110.9,
+    "w": 87.8
+   },
+   "lid": "#fdbd88",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fab9": {
+   "label": "empty nest",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 116.8,
+    "w": 81.6
+   },
+   "lid": "#8c6238",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1faba": {
+   "label": "nest with eggs",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 115.1,
+    "w": 83.4
+   },
+   "lid": "#54c2f6",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fabb": {
+   "label": "hyacinth",
+   "shadow": 46.6,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 56.7
+   },
+   "lid": "#9067e6",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fad0": {
+   "label": "blueberries",
+   "shadow": 85.2,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#4052b4",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fad1": {
+   "label": "bell pepper",
+   "shadow": 62.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 76.3
+   },
+   "lid": "#aad877",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fad4": {
+   "label": "tamale",
+   "shadow": 87.5,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#fde89c",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fad5": {
+   "label": "fondue",
+   "shadow": 82.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 100.7
+   },
+   "lid": "#e74e1c",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1fad6": {
+   "label": "teapot",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 114.5,
+    "w": 84.0
+   },
+   "lid": "#ee5a46",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-2600": {
+   "label": "black sun with rays",
+   "shadow": 83.5,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.7
+   },
+   "lid": "#fdcb31",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-2601": {
+   "label": "cloud",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 120.6,
+    "w": 77.5
+   },
+   "lid": "#e4eaee",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-2602": {
+   "label": "umbrella",
+   "shadow": 85.3,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#6e62ed",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-260e": {
+   "label": "black telephone",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 104.5,
+    "w": 94.6
+   },
+   "lid": "#f5f5f5",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-2614": {
+   "label": "umbrella with rain drops",
+   "shadow": 75.1,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 91.4
+   },
+   "lid": "#685af2",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-2615": {
+   "label": "hot beverage",
+   "shadow": 82.5,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 100.5
+   },
+   "lid": "#97735f",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-2660": {
+   "label": "black spade suit",
+   "shadow": 74.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 91.2
+   },
+   "lid": "#464c4f",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-2668": {
+   "label": "hot springs",
+   "shadow": 87.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#e03b34",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-2692": {
+   "label": "hammer and pick",
+   "shadow": 85.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#7c5133",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-2697": {
+   "label": "alembic",
+   "shadow": 83.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.1
+   },
+   "lid": "#cb75e6",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-26c8": {
+   "label": "thunder cloud and rain",
+   "shadow": 87.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#e4eaee",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-26fa": {
+   "label": "tent",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 123.8,
+    "w": 74.2
+   },
+   "lid": "#ef7f39",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-2709": {
+   "label": "envelope",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 123.3,
+    "w": 74.7
+   },
+   "lid": "#ffffff",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-2744": {
+   "label": "snowflake",
+   "shadow": 73.6,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 89.7
+   },
+   "lid": "#a4d7f7",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-2747": {
+   "label": "sparkle",
+   "shadow": 83.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#ffffff",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f301": {
+   "label": "foggy",
+   "shadow": 83.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#d8d7dc",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f302": {
+   "label": "closed umbrella",
+   "shadow": 84.4,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#8170f0",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f303": {
+   "label": "night with stars",
+   "shadow": 83.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#72aba1",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f304": {
+   "label": "sunrise over mountains",
+   "shadow": 83.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#febc1f",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f305": {
+   "label": "sunrise",
+   "shadow": 83.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#ffd4a5",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f31f": {
+   "label": "glowing star",
+   "shadow": 82.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 99.8
+   },
+   "lid": "#fdd835",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f326": {
+   "label": "white sun behind cloud with rain",
+   "shadow": 66.8,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 81.4
+   },
+   "lid": "#e3e9e6",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f327": {
+   "label": "cloud with rain",
+   "shadow": 86.8,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#e2ebee",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f328": {
+   "label": "cloud with snow",
+   "shadow": 88.3,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#e4eaee",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f329": {
+   "label": "cloud with lightning",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 100.9,
+    "w": 98.3
+   },
+   "lid": "#e4eaee",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f32a": {
+   "label": "cloud with tornado",
+   "shadow": 75.6,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 92.0
+   },
+   "lid": "#dee7ea",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f32b": {
+   "label": "fog",
+   "shadow": 83.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#e0e9eb",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f32e": {
+   "label": "taco",
+   "shadow": 90.2,
+   "face": {
+    "x": 120.0,
+    "y": 108.0,
+    "w": 90.9
+   },
+   "lid": "#f3c763",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f5a5": {
+   "label": "desktop computer",
+   "shadow": 74.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 90.0
+   },
+   "lid": "#414444",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f5a8": {
+   "label": "printer",
+   "shadow": 77.4,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 94.2
+   },
+   "lid": "#90a4ae",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f5bc": {
+   "label": "frame with picture",
+   "shadow": 83.7,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#63b4e0",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f5c2": {
+   "label": "card index dividers",
+   "shadow": 77.8,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 94.7
+   },
+   "lid": "#ffe36c",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f5c4": {
+   "label": "file cabinet",
+   "shadow": 74.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 90.0
+   },
+   "lid": "#37474f",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f5d2": {
+   "label": "spiral note pad",
+   "shadow": 68.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 82.8
+   },
+   "lid": "#f5f5f5",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f5d3": {
+   "label": "spiral calendar pad",
+   "shadow": 81.9,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 99.7
+   },
+   "lid": "#94d1f7",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f5de": {
+   "label": "rolled-up newspaper",
+   "shadow": 88.5,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#dcdcdc",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f5e8": {
+   "label": "left speech bubble",
+   "shadow": 88.2,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.9
+   },
+   "lid": "#ffffff",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f5f3": {
+   "label": "ballot box with ballot",
+   "shadow": 83.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 101.1
+   },
+   "lid": "#1a8dc5",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  },
+  "noto-1f5ff": {
+   "label": "moyai",
+   "shadow": 60.0,
+   "face": {
+    "x": 120.0,
+    "y": 97.5,
+    "w": 73.0
+   },
+   "lid": "#beb2b2",
+   "source": "Noto Emoji",
+   "license": "Apache-2.0"
+  }
+ },
+ "presets": {
+  "arthur": {
+   "body": "arthur",
+   "face": "arthur",
+   "label": "Arthur, a navy desk calculator with brass keys"
+  },
+  "bram": {
+   "body": "bram",
+   "face": "bram",
+   "label": "Bram, an open leather storybook with glowing pages"
+  },
+  "dave": {
+   "body": "dave",
+   "face": "dave",
+   "label": "Dave, a sturdy coffee mug in flannel red"
+  },
+  "imani": {
+   "body": "imani",
+   "face": "imani",
+   "label": "Imani, a clipboard with a checklist in soft blue, pink and white"
+  },
+  "mika": {
+   "body": "mika",
+   "face": "mika",
+   "label": "Mika, a glowing game controller in midnight purple"
+  },
+  "priya": {
+   "body": "priya",
+   "face": "priya",
+   "label": "Priya, a round-bottomed laboratory flask with violet liquid"
+  },
+  "rafe": {
+   "body": "rafe",
+   "face": "rafe",
+   "label": "Rafe, a warm orange cassette tape with a laid-back look"
+  },
+  "roz": {
+   "body": "roz",
+   "face": "roz",
+   "label": "Roz, a cocktail glass with an olive and a lipstick-red rim"
+  },
+  "sprout": {
+   "body": "sprout",
+   "face": "sprout",
+   "label": "Sprout, a cheerful leafy companion"
+  },
+  "terminal": {
+   "body": "terminal",
+   "face": "terminal",
+   "label": "PHiLLiP, a friendly beige terminal"
+  },
+  "vesper": {
+   "body": "vesper",
+   "face": "vesper",
+   "label": "Vesper, a vintage velvet microphone in wine red and brass"
+  }
+ }
+}

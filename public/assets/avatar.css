@@ -1,18 +1,60 @@
+/* Every character shares one vocabulary (eyes, lids, brows, pupils, mouth), so expressions are a few custom properties set on .avatar.
+   --lid eyelid closure 0..1, --gx/--gy gaze, --bo brow visibility, --bly/--bry brow lift (px), --blr/--brr brow tilt (deg). */
+@property --lid { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --gx { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --gy { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --bo { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --bly { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --bry { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --blr { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --brr { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --mood { syntax: "<color>"; inherits: true; initial-value: transparent; }
+:root { --mood-thinking: #7a8cff; --mood-working: #e0a23b; --mood-talking: #5fb36a; --spring: linear(0, .42 10%, .86 22%, 1.1 36%, 1.05 48%, .99 62%, 1 78%, 1); }
+/* Expressions settle with a little overshoot (a spring), and the mood light glows behind the character. */
+.avatar { transition: --lid .4s var(--spring), --gx .35s, --gy .35s, --bo .3s, --bly .45s var(--spring), --bry .45s var(--spring), --blr .45s var(--spring), --brr .45s var(--spring), --mood .5s; }
+.avatar.thinking { --mood: var(--mood-thinking); }
+.avatar.working { --mood: var(--mood-working); }
+.avatar.is-talking { --mood: var(--mood-talking); }
+.avatar.happy, .avatar.party { --mood: #e8b04a; }
+.avatar.sad { --mood: #5b8fb0; }
+.avatar.angry { --mood: #d6553b; }
+.avatar.love { --mood: #ef7a98; }
+.avatar.sleepy svg { filter: saturate(.55); }
+.avatar svg { transition: filter .6s; }
 .avatar svg { width: 100%; height: 100%; overflow: visible; }
-.avatar-body { transform-origin: 120px 180px; animation: avatar-breathe 4.5s ease-in-out infinite; }
-/* Independent eyelids keep blinking even when an expression transforms the eye group. */
-.avatar .eye-left, .avatar .eye-right, .avatar-heart-eyes > path {
+/* Idle life: breathing, plus a rare head tilt on a long loop (the "rotate" property composes with the breathing transform). */
+.avatar-body { transform-origin: 120px 180px; animation: avatar-breathe 4.5s ease-in-out infinite, avatar-fidget 31s ease-in-out infinite var(--seed, 0s); }
+/* Gaze: pupils look toward --gx/--gy, and the face drifts a little the same way so it reads as turning. */
+.avatar-pupil { translate: calc(var(--gx) * 1px) calc(var(--gy) * 1px); animation: avatar-glance 11s ease-in-out infinite; }
+.avatar-face { translate: calc(var(--gx) * .3px) calc(var(--gy) * .2px); }
+/* Eyelids: three stacked lids per eye in the face's own colour, on coprime periods, so blinks never settle into a rhythm:
+   a quick blink (6.7s), a double blink (13.1s) and an occasional slow one (19.9s). Any closed lid covers the eye. */
+.lid {
+  opacity: 1;
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  transform: scaleY(var(--lid));
+  animation: avatar-blink-a 6.7s ease-in-out infinite var(--seed, 0s);
+}
+.lid-b { animation-name: avatar-blink-b; animation-duration: 13.1s; }
+.lid-c { animation-name: avatar-blink-c; animation-duration: 19.9s; }
+.eye-right .lid { animation-delay: calc(var(--seed, 0s) + 40ms); }
+.avatar-eyes { transform-origin: 120px 80px; }
+.avatar-mouth { fill: transparent; transform-box: fill-box; transform-origin: center; }
+.avatar-brow {
+  opacity: var(--bo);
   transform-box: fill-box;
   transform-origin: center;
-  animation: avatar-blink-eye 7.3s linear infinite;
 }
-.avatar .eye-right, .avatar-heart-eyes > path + path { animation-delay: 45ms; }
-.avatar-pupil { animation: avatar-glance 11s ease-in-out infinite; }
-/* Every shipped character keeps its eyes at the same coordinates except the sprout. */
-.avatar:not([data-avatar="sprout"]) .avatar-eyes { transform-origin: 120px 80px; }
-.avatar[data-avatar="sprout"] .avatar-eyes { transform-origin: 120px 150px; }
-.avatar-mouth { fill: transparent; transform-box: fill-box; transform-origin: center; }
-.avatar-brow { transition: opacity .3s, transform .3s; }
+.brow-left { transform: translateY(calc(var(--bly) * 1px)) rotate(calc(var(--blr) * 1deg)); }
+.brow-right { transform: translateY(calc(var(--bry) * 1px)) rotate(calc(var(--brr) * 1deg)); }
+/* The sprout has strokes for eyes: a blink turns the stroke sideways into a closed eye. */
+.avatar[data-face="sprout"] .avatar-eyes { transform-origin: 120px 150px; transform: scaleY(calc(1 - var(--lid) * .8)); }
+.avatar[data-face="sprout"] .eye-left, .avatar[data-face="sprout"] .eye-right {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: avatar-sprout-blink 11.3s ease-in-out infinite var(--seed, 0s);
+}
 .avatar-crash, .avatar-heart-eyes, .avatar-shades, .avatar-tears,
 .avatar-confetti, .avatar-sleep,
 .avatar-speaking-mouth { display: none; }
@@ -21,21 +63,29 @@
   display: block;
   transform-box: fill-box;
   transform-origin: center;
-  animation: avatar-mouth-talk .48s ease-in-out infinite;
+  animation: avatar-mouth-h .53s ease-in-out infinite, avatar-mouth-w .37s ease-in-out infinite;
 }
+/* When the talking cooldown runs down the mouth slows and softens instead of stopping dead. */
+.avatar.is-talking.is-winding .avatar-speaking-mouth { animation-duration: 1.1s, .8s; opacity: .75; }
+.avatar.is-talking.is-winding .avatar-body { animation-duration: 2.4s; }
 .avatar.is-talking .avatar-mouth { visibility: hidden; }
 .avatar.is-talking .avatar-body { animation: avatar-talk 1.1s ease-in-out infinite; }
 .avatar.thinking .avatar-body { animation: avatar-think 2s ease-in-out infinite; }
-.avatar.thinking .avatar-pupil { animation: none; transform: translate(3px, -3px); }
+.avatar.thinking { --lid: .18; --bo: 1; --bly: -4; --blr: -6; --gx: 3; --gy: -3.5; }
+.avatar.thinking .avatar-pupil { animation: none; }
+/* Working (a tool is running): brows set, eyes narrowed, pupils reading line by line, a small typing bob. */
+.avatar.working { --lid: .3; --bo: 1; --blr: 7; --brr: -7; }
+.avatar.working .avatar-pupil { animation: avatar-scan 1.6s steps(1, end) infinite; }
+.avatar.working .avatar-body { animation: avatar-work .32s ease-in-out infinite; }
 .avatar.happy .avatar-body { animation: avatar-happy .7s ease 2; }
-.avatar.happy .avatar-eyes { transform: scaleY(.7); }
+.avatar.happy { --lid: .28; --bo: 1; --bly: -5; --bry: -5; }
+.avatar.sad { --lid: .32; --bo: 1; --blr: -14; --brr: 14; }
 .avatar.sad .avatar-body { transform: translateY(5px) rotate(-3deg); animation: none; }
 .avatar.sad .avatar-mouth { transform: rotate(180deg); }
 .avatar.angry .avatar-body { animation: avatar-grumble .22s ease-in-out 3; }
-.avatar.angry .avatar-brow { opacity: 1; }
-.avatar.angry .brow-left { transform: rotate(15deg); transform-origin: 87px 61px; }
-.avatar.angry .brow-right { transform: rotate(-15deg); transform-origin: 151px 61px; }
-.avatar.surprised .avatar-eyes { transform: scaleY(1.5); }
+.avatar.angry { --lid: .4; --bo: 1; --blr: 15; --brr: -15; }
+.avatar.surprised { --bo: 1; --bly: -8; --bry: -8; }
+.avatar.surprised .avatar-eyes { transform: scale(1.12, 1.3); }
 .avatar.bsod .avatar-screen { fill: #214bb0; }
 .avatar.bsod .avatar-face, .avatar.bsod .avatar-speaking-mouth { display: none; }
 .avatar.bsod .avatar-crash { display: block; animation: avatar-static .25s steps(2) 3; }
@@ -45,22 +95,61 @@
 .avatar.sleepy .avatar-sleep { display: block; }
 .avatar.love .avatar-eyes, .avatar.cool .avatar-eyes { visibility: hidden; }
 .avatar.love .avatar-heart-eyes { transform-origin: 120px 80px; animation: avatar-love 1s ease-in-out infinite; }
-.avatar.wink .eye-left { animation: none; transform: scaleY(.1); }
+.avatar.wink { --bo: 1; --bly: 2; --bry: -4; }
+.avatar.wink .eye-left .lid { animation: none; transform: scaleY(1); }
+.avatar[data-face="sprout"].wink .eye-left { animation: none; transform: rotate(90deg) scaleY(.5); }
 .avatar.eyeroll .avatar-pupil { animation: none; transform: translateY(-7px); }
 .avatar.party .avatar-body { animation: avatar-happy .5s ease-in-out 4; }
 .avatar.party .avatar-confetti { animation: avatar-confetti 1s ease-out infinite; }
-.avatar.sleepy .avatar-eyes { transform: scaleY(.25); }
+.avatar.sleepy { --lid: .68; }
 .avatar.sleepy .avatar-body { animation: avatar-think 4s ease-in-out infinite; }
+.avatar.confused { --bo: 1; --bly: -6; --blr: -5; --bry: 1; --brr: 5; --gx: -3; }
 .avatar.confused .avatar-body { animation: avatar-think .8s ease-in-out 3; }
-@keyframes avatar-blink-eye {
-  0%, 28%, 30%, 74%, 76%, 100% { transform: scaleY(1); }
-  29%, 75% { transform: scaleY(.06); }
+.avatar.curious { --bo: 1; --bly: -6; --bry: -1; --brr: -4; --gx: 2; }
+.avatar.curious .avatar-body { transform: rotate(4deg); animation: none; }
+/* A short nod: the listening beat when a message is sent. */
+.avatar.nod .avatar-body { animation: avatar-nod .45s ease-in-out 1; }
+/* Lids close fast and open a little slower. */
+@keyframes avatar-blink-a {
+  0%, 91%, 97%, 100% { transform: scaleY(var(--lid)); }
+  93% { transform: scaleY(1); }
 }
-@keyframes avatar-mouth-talk {
-  0%, 100% { transform: scale(.9, .12); }
-  25% { transform: scale(1, .9); }
-  55% { transform: scale(.7, .35); }
-  80% { transform: scale(.85, 1.05); }
+@keyframes avatar-blink-b {
+  0%, 60%, 65%, 100% { transform: scaleY(var(--lid)); }
+  61.2%, 63.4% { transform: scaleY(1); }
+  62.3% { transform: scaleY(.25); }
+}
+@keyframes avatar-blink-c {
+  0%, 80.5%, 86.5%, 100% { transform: scaleY(var(--lid)); }
+  82%, 84% { transform: scaleY(1); }
+}
+@keyframes avatar-sprout-blink {
+  0%, 18%, 20.5%, 46%, 47.2%, 48.4%, 49.8%, 74%, 79.5%, 100% { transform: none; }
+  19%, 46.6%, 49%, 75.5%, 78% { transform: rotate(90deg) scaleY(.5); }
+}
+@keyframes avatar-mouth-h {
+  0%, 100% { transform: scaleY(.14); }
+  28% { transform: scaleY(.95); }
+  58% { transform: scaleY(.38); }
+  80% { transform: scaleY(1.05); }
+}
+@keyframes avatar-mouth-w {
+  0%, 100% { scale: .8 1; }
+  45% { scale: 1.08 1; }
+  70% { scale: .92 1; }
+}
+@keyframes avatar-scan {
+  0%, 100% { transform: translate(-3px, -1px); }
+  25% { transform: translate(3px, -1px); }
+  50% { transform: translate(-3px, 2px); }
+  75% { transform: translate(3px, 2px); }
+}
+@keyframes avatar-work { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px) rotate(.4deg); } }
+@keyframes avatar-nod { 40% { transform: translateY(4px) rotate(-1.5deg); } }
+@keyframes avatar-fidget {
+  0%, 68%, 86%, 100% { rotate: 0deg; }
+  71%, 76% { rotate: 2.4deg; }
+  80% { rotate: -1.6deg; }
 }
 @keyframes avatar-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes avatar-think { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(3deg) translateY(-3px); } }
@@ -72,12 +161,15 @@
 @keyframes avatar-static { 50% { opacity: .4; } }
 @keyframes avatar-glance { 0%, 20%, 50%, 100% { transform: translate(0); } 25%, 32% { transform: translate(-3px, 1px); } 65%, 72% { transform: translate(3px, -2px); } }
 @keyframes avatar-confetti { 0% { opacity: 0; transform: translateY(5px); } 40% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
-/* Reduced motion keeps the body still: tiny opacity-only eyelid/mouth state changes. */
+/* Reduced motion keeps the body still: eyelids and mouth only change opacity, and only one lid blinks. */
 @media (prefers-reduced-motion: reduce) {
-  .avatar .eye-left, .avatar .eye-right, .avatar-heart-eyes > path { animation: avatar-soft-blink 7.3s linear infinite !important; }
-  .avatar .eye-right, .avatar-heart-eyes > path + path { animation-delay: 45ms !important; }
+  .lid { transform: scaleY(1); opacity: 0; animation: avatar-soft-lid 6.1s linear infinite var(--seed, 0s) !important; }
+  .lid-b, .lid-c { animation: none !important; }
+  .avatar[data-face="sprout"] .eye-left, .avatar[data-face="sprout"] .eye-right { animation: avatar-soft-blink 6.1s linear infinite !important; }
   .avatar.is-talking .avatar-speaking-mouth { animation: avatar-soft-talk .8s steps(1, end) infinite !important; }
   .avatar.is-talking .avatar-mouth { visibility: visible; }
+  .avatar.working .avatar-pupil, .avatar.working .avatar-body { animation: none; }
 }
-@keyframes avatar-soft-blink { 0%, 28%, 30%, 74%, 76%, 100% { opacity: 1; } 29%, 75% { opacity: .06; } }
+@keyframes avatar-soft-lid { 0%, 95%, 100% { opacity: 0; } 96.5%, 98% { opacity: 1; } }
+@keyframes avatar-soft-blink { 0%, 95%, 100% { opacity: 1; } 97% { opacity: .06; } }
 @keyframes avatar-soft-talk { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
