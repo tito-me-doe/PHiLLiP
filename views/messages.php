@@ -32,7 +32,7 @@ foreach ($characters as $persona):
 </div>
 <?php endforeach; ?>
 <?php if (!$characters): ?><p class="hint persona-empty">No personas are installed yet. Run <code>bin/phill-bootstrap</code> to add the shipped cast, or make your own.</p><?php endif; ?>
-<?php if (Agent\Pages::allowed($state['user']['id'], 'personas')): ?>
+<?php if (Agent\Pages::section($state['user']['id'], 'personas', 'personas')): ?>
 <div class="persona-slot">
 <button type="button" class="persona-card persona-new" data-dialog="persona" aria-label="Create a new persona">
 <span class="persona-plus" aria-hidden="true"><?= V::icon('plus') ?></span>

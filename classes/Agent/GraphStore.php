@@ -74,9 +74,9 @@ class GraphStore
         self::getEntity($entityId);
         $limit = max(1, min(self::MAX_NEIGHBORS, (int)$limit));
         if ($direction === 'in') {
-            $sql = 'SELECT e.target_id AS id, t.namespace, t.name, e.relation, e.properties
-                    FROM knowledge_edges e JOIN knowledge_entities t ON t.id = e.target_id
-                    WHERE e.source_id = ? ORDER BY e.id DESC LIMIT ?';
+            $sql = 'SELECT e.source_id AS id, t.namespace, t.name, e.relation, e.properties
+                    FROM knowledge_edges e JOIN knowledge_entities t ON t.id = e.source_id
+                    WHERE e.target_id = ? ORDER BY e.id DESC LIMIT ?';
             return Database::rows($sql, [$entityId, $limit]);
         }
         if ($direction === 'both') {

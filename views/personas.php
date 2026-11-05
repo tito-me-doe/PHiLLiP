@@ -2,6 +2,7 @@
 use Agent\Views as V;
 $user = $state['user'];
 Agent\Pages::authorize($user['id'], 'personas');
+$can = array_flip(Agent\Pages::sections($user['id'], 'personas')); // the cards this person may see
 $adultOn = !empty($state['adult_personas']);
 $characters = array_values(array_filter($state['personas'], function ($p) { return !empty($p['sheet']); }));
 // Adult-oriented characters sort last, and read as switched off while the 18+ setting is off.
@@ -18,6 +19,7 @@ $switch = function ($p, $editable) use ($state) {
         . ($on ? ' checked' : '') . ' aria-label="' . V::h(($on ? 'Switch off ' : 'Switch on ') . $p['name']) . '"><noscript><button>Save</button></noscript></form>';
 };
 ?>
+<?php if (isset($can['personas'])): ?>
 <section class="card" id="personas">
 <div class="card-head"><h2>Personas</h2><div class="row">
 <?php if (!empty($user['is_admin'])): ?>
@@ -36,6 +38,7 @@ $switch = function ($p, $editable) use ($state) {
 <?php endforeach; ?>
 </tbody></table></div></section>
 
+<?php endif; if (isset($can['experts'])): ?>
 <section class="card" id="experts">
 <div class="card-head"><h2>Experts</h2><?= V::iconAction('plus', 'New expert', ['data-dialog' => 'expert']) ?></div>
 <div class="table-wrap"><table class="persona-table registry"><thead><tr><th></th><th>Expert</th><th>Instructions</th><th>Tools</th><th class="vis">Visibility</th><th></th></tr></thead><tbody>
@@ -48,3 +51,4 @@ $switch = function ($p, $editable) use ($state) {
 <?php endforeach; ?>
 <?php if (!$experts): ?><tr><td colspan="6" class="empty">No experts yet.</td></tr><?php endif; ?>
 </tbody></table></div></section>
+<?php endif; ?>

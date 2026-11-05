@@ -21,6 +21,9 @@ class Administration
         foreach (Frontend::TOOLS as $tool) {
             $items[$tool] = 'Tool · ' . ToolRegistry::label(substr($tool, strrpos($tool, '\\') + 1));
         }
+        foreach (Pages::sectionResources() as $resource => $title) {
+            $items[$resource] = 'Section · ' . $title;
+        }
         return $items;
     }
 
@@ -31,38 +34,56 @@ class Administration
         return 'access';
     }
 
-    /** Users, groups and memberships may be delegated with the page; pages, tool access and permissions stay with administrators. */
+    /** The section(s) of the Permissions & Users page an editor or API alias belongs to; any one is enough. @return string|list<string> */
+    public static function section($entity, array $input = [])
+    {
+        switch ($entity) {
+            case 'users': return 'users';
+            case 'groups': return 'groups';
+            case 'memberships': return ['users', 'groups'];
+            case 'tools': return 'tools';
+            case 'navigation':
+            case 'sections': return 'pages';
+            case 'permissions':
+                $resource = isset($input['resource']) ? $input['resource'] : (isset($input['tool']) ? $input['tool'] : '');
+                return is_string($resource) && (strpos($resource, 'page.') === 0 || strpos($resource, 'section.') === 0) ? 'pages' : 'tools';
+        }
+        return ['users', 'groups', 'pages', 'tools'];
+    }
+
+    /** Users, groups and memberships may be delegated (as the page or as sections); pages, sections, tool access and permissions stay with administrators. */
     public static function requireAdministrator(array $user, $entity)
     {
-        if (in_array($entity, ['navigation', 'permissions', 'tools'], true) && empty($user['is_admin'])) {
-            throw new \RuntimeException('Only an administrator may change pages, tool access and permissions');
+        if (in_array($entity, ['navigation', 'permissions', 'tools', 'sections'], true) && empty($user['is_admin'])) {
+            throw new \RuntimeException('Only an administrator may change pages, sections, tool access and permissions');
         }
     }
 
     public function data($page)
     {
-        Pages::authorize($this->user['id'], self::page($page));
+        Pages::authorizeSection($this->user['id'], self::page($page), self::section($page));
         $data = [];
         $data['users'] = Identity::users();
         $data['groups'] = Mappings::rows('teams');
         $data['memberships'] = Mappings::rows('memberships');
-        $data['permissions'] = Mappings::rows('permissions');
-        $data['pages'] = Pages::all();
+        // Who may open what is administrators' information.
+        $data['permissions'] = $this->user['is_admin'] ? Mappings::rows('permissions') : [];
+        $data['pages'] = $this->user['is_admin'] ? Pages::all() : [];
         return $data;
     }
 
     public function action($page, array $input)
     {
         foreach (['groups','members','allowed_users','allowed_groups'] as $field) if (isset($input[$field.'_present']) && !isset($input[$field])) $input[$field] = [];
-        if (!in_array($page, ['users', 'groups', 'memberships', 'permissions', 'navigation', 'tools'], true)) {
+        if (!in_array($page, ['users', 'groups', 'memberships', 'permissions', 'navigation', 'tools', 'sections'], true)) {
             throw new \InvalidArgumentException('Unknown management page');
         }
-        Pages::authorize($this->user['id'], self::page($page, $input));
+        Pages::authorizeSection($this->user['id'], self::page($page, $input), self::section($page, $input));
         self::requireAdministrator($this->user, $page);
         return State::transaction(function () use ($page, $input) {
             Database::row("SELECT pg_advisory_xact_lock(hashtext('phillip-identity-management'))");
             $this->user = Access::authenticated($this->user['id']);
-            Pages::authorize($this->user['id'], self::page($page, $input));
+            Pages::authorizeSection($this->user['id'], self::page($page, $input), self::section($page, $input));
             if ($page === 'users') {
                 $result = $this->user($input);
             } elseif ($page === 'groups') {
@@ -71,6 +92,11 @@ class Administration
                 $result = $this->membership($input);
             } elseif ($page === 'permissions') {
                 $result = $this->permission($input);
+            } elseif ($page === 'sections') {
+                $resource = self::text($input, 'resource', 200);
+                if (!array_key_exists($resource, Pages::sectionResources())) throw new \InvalidArgumentException('Choose a section that can be delegated');
+                $this->grants($resource, $input);
+                $result = ['resource'=>$resource];
             } elseif ($page === 'tools') {
                 $resource = self::text($input, 'resource', 200);
                 if (!in_array($resource, Frontend::TOOLS, true)) throw new \InvalidArgumentException('Choose an available tool');

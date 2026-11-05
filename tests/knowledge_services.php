@@ -113,7 +113,8 @@ try {
     check(count($neigh) === 1 && $neigh[0]['name'] === 'Beta' && $neigh[0]['relation'] === 'connected-to', 'Outgoing neighbors return connected entities with relations');
 
     $inNeigh = GraphStore::neighbors($e2['id'], 'in', 10);
-    check(count($inNeigh) === 1 && $inNeigh[0]['name'] === 'Alpha', 'Incoming neighbors return entities that point to the target');
+    check(count($inNeigh) === 1 && (int)$inNeigh[0]['id'] === (int)$e1['id'] && $inNeigh[0]['namespace'] === 'namespace-alpha', 'Incoming neighbors return entities that point to the target, not the target\'s own outgoing edges');
+    check(GraphStore::neighbors($e1['id'], 'in', 10) === [], 'An entity nothing points to has no incoming neighbors');
 
     $both = GraphStore::neighbors($e2['id'], 'both', 10);
     check(count($both) === 2, 'Both-direction neighbors include inbound and outbound');

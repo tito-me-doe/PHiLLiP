@@ -68,9 +68,39 @@ class Knowledge
         $sql = "SELECT c.*, ARRAY(SELECT message_id FROM claim_sources WHERE claim_id = c.id) AS sources FROM claims c JOIN threads t ON t.id = c.thread_id
             WHERE $visible AND (c.content ILIKE ? OR c.subject ILIKE ?) ORDER BY c.id DESC LIMIT " . max(1, min(50, (int)$limit));
         $q = Database::connection()->prepare($sql);
-        $pattern = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], trim($query)) . '%';
+        $pattern = self::pattern($query);
         $q->execute(array_merge($params, [$pattern, $pattern]));
-        $rows = $q->fetchAll();
+        return self::withSources($q->fetchAll());
+    }
+
+    /**
+     * One page of the memories a person may see, newest first.
+     * @return array{rows:array,total:int,page:int,pages:int,per_page:int}
+     */
+    public static function recallPage($query, $userId = null, $page = 1, $perPage = 25)
+    {
+        list($visible, $params) = self::visibility($userId);
+        $perPage = max(5, min(100, (int)$perPage));
+        $pattern = self::pattern($query);
+        $from = "FROM claims c JOIN threads t ON t.id = c.thread_id WHERE $visible AND (c.content ILIKE ? OR c.subject ILIKE ?)";
+        $params = array_merge($params, [$pattern, $pattern]);
+        $count = Database::connection()->prepare("SELECT COUNT(*) $from");
+        $count->execute($params);
+        $total = (int)$count->fetchColumn();
+        $pages = max(1, (int)ceil($total / $perPage));
+        $page = max(1, min($pages, (int)$page));
+        $q = Database::connection()->prepare("SELECT c.*, ARRAY(SELECT message_id FROM claim_sources WHERE claim_id = c.id) AS sources $from ORDER BY c.id DESC LIMIT $perPage OFFSET " . (($page - 1) * $perPage));
+        $q->execute($params);
+        return ['rows' => self::withSources($q->fetchAll()), 'total' => $total, 'page' => $page, 'pages' => $pages, 'per_page' => $perPage];
+    }
+
+    private static function pattern($query)
+    {
+        return '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], trim($query)) . '%';
+    }
+
+    private static function withSources(array $rows)
+    {
         foreach ($rows as &$row) $row['sources'] = trim($row['sources'], '{}') === '' ? [] : array_map('intval', explode(',', trim($row['sources'], '{}')));
         return $rows;
     }
@@ -85,8 +115,9 @@ class Knowledge
         return $row;
     }
 
-    public static function graph($query, $userId = null, $threadId = null, $depth = 2)
+    public static function graph($query, $userId = null, $threadId = null, $depth = 2, $limit = 50)
     {
+        $limit = max(1, min(200, (int)$limit));
         list($visible, $params) = self::visibility($userId, $threadId);
         $depth = max(1, min(4, (int)$depth));
         $sql = "WITH RECURSIVE eligible AS MATERIALIZED (
@@ -96,9 +127,26 @@ class Knowledge
             SELECT e.*, 1 AS depth, ARRAY[e.source_id, e.target_id] AS path FROM eligible e WHERE e.subject ILIKE ? OR e.object ILIKE ?
             UNION ALL SELECT e.*, w.depth + 1, w.path || e.target_id FROM walk w JOIN eligible e ON e.source_id = w.target_id
             WHERE w.depth < $depth AND NOT e.target_id = ANY(w.path)
-        ) SELECT DISTINCT claim_id, subject, relation, object FROM walk LIMIT 50";
+        ) SELECT DISTINCT claim_id, subject, relation, object FROM walk LIMIT $limit";
         $q = Database::connection()->prepare($sql);
         $q->execute(array_merge($params, ['%' . $query . '%', '%' . $query . '%']));
+        return $q->fetchAll();
+    }
+
+    /**
+     * The edges to draw for the memory graph: the most recent visible ones, or, for a search, the neighbourhood (two hops)
+     * of whatever matches it. @return list<array{claim_id:int,subject:string,relation:string,object:string}>
+     */
+    public static function graphEdges($query, $userId = null, $limit = 120)
+    {
+        $limit = max(1, min(200, (int)$limit));
+        if (trim($query) !== '') return self::graph(trim($query), $userId, null, 2, $limit);
+        list($visible, $params) = self::visibility($userId);
+        $q = Database::connection()->prepare("SELECT e.claim_id, a.label AS subject, e.relation, b.label AS object
+            FROM graph_edges e JOIN claims c ON c.id = e.claim_id JOIN threads t ON t.id = c.thread_id
+            JOIN graph_nodes a ON a.id = e.source_id JOIN graph_nodes b ON b.id = e.target_id
+            WHERE $visible ORDER BY e.claim_id DESC LIMIT $limit");
+        $q->execute($params);
         return $q->fetchAll();
     }
 }

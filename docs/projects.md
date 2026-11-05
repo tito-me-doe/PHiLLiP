@@ -96,7 +96,7 @@ Projects store structured task and decision data in PostgreSQL and interpret it 
 
 ## Browser and APIs
 
-Open Projects in the sidebar, create a project with an enabled model profile, and add/edit ToDos or use Open planning chat. The page shows readiness findings, nested tasks, attempts, progress, results, gate evidence, and recent events. Check readiness never starts work. Start Project or Resume project is enabled only when validation and current readiness permit it. Pause and retry are explicit controls.
+Select **+ Project** in the sidebar, create a project with an enabled model profile (title, profile, visibility, tools), and add/edit ToDos or use Open planning chat. Projects also appear in the sidebar history beside conversations. The page shows readiness findings, nested tasks, attempts, progress, results, gate evidence, and recent events. ToDo rows use icon buttons (edit, add child, delete; the `+` under the table adds a top-level ToDo) that open PHP-rendered dialogs, and project decisions open the same way as editors (`?view=projects&project=ID&decision=ID`, "Decisions awaiting your answer"); both fall back to ordinary pages without JavaScript. Check readiness never starts work. Start Project or Resume project is enabled only when validation and current readiness permit it. Pause and Retry ToDo are explicit controls. The readiness check sends the model only the fields a project actually has: empty project-level goal, requirements, context, and gates are omitted rather than reported as gaps (`ProjectRunner::plan`).
 
 Private, team, and organization visibility follows the planning thread. Team boundaries apply even to the creator after membership changes. Visible collaborators may edit the plan and start/pause work; settings, sharing, and deletion belong to the owner. Task conversations are readable progress histories managed by the runner. PHP renders initial pages and refreshed content; ordinary POST forms support essential Project actions without JavaScript. Polling preserves dirty forms and focus. Panel preferences remain browser-local; workflow state stays in PostgreSQL. The existing `public/` front-controller and asset layout is unchanged.
 
@@ -129,33 +129,46 @@ phill --once --project 42
 
 ## Development shortcuts and checks
 
-On this development machine, `ok-phill` and `phill-dev` are installed in `~/.local/bin`, outside the repository. They work from other directories; these wrappers are local conveniences rather than a portable installation requirement.
+On this development machine, `ok-phill` and `phill-dev` are installed in `~/.local/bin`, outside the repository. They work from other directories; these wrappers are local conveniences rather than a portable installation requirement. `phill-dev` is also a proxy for everything inside the containers, so you rarely need to type `docker compose`:
 
 ```sh
 phill-dev status
 phill-dev project show 42 --compact
 phill-dev agent list
-phill-dev ask -p nemotron-vl-fast 'Summarize the supplied text.'
+phill-dev ask 'Summarize the supplied text.'        # the `default` profile unless -p is given
 phill-dev research web-research 'Compare the supplied public documentation.'
 phill-dev test projects project_runner project_integration project_frontend project_cli --docker
+phill-dev test --all                                # every deterministic test (tests/run-all.sh); --live adds real-model tests
 phill-dev check
-php tests/live_ui.php ui_projects   # borrows production's enabled `default` profile into a disposable database
+phill-dev ui-live ui_projects                       # a real project run in a private installation, using the live model
+
+phill-dev psql -c 'select count(*) from claims'     # the PHiLLiP database
+phill-dev bin phill-models list                     # any bin/ command inside the app container (also: phill-dev phill-models list)
+phill-dev exec -u 1002:1002 php tests/cli_memory.php
+phill-dev logs worker --tail 50 -f
+phill-dev ps | up | down | restart | build          # compose lifecycle
 ```
 
 `status` reports Compose health and your active agents/projects without calling a model. `test` selects the shared test runner; `check` combines current-runtime PHP syntax checks with curated regression smoke tests. Functional checks use native PHP 8.3 and Docker PHP 8.5; PHP 7.x is unsupported. PostgreSQL is the current Project storage target; SQLite Project support is not this release's focus.
 
 The Project suites cover core state, orchestration, integration/policy boundaries, PHP views/forms, and CLI contracts:
 
+- `tests/projects.php`, `tests/project_integration.php`, `tests/project_frontend.php` — access policy, collaboration boundaries, and the PHP page/API.
+- `tests/project_runner.php` — scheduling, dispatch, review, and recovery.
 - `tests/project_workflow.php` — ownership, revision barriers, yields, escalations, and decisions.
 - `tests/project_recursive.php` — recursive child creation, refinement, and postorder execution.
 - `tests/project_recursive_security.php` — ancestry, revision, and subtree revision boundaries.
 - `tests/project_recursive_interface.php` — workflow interface and context validation.
+- `tests/project_cli.php`, `tests/project_payloads.php` — CLI contracts and inert task payloads.
+- `tests/project_worker_links.php`, `tests/project_engineering_evidence.php` — passive worker links, verdicts, and owner evidence.
 - `tests/project_tui.php` — read-only monitor rendering and access.
 - `tests/agent_messages.php` — agent message feedback during active assignment.
 
-`tests/project_recursive_live.php` is an opt-in real-model smoke test: `php tests/project_recursive_live.php --profile default` borrows production's enabled profile and calls the real model and retains the created project. `--help` or no args prints usage and never calls the model.
+Each runs in its own disposable database (see [testing](testing.md)); `tests/run-all.sh` runs them all.
 
-`tests/live/ui_projects.py` (run through `tests/live_ui.php`) uses the real enabled model: it checks incomplete plans, preserved drafts/focus, nested edits, readiness invalidation, explicit Start, reopening the page, child-before-parent execution, and passing evidence for every gate. It requires Python Playwright/Chromium, the running demo installation/workers, and configured model profiles; it removes its own fixtures.
+`tests/project_recursive_live.php` is an opt-in real-model smoke test: `php tests/project_recursive_live.php --profile default` reads production's enabled profile (read-only), verifies and enables it in the test's own disposable database, and calls the real model; the created project is dropped with that database (set `PHILLIP_TEST_KEEP=1` to keep it). `--help` or no args prints usage and never calls the model. `tests/run-all.sh --live` runs it.
+
+`tests/live/ui_projects.py` runs through `php tests/live_ui.php ui_projects` (it is skipped by default; ask for it by name, optionally `--profile NAME`). It starts a private web server and workers against the disposable database with the borrowed real model and checks incomplete plans, preserved drafts/focus, nested edits, readiness invalidation, explicit Start, reopening the page, child-before-parent execution, and passing evidence for every gate. It requires Python Playwright/Chromium and an enabled production profile to borrow; nothing is written to production.
 
 ### Passive engineering evidence
 

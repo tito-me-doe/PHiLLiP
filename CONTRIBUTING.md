@@ -12,7 +12,7 @@ docker compose exec -T app php --version
 docker compose exec -T app php tests/run.php
 ```
 
-Use a disposable development installation for tests that alter accounts, permissions, threads, or profiles. Do not run the entire test directory blindly against an installation containing important data. Test isolation varies by suite.
+Every test process builds its own throwaway PostgreSQL database from a template and refuses to connect to the production database; see [test isolation](docs/testing.md). Even so, run migrations, workers, and the opt-in Compose and live-model tests only on a development installation.
 
 Private `.env`, `config/*.local.json`, runtime storage, credentials, and real conversation data must stay out of commits. Local PATH wrappers and model profile aliases from another developer's machine are not repository dependencies.
 
@@ -24,9 +24,10 @@ Private `.env`, `config/*.local.json`, runtime storage, credentials, and real co
 | `classes/Agent/` | Shared request, persistence, authorization, workflow, and service contracts |
 | `classes/Agent/Tools/` | Reflected tool entry points |
 | `bin/` | Thin executable entry points; `install` is the Bash bootstrap exception |
-| `views/`, `public/`, `assets/` | PHP views, front controller/browser assets, and asset build inputs |
+| `views/`, `public/`, `assets/` | PHP views, front controller and browser assets (`public/assets/app.css` is the one tokenized stylesheet), and the vendor bundle input |
 | `database/` | Ordered SQL migrations |
-| `resources/engineering/` | Shipped personas and workflow briefs |
+| `resources/` | Shipped character sheets (`personas/`), engineering personas and workflow briefs (`engineering/`), and avatar body/face data (`avatars/`) |
+| `tools/` | Maintainer scripts, such as `tools/avatars/import-noto.py` |
 | `tests/` | PHP regression suites, fixtures, and Python browser tests |
 | `docs/` | User, operator, and developer guides |
 
@@ -52,7 +53,14 @@ Use the [shared logger](docs/runtime.md#logging-and-terminal-output), not ad-hoc
 
 ## Test a focused change
 
-The default runner executes six self-contained suites and uses fixture engines, not a live model:
+`tests/run-all.sh` runs every deterministic test, each against its own disposable database, and prints only failures. A few tests run in the application container; the script does that for you. `--live` adds the tests that call a real model:
+
+```sh
+tests/run-all.sh
+tests/run-all.sh --live
+```
+
+Isolation rules, the container-only tests, and the live tests are described in [docs/testing.md](docs/testing.md). While iterating, the PHP runner executes six self-contained suites by default and uses fixture engines, not a live model:
 
 ```sh
 docker compose exec -T app php tests/run.php
@@ -67,11 +75,12 @@ Select additional suites for the code you changed. These are starting points, no
 | Input contracts | `utilities`, `utilities_adversarial`, `messages`, `row_contracts`, `input_contracts` | Row/hydration suites may need database fixtures |
 | Runtime/logging | `logging`, `runtime`, `runtime_cli_options`, `log_events`, `user_actions` | Some exercise HTTP subprocesses or persisted events |
 | Onboarding/document root | `install`, `onboarding`, `public_boundary` | `install` stubs dependency commands; the others use isolated PostgreSQL schemas |
-| Navigation/management/access | `access_migration`, `navigation`, `permissions` | Disposable schemas/identities; legacy upgrade, implicit Everyone, additive grants, roles, real routes/forms/APIs, and project frontend boundaries |
+| Navigation/management/access | `access_migration`, `navigation`, `permissions` | Disposable databases/identities; legacy upgrade, implicit Everyone, additive grants, roles, real routes/forms/APIs, and project frontend boundaries |
 | Queues/state | `submissions`, `state`, `worker`, `workflow_tightening` | Inspect database and identity prerequisites |
 | Attachments | `attachments`, `attachment_media`, `attachment_fallbacks` | Converters and database fixtures are needed |
 | Projects | `projects`, `project_workflow`, `project_recursive`, `project_runner`, `project_frontend`, `project_cli` | Some project integration suites require demo identities |
 | Engineering agents | `engineering`, `source_tools`, `workspace`, `database_research` | Identity, filesystem, and restricted research-role requirements vary |
+| Personas/avatars | `personas`, `persona_sheets`, `persona_characters`, `avatars` | `persona_sheets` enforces the character-sheet standard in [docs/personas.md](docs/personas.md) |
 | Benchmarks/model operations | `benchmarks`, `models`, `benchmark_frontend` | Isolated PostgreSQL schemas and local fixture engines; no live model required |
 
 For an actual disposable Compose installation, run the opt-in host test after inspecting its setup:
@@ -82,7 +91,7 @@ php tests/install_compose.php --run
 
 It creates its own project, ports, and volume, then removes those fixtures. It requires host PHP dependencies and Docker access. It is not a package-manager validation on a clean OS.
 
-Browser tests need Python Playwright and Chromium. `tests/onboarding.php --browser` coordinates isolated setup fixtures with its browser test. Other `tests/ui_*.py` suites commonly expect a running demo installation and, for live generation, an enabled model. Inspect each file for `PHILLIP_URL`, `PHILLIP_PROFILE`, and account requirements. Demo credentials are for disposable development environments only.
+Browser tests need Python Playwright and Chromium. Most `tests/ui_*.py` scripts are launched by a PHP test (`ui_personas.php`, `ui_messages.php`, `ui_fix_*.php`, or `onboarding.php`/`navigation.php`/`benchmark_frontend.php` with `--browser`) that supplies a private database, web server, and fixture model. Scripts in `tests/live/` need a real model: run them with `php tests/live_ui.php [--profile NAME] [script ...]`, which starts a private installation and borrows the enabled `default` profile's configuration read-only from production (see [docs/testing.md](docs/testing.md)). Demo credentials are for disposable development environments only.
 
 `php tests/navigation.php --browser` also uses a disposable schema, HTTP server, fixture model, and worker. It walks every menu page, tests mixed history and four chat follow-ups across navigation/content replacement, manages users and overlapping memberships, checks group grants/denied routes, and exercises mobile/dark mode and ordinary no-JavaScript management forms. It does not reset real installation accounts.
 
@@ -90,7 +99,7 @@ Browser tests need Python Playwright and Chromium. `tests/onboarding.php --brows
 
 When changing chat interactivity, explicitly test multiple follow-up messages after PHP fragment replacement. Include Stop, queued messages, tool activity, navigation, and delayed event replies where relevant. One successful first response does not establish that listeners or stream cursors survive subsequent turns.
 
-Live model tests are separate evidence: record the profile, engine/model, relevant capabilities, and actual results. Do not describe fixture success, a queued handle, or an agent's self-report as completed live verification.
+Live model tests (`--live`, `tests/live_ui.php`) are separate evidence: record the profile, engine/model, relevant capabilities, and actual results. Do not describe fixture success, a queued handle, or an agent's self-report as completed live verification.
 
 ### Syntax, assets, and migrations
 
@@ -99,7 +108,7 @@ docker compose exec -T app php -l classes/Agent/Request.php
 git diff --check
 ```
 
-Change the lint path to each edited PHP file. If vendor asset inputs or dependencies change, use `npm ci && npm run build`; Node is a development dependency, not a web runtime dependency. PHP/JS/CSS changes do not all require rebundling the vendor file.
+Change the lint path to each edited PHP file. If vendor asset inputs or dependencies change, use `npm ci && npm run build` (esbuild bundles `assets/vendor.js` into `public/assets/vendor.js`); Node is a development dependency, not a web runtime dependency. Changes to PHP, `app.js`, or `app.css` do not require rebundling. Keep styling in the tokenized `app.css` (with `avatar.css` and `messages.css`) using generic rules rather than per-page stylesheets.
 
 Add schema changes as a new ordered migration under `database/` rather than rewriting already-applied migrations. Exercise both fresh-schema creation and upgrades where applicable. Migrations and worker restarts are real state changes: use a development database and back up anything important first.
 

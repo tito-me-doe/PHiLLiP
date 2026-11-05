@@ -23,15 +23,18 @@ the `phillip_test_template` template and drops it when the process exits.
 - `tests/isolation.php` asserts the connected database differs from production,
   that the guard throws, and writes/reads back a row in the isolated DB.
 - The template rebuilds only when its fingerprint changes. The fingerprint covers
-  the migrations, `tests/fixtures/test_seed.sql`, and both seeding scripts
-  (`bin/phill-demo` and `tests/fixtures/seed_template.php`); a matching
+  the `database/*.sql` migrations, `tests/fixtures/test_seed.sql`, both seeding scripts
+  (`bin/phill-demo` and `tests/fixtures/seed_template.php`), and the shipped sheets in
+  `resources/personas/` and `resources/engineering/`; a matching
   `template_meta.fingerprint` row skips the rebuild.
 - `bin/phill-demo` and `tests/fixtures/seed_template.php` seed the template with
-  demo accounts, teams, memberships, tool grants, and settings; `test_seed.sql`
-  adds seed data. The template is the single source of truth for demo accounts.
+  demo accounts, teams, memberships, tool grants, and settings, plus the engineering
+  persona catalog and the shipped character personas (`Engineering::install()`,
+  `PersonaSheet::install()`); `test_seed.sql` adds seed data. The template is the single source of truth for demo accounts.
 - `WebFixture` builds an empty private schema per browser/API suite, creates its own
-  users in that schema, and serves a disposable HTTP server with cookie jars; the
-  schema is dropped on `close()`.
+  users in that schema, and serves a disposable HTTP server with per-client cookie jars
+  (`cookieFile($client)` returns a jar's path for raw requests); the schema is dropped on
+  `close()`.
 
 ## Rules for writing new tests
 
@@ -39,8 +42,8 @@ the `phillip_test_template` template and drops it when the process exits.
 2. A test creates every record it needs, with explicit values (unique usernames, grants via `Agent\Identity::grant`,
    model profiles via `Agent\Profiles::save`, service settings through the application's own API). Do not assume
    anything that production happens to contain. The template holds only: the demo accounts from `bin/phill-demo`
-   (admin, alice, bob, carol, visitor; password `phillip-demo`), their teams and grants, and the 13-persona engineering
-   catalog. It has no model profiles, no service settings, no data-exit policy and no Unix-user mapping.
+   (admin, alice, bob, carol, visitor; password `phillip-demo`), their teams and grants, the 13-persona engineering
+   catalog and the shipped character personas (`resources/personas/`). It has no model profiles, no service settings, no data-exit policy and no Unix-user mapping.
 3. A test that needs an HTTP server starts its own with `tests/fixtures/WebFixture.php` and creates its own users in the
    fixture's private schema (see `tests/navigation.php`, `tests/permissions.php`). Never call a fixed address such as
    `127.0.0.1:8080`: inside the application container that is the live application.
@@ -59,8 +62,8 @@ lines.
 
 ## Running the tests
 
-`tests/run-all.sh` runs everything deterministic and prints only what fails; add `--live` for the tests that call a real
-model. A single test is `php tests/NAME.php`. Browser tests need Python Playwright and are skipped by nothing: they launch
+`tests/run-all.sh` (or `phill-dev test --all`) runs everything deterministic and prints only what fails; add `--live` for the tests that call a real
+model. A single test is `php tests/NAME.php`. Browser tests (`ui_*.php`, driving `ui_*.py`) need Python Playwright and are never skipped: they launch
 their own disposable server.
 
 - **On the host:** almost everything.
@@ -69,9 +72,11 @@ their own disposable server.
   and `attachment_media` (OCR tools). `run-all.sh` does this for you. Never run a test that calls a fixed address (rule 3)
   inside that container.
 - **Opt-in live-model tests** (`--live`): `streaming`, `attachment_vision`, `cli_dogfood`, `agent_team_live`,
-  `tests/live_ui.php` and `tests/project_recursive_live.php`. They use `tests/fixtures/live_profile.php`, which *reads* the
-  enabled `default` profile from production, verifies it against the live endpoint and enables it in the test's own
-  database. Nothing is written to production.
+  `tests/live_ui.php` and `tests/project_recursive_live.php`. They call `borrowLiveProfile()` from
+  `tests/fixtures/live_profile.php`, which *reads* the enabled `default` profile (or the one named by `--profile`) from
+  production, verifies it against the live endpoint and enables it in the test's own database. It exits 2 if production
+  has no such enabled profile. Nothing is written to production. `run-all.sh --live` runs `live_ui` and
+  `project_recursive_live --profile default` after the others.
 
 `tests/live_ui.php [--profile NAME] [script ...]` runs the browser scripts in `tests/live/` (`ui_server`, `ui_submissions`,
 `ui_attachments`, `ui_frontend_tightening`, `ui_followups`, and `ui_projects` when asked for by name) against a private
@@ -83,7 +88,7 @@ answers, so they are slower and can fail when the model is slow or unavailable; 
 ## Known noisy
 
 Project preflight is a model's judgment of a plan ("reply exactly `ready`"). With `nemotron-3.5-super-vl` it sometimes
-reports gaps that are not there (a "project-level gates array" that does not exist), so `tests/project_recursive_live.php`
+reports gaps that are not there (a "project-level gates array" that does not exist; `ProjectRunner::plan` now omits empty project-level fields to avoid this), so `tests/project_recursive_live.php`
 asks up to four times, and a live run can still occasionally stop at preflight. Reasoning models also need a generous
 `max_tokens` (the live scripts use 8192 and 16384); with 1024 the preflight ends with "token limit reached".
 

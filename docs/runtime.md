@@ -87,7 +87,7 @@ docker compose exec -T app ./bin/phill-state-rebuild 123   # A specific run
 
 Frontend message POSTs require a stable `submission_key`. Retrying the same user/thread/key/payload returns the original run; different content with the same key returns HTTP 409. Thread creation also accepts `creation_key`. Database uniqueness and per-thread locking permit only one active run per thread. This is not an exactly-once guarantee for external tool side effects after crashes: uncertain runs stop for investigation rather than automatically replaying.
 
-UI preferences and panel state stay in browser-local storage, not PostgreSQL. Small cookies mirror appearance preferences for immediate PHP rendering. Unacknowledged submission keys survive browser reloads locally; API callers must retain their own keys across retries.
+UI preferences and panel state stay in browser-local storage, not PostgreSQL. A small theme cookie mirrors the theme toggle for immediate PHP rendering. Unacknowledged submission keys survive browser reloads locally; API callers must retain their own keys across retries.
 
 ## Testing
 

@@ -1,6 +1,7 @@
 <?php
 use Agent\Views as V;
 Agent\Pages::authorize($state['user']['id'], 'models');
+$can = array_flip(Agent\Pages::sections($state['user']['id'], 'models')); // the cards this person may see
 $registry = new Agent\Registry();
 $models = $registry->models();
 $profiles = $registry->profiles();
@@ -18,9 +19,10 @@ if (!$embedding) $missing[] = 'Missing profile: Embeddings is required for vecto
 elseif (empty($embedding['supports_embeddings'])) $missing[] = 'The Embeddings profile has not been verified for embeddings. Verify its capabilities before relying on vector indexing.';
 
 ?>
-<?php if (isset($_GET['defaults'])): ?><section class="card"><?= V::render('profile-defaults',['state'=>$state]) ?></section><?php endif; ?>
-<?php if (isset($_GET['profile']) && in_array($_GET['profile'], ['new','edit'], true)): ?><section class="card"><?= V::render('profile-form',['state'=>$state]) ?></section><?php endif; ?>
-<?php $scan = Agent\Database::row("SELECT id FROM operations WHERE type='scan' AND status IN ('queued','running') ORDER BY id DESC LIMIT 1");
+<?php if (isset($can['profiles']) && isset($_GET['defaults'])): ?><section class="card"><?= V::render('profile-defaults',['state'=>$state]) ?></section><?php endif; ?>
+<?php if (isset($can['profiles']) && isset($_GET['profile']) && in_array($_GET['profile'], ['new','edit'], true)): ?><section class="card"><?= V::render('profile-form',['state'=>$state]) ?></section><?php endif; ?>
+<?php if (isset($can['models'])):
+$scan = Agent\Database::row("SELECT id FROM operations WHERE type='scan' AND status IN ('queued','running') ORDER BY id DESC LIMIT 1");
 $byEndpoint = [];
 foreach ($models as $model) $byEndpoint[$model['endpoint_id']][] = $model; ?>
 <section class="card" id="model-registry">
@@ -44,6 +46,8 @@ foreach ($models as $model) $byEndpoint[$model['endpoint_id']][] = $model; ?>
 <?php if (!$endpoints): ?><tbody><tr><td colspan="5" class="empty">Nothing discovered yet. Scan your network to find model servers.</td></tr></tbody><?php endif; ?>
 </table></div>
 </section>
+<?php endif; ?>
+<?php if (isset($can['profiles'])): ?>
 <section class="card" id="profiles"><div class="card-head"><h2>Profiles</h2><?= V::iconAction('plus','New profile',['data-dialog'=>'profile','href'=>Agent\Pages::link('models',['profile'=>'new'])]) ?></div>
 <div class="table-wrap"><table class="registry">
 <thead><tr><th></th><th>Profile</th><th>Capabilities</th><th>Default for</th><th></th></tr></thead><tbody>
@@ -57,5 +61,6 @@ foreach ($models as $model) $byEndpoint[$model['endpoint_id']][] = $model; ?>
 </tbody></table></div>
 <?php foreach ($missing as $message): ?><p class="dependency-warning" role="status"><?= V::h($message) ?></p><?php endforeach; ?>
 </section>
-<?= V::render('parsers',['state'=>$state,'editing'=>isset($_GET['configure']) && $_GET['configure']==='parsers']) ?>
-<?= V::render('services',['state'=>$state,'editing'=>isset($_GET['configure']) && $_GET['configure']==='services']) ?>
+<?php endif; ?>
+<?php if (isset($can['attachment-parsing'])) echo V::render('parsers',['state'=>$state,'editing'=>isset($_GET['configure']) && $_GET['configure']==='parsers']); ?>
+<?php if (isset($can['services'])) echo V::render('services',['state'=>$state,'editing'=>isset($_GET['configure']) && $_GET['configure']==='services']); ?>

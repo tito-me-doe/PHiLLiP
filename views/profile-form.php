@@ -2,7 +2,7 @@
 use Agent\Views as V;
 
 $user = $state['user'];
-Agent\Pages::authorize($user['id'], 'models');
+Agent\Pages::authorizeSection($user['id'], 'models', 'profiles');
 
 $p = !empty($_GET['name']) ? (new Agent\Registry())->profile($_GET['name']) : null;
 $config = $p

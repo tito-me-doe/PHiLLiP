@@ -3,15 +3,21 @@
 ## Data-exit policy (`Agent\DataExitPolicy`)
 
 An administrator-configured policy that controls whether data may leave the
-system through outbound seams (model, tool, broker). Each category resolves to
-`allow`, `obfuscate`, or `block`.
+system through outbound seams (model, tool, broker: `model.outbound`,
+`tool.outbound`, `broker.outbound`). Each category resolves to `allow`,
+`obfuscate`, or `block`.
 
 - **Inactive by default**: every category is `allow` and current behavior is
   preserved.
 - **Active policy**: enforced automatically at the seam. `block` rejects the
   outbound action before it runs; a user selecting an endpoint cannot bypass it.
+  Today only the tool-call seam (`ToolRegistry`) is wired; there the string
+  arguments of an `obfuscate` category are replaced with local tokens. The
+  model and broker seams are not enforced yet (see the
+  [roadmap](../ROADMAP.md)).
 - Configured through the existing settings table (`data_exit.active`,
-  `data_exit.policy`); no new migration is required.
+  `data_exit.policy`); no new migration is required. There is no
+  administrator page for it yet.
 
 This is a policy decision point, not comprehensive DLP. It does not inspect or
 classify arbitrary content, and it does not replace access controls.

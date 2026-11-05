@@ -23,7 +23,8 @@ Application code is trusted. A class reference or a supplied user ID does not au
 | `Request` | Synchronous ephemeral model/tool loop, with optional output validation and events |
 | `Message` | Normalize text, role/content, raw payloads, stored rows, and multimodal parts |
 | `Config`, `Profiles`, `Registry` | Resolve configuration, save/test profiles, inspect discovered endpoints/models |
-| `Personas` | Resolve a named prompt plus optional tools/contract and copy defaults |
+| `Personas`, `PersonaSheet` | Resolve a named prompt plus optional tools/contract and copy defaults; load, validate, and install the shipped persona sheets |
+| `Avatar` | Compose an avatar SVG from a body and a face, or a shipped character's id |
 | `ToolRegistry` | Reflect named callables and execute tool calls; normally owned by `Request` |
 | `Thread`, `Run` | Persist messages, queue work, inspect/control a durable run |
 | `Project`, `ProjectWorkflow` | Plan nested ToDos and enforce readiness/revision/decision gates |
@@ -31,11 +32,12 @@ Application code is trusted. A class reference or a supplied user ID does not au
 | `Attachments`, `AttachmentParser`, `Converters` | Store references and choose native/model/local file representations |
 | `History`, `Vectors`, `Knowledge` | Retrieve conversations and source-backed facts/relationships |
 | `Identity`, `Auth`, `Access`, `ProjectAccess` | Resolve users, establish frontend identity, and enforce audience/action policy |
+| `Pages`, `Administration` | Permission-checked routes and navigation; the authorized boundary for user, group, page, and tool-access management |
 | `Database`, `State`, `WorkflowState` | SQL access, revisioned resource state, durable response projections |
 | `Events`, `Log`, `Terminal` | Shared progress, context-aware diagnostics, and terminal presentation |
 | `Utilities`, `Schema` | Best-effort input cleanup and explicit response-schema validation |
 
-All classes above are under `Agent\`. Model-facing tools live under `Agent\Tools\`; for example, `Agent\Tools\Memory` is distinct from the underlying `Knowledge` service. There is no current generic `Graphs`, `Redis`, or `Responses` class: see the [roadmap](../ROADMAP.md#broader-php-service-interfaces).
+All classes above are under `Agent\`. The rest (`Controller`, `Frontend`, `Views`, `PageActions`, `Runtime`, the `*Cli` and `*Frontend` adapters, `UnslothStudio`, and similar) are transport, rendering, or integration adapters owned by the web UI, CLI, and workers; call the service classes above instead. Model-facing tools live under `Agent\Tools\`; for example, `Agent\Tools\Memory` is distinct from the underlying `Knowledge` service. There is no current generic `Graphs`, `Redis`, or `Responses` class: see the [roadmap](../ROADMAP.md#broader-php-service-interfaces).
 
 ## Send an ephemeral request
 
@@ -157,7 +159,7 @@ $row = $registry->profile('default');
 $request = new \Agent\Request($row);
 ```
 
-Use `Profiles::test($config)` for inference probes without a saved-state change, and `Profiles::save($payload)` for deliberate global configuration changes. A save payload can contain `name`, `config`, `enabled`, and capability `overrides`; enabling verifies before frontend selection. Trusted code can explicitly use disabled profiles. Never treat user-supplied inline configuration as equivalent to an administrator-enabled frontend profile.
+Use `Profiles::test($config)` for inference probes without a saved-state change, and `Profiles::save($payload)` (or `save($name, $config, $enable, $overrides)`) for deliberate global configuration changes. A save payload can contain `name`, `config`, `enabled`, and capability `overrides`; enabling verifies before frontend selection. `Profiles::setEnabled($name, $enabled)` switches a saved profile on (verifying it first) or off without changing its configuration. Trusted code can explicitly use disabled profiles. Never treat user-supplied inline configuration as equivalent to an administrator-enabled frontend profile.
 
 A persona supplies name, one freeform prompt, optional tools, and optional contract—not a model choice:
 
@@ -174,7 +176,17 @@ $request->addMessage('Review this proposed interface.');
 $answer = $request->send();
 ```
 
-Trusted code can also supply a saved persona ID or unambiguous name. Use `Personas::resolve($reference, $userId)` when selecting within a user's audience; `Personas::get()` resolves an ID without that audience selection. `Personas::settings()` copies defaults, with explicit overrides winning, including empty tools or a null contract. An explicit system/developer message takes precedence over the default prompt. Source persona edits do not rewrite copied conversation settings.
+Trusted code can also supply a saved persona ID or unambiguous name. Use `Personas::resolve($reference, $userId)` when selecting within a user's audience; `Personas::get()` resolves an ID without that audience selection. `Personas::settings()` copies defaults, with explicit overrides winning, including empty tools or a null contract. An explicit system/developer message takes precedence over the default prompt. Source persona edits do not rewrite copied conversation settings. `Personas::setEnabled($userId, $id, $enabled)` switches a persona off or on without deleting it; whoever may edit it may do this.
+
+`PersonaSheet::all()`/`get($slug)` read the shipped sheets in `resources/personas/`, and `install()` (local operator only) stores them as default personas. `PersonaSheet::avatars()` returns the shipped characters' avatar ids, `Avatar::presets()`. `Avatar` composes the SVG from data in `resources/avatars/`; the web router serves it at `/avatar/<id>.svg`:
+
+```php
+$svg = \Agent\Avatar::render('arthur');          // a shipped character
+$svg = \Agent\Avatar::render('noto-1f34e.vesper'); // body.face: any body wearing any face
+$ok = \Agent\Avatar::valid($id);                 // false for unknown ids; render() falls back to 'terminal'
+```
+
+`Avatar::resolve($id)` returns the body/face pair, `id($body, $face)` the shortest id for a pair, `bodies()`, `faces()`, and `presets()` the choices for a builder, and `credits()` the sources and licenses of library bodies. See [personas](personas.md) for the sheet and avatar formats.
 
 ## Persist a conversation and queue execution
 
@@ -229,7 +241,7 @@ $answer = $request->send();
 
 Attachments require PostgreSQL even for ephemeral requests. `Attachments::normalize()` accepts IDs/rows, lists, CSV, or JSON references and reloads metadata. Native input, configured parser profiles, and local conversion are selected centrally; see [formats and limits](runtime.md#attachments). File paths in trusted application code are not safe upload authorization by themselves.
 
-Use `History` for stored-message retrieval, `Vectors::embed(array $texts)` for a batch of text embeddings, and `Vectors::search($query, $threadId, $userId, $limit)` for indexed message search. `Knowledge::remember()` requires source messages; `recall()` and `graph()` retrieve facts and evidence-linked relationships. These are current conversation/knowledge APIs, not general vector collections or a generic graph engine. Pass an explicit permitted audience for user-facing retrieval: trusted null-audience calls can be unrestricted. Model-facing History/Memory tools derive their scope from the active tool context; do not forge that context from user input.
+Use `History` for stored-message retrieval, `Vectors::embed(array $texts)` for a batch of text embeddings, and `Vectors::search($query, $threadId, $userId, $limit)` for indexed message search. `Knowledge::remember()` requires source messages; `recall()` and `graph()` retrieve facts and evidence-linked relationships; `recallPage()` returns one page of memories with totals, and `graphEdges()` returns the edges the Memory page draws (the latest visible ones, or the two-hop neighbourhood of a search). `GraphLayout::layout()` turns edges into a deterministic force-directed layout and `GraphLayout::svg()` renders it as inline SVG. These are current conversation/knowledge APIs, not general vector collections or a generic graph engine. Pass an explicit permitted audience for user-facing retrieval: trusted null-audience calls can be unrestricted. Model-facing History/Memory tools derive their scope from the active tool context; do not forge that context from user input.
 
 ## Explicit task profiles and model operations
 
@@ -243,14 +255,16 @@ Trusted PHP class calls do not implicitly acquire frontend permissions. Authenti
 
 ```php
 \Agent\Pages::authorize($userId, 'models');
+\Agent\Pages::authorizeSection($userId, 'models', 'profiles'); // one card of a page; a page grant opens them all
+$cards = \Agent\Pages::sections($userId, 'models');
 $menu = \Agent\Pages::navigation($userId);
 $href = \Agent\Pages::link('models'); // Uses its current database route.
 $canSearch = \Agent\Access::allows($userId, 'Agent\\Tools\\SearchWeb');
 ```
 
-`Pages` reads the `pages` table for routes and menu presentation, sorted by path. It authorizes before resolving an allowlisted view. A row-like argument to `Pages::allowed()` is a reference only: its ID is reloaded, so supplied defaults cannot establish authority. `Access::allows()` automatically permits active members of Administrators (group 1); other users require an additive user/group grant. `Access::decisions($userId, $resources)` batches checks with associative resource keys; legacy default values are ignored, not permission fallbacks. No mutable authorization is cached between actions. These permission checks do not override separate ownership, team-content visibility, or execution approvals.
+`Pages` reads the `pages` table for routes and menu presentation, sorted by path. Page IDs map to a fixed set of views (`Pages::VIEWS`: conversations, projects, personas, knowledge, benchmarks, models, access). It authorizes before resolving an allowlisted view. A row-like argument to `Pages::allowed()` is a reference only: its ID is reloaded, so supplied defaults cannot establish authority. `Access::allows()` automatically permits active members of Administrators (group 1); other users require an additive user/group grant. `Access::decisions($userId, $resources)` batches checks with associative resource keys; legacy default values are ignored, not permission fallbacks. No mutable authorization is cached between actions. These permission checks do not override separate ownership, team-content visibility, or execution approvals.
 
-`Administration($userIdOrUsernameOrRow)` provides the same authorized `data($page)` and `action($page, $input)` boundary for management forms and APIs. Users/groups/memberships require `page.access` (Users & Groups). Tool permission saves use `action('tools', ['resource'=>$toolClass, 'allowed_users'=>[], 'allowed_groups'=>[]])` and require `page.tools-services`; page grants require `page.navigation`. User saves can include a `groups` array; group saves can include a `members` array. Tool and route saves accept `allowed_users` and `allowed_groups`, replacing only that resource's direct grants in the shared permissions table. Omitted arrays retain assignments; empty arrays clear that editor's selections. Everyone (0) is implicit. There are no route enabled/visibility flags. Core `Identity`/`Mappings` methods remain trusted integration APIs, not replacements for this boundary.
+`Administration($userIdOrUsernameOrRow)` provides the same authorized `data($page)` and `action($page, $input)` boundary for management forms and APIs; `$page` is `users`, `groups`, `memberships`, `permissions`, `navigation`, or `tools`. All of them are one administration page and require `page.access` (Permissions & Users). Users, groups, and memberships may be delegated with that grant; `navigation`, `permissions`, and `tools` actions additionally require an administrator (`Administration::requireAdministrator()`). Tool permission saves use `action('tools', ['resource'=>$toolClass, 'allowed_users'=>[], 'allowed_groups'=>[]])`. User saves can include a `groups` array; group saves can include a `members` array. Tool and route saves accept `allowed_users` and `allowed_groups`, replacing only that resource's direct grants in the shared permissions table. Omitted arrays retain assignments; empty arrays clear that editor's selections. Everyone (0) is implicit. There are no route enabled/visibility flags. Core `Identity`/`Mappings` methods remain trusted integration APIs, not replacements for this boundary.
 
 Standalone grants live in `permissions.resource`; `allowed` is constrained to true. The `tool_permissions` compatibility view and `Mappings` contract's `tool` key remain for older integrations. `Identity::grant('group', '0', $resource)` grants Everyone; user/group scopes are additive. Legacy global scope maps to group 0, and passing false revokes that exact grant—it never creates a denial. Grants targeting group 1 remove any redundant row instead of storing a grant; they cannot restrict implicit administrator permissions. `Identity::user()` derives `is_admin` and `is_developer` from groups 1 and 2. See [administration](administration.md#pages-navigation-and-permissions) for installation defaults and delegation caveats.
 

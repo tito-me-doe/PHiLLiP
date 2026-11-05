@@ -64,15 +64,15 @@ Keep `APP_HOSTNAME` stable when recreating containers with saved local workers. 
 ./bin/ok-phill projects help
 ```
 
-- `profiles` inspects database/JSON profiles and deliberately saves/tests global configuration under operator restrictions.
-- `personas` manages prompts, named tool defaults, and response contracts within the caller's audience.
+- `profiles` inspects database/JSON profiles, lists/assigns the fixed task defaults, and deliberately saves global configuration under operator restrictions; `save --enable` runs the capability probes, otherwise the saved profile stays disabled.
+- `personas` manages prompts, named tool defaults, and response contracts within the caller's audience. `personas install [--replace]` installs the shipped persona cast, and `personas adult on|off|status` controls whether adult-oriented personas are available (administrators).
 - `agents` creates local durable workers, queues assignments, supplies between-round feedback, grants access, and exposes results/events. Different workers run concurrently; each queue is sequential.
 - `workflows` lists/runs engineering coordinators. Installing the shipped catalog is a separate operator-controlled step; see the [engineering guide](engineering-team.md).
 - `projects` plans nested ToDos, requests readiness, explicitly starts work, and inspects decisions/progress. See [Projects](projects.md).
 
 Management commands emit JSON results, not a final natural-language answer. A queued handle is not completion. Inspect actual tool evidence and run tests rather than relying on a model's claims. `agents remove` and project deletion are destructive, unlike sidebar chat hiding; read their help before use.
 
-`./bin/phill --once` renders a read-only project snapshot. Interactive terminal mode supports refresh and project selection, not conversational chat or task mutations yet.
+`./bin/phill --once` (optionally `--project ID|NAME`) renders a read-only project snapshot. Interactive terminal mode supports refresh and project selection, not conversational chat or task mutations yet.
 
 ## Orchestrated experts (phill-rlm)
 

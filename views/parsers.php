@@ -1,6 +1,6 @@
 <?php
 use Agent\Views as V;
-Agent\Pages::authorize($state['user']['id'], 'models');
+Agent\Pages::authorizeSection($state['user']['id'], 'models', 'attachment-parsing');
 try { $parsers = Agent\AttachmentParser::configuration(); }
 catch (Exception $e) { $parsers = []; Agent\Log::writeWarning($e->getMessage()); }
 ?>

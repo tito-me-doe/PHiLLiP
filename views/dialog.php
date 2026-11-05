@@ -36,7 +36,7 @@ if (in_array($kind, ['benchmark-run','benchmark-metadata','benchmark-profile'], 
     return;
 }
 if (in_array($kind, ['services','parsers','model-default','profile-defaults'], true)) {
-    Agent\Pages::authorize($user['id'], 'models');
+    Agent\Pages::authorizeSection($user['id'], 'models', ['services'=>'services','parsers'=>'attachment-parsing','model-default'=>'profiles','profile-defaults'=>'profiles'][$kind]);
     echo '<div class="dialog-head"><h2>'.['services'=>'Service','parsers'=>'Attachment parsing','model-default'=>'Profile defaults','profile-defaults'=>'Profile defaults'][$kind].'</h2><button class="icon" data-action="close-dialog" aria-label="Close">'.V::icon('close').'</button></div><div class="dialog-body">';
     echo V::render($kind, ['state'=>$state,'editing'=>true]);
     echo '</div>';
@@ -47,15 +47,15 @@ $title = 'Settings';
 if ($kind === 'profile') {
     $title = 'Configure model profile';
 } elseif ($kind === 'persona') {
-    Agent\Pages::authorize($user['id'], 'personas');
     $isExpert = $newExpert || ($id && empty(Agent\Personas::get($id)['sheet']));
+    Agent\Pages::authorizeSection($user['id'], 'personas', $isExpert ? 'experts' : 'personas');
     $title = ($id ? 'Edit ' : 'New ') . ($isExpert ? 'expert' : 'persona');
 } elseif ($kind === 'chat') {
     $title = 'Conversation settings';
 } elseif ($kind === 'edit') {
     $title = 'Edit your message';
 } elseif ($kind === 'claim') {
-    Agent\Pages::authorize($user['id'], 'knowledge');
+    Agent\Pages::authorizeSection($user['id'], 'knowledge', 'memories');
     $title = 'Edit memory';
 } else {
     throw new InvalidArgumentException('Unknown dialog');

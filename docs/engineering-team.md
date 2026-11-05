@@ -96,9 +96,12 @@ Workers with Workspace access receive their own worker ID and can call `Workspac
 ## Existing tests
 
 ```sh
-php tests/run.php engineering diagnostics database_research request_failures source_tools workspace
+php tests/run.php engineering diagnostics database_research request_failures source_tools workspace workspace_lines agent_work agent_work_cli agent_messages
 docker compose exec -T app php tests/browser.php
+php tests/agent_team_live.php [PROFILE]   # opt-in: real model via the borrowed production profile
 ```
+
+Every test runs in its own disposable database; `tests/run-all.sh` runs the whole suite and `--live` adds the real-model tests. See [testing](testing.md).
 
 Browser fixtures run inside the app container. Camoufox has its own network namespace: use `http://phillip.internal:8080/` for this installation's UI, not the PHP host's `127.0.0.1:8088`. The UI Tester can inspect screenshots with the vision-enabled work profile.
 

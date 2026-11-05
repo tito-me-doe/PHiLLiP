@@ -1,6 +1,6 @@
 <?php
 use Agent\Views as V;
-Agent\Pages::authorize($state['user']['id'], 'models');
+Agent\Pages::authorizeSection($state['user']['id'], 'models', 'profiles');
 $task = $_GET['task'] ?? '';
 if (!in_array($task, Agent\Profiles::DEFAULT_TASKS, true)) throw new InvalidArgumentException('Unknown task default');
 $default = Agent\Database::row('SELECT profileid FROM profile_defaults WHERE default_for=?',[$task]);

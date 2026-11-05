@@ -42,8 +42,8 @@ Inline `Agent\Request` configuration can perform ephemeral text requests without
 | Basic chat | A working chat-completions profile; setup verifies the profile named `default` |
 | Streamed output | Streaming supported by the selected endpoint/profile |
 | Agent tools | Working model tool calling, selected tools, and applicable grants |
-| Web search | SearXNG or the configured search service |
-| Browser interaction | Camoufox service; vision is needed to interpret screenshot images |
+| Web search | SearXNG (a Compose service) or the configured search service |
+| Browser interaction | Camoufox (a Compose service); vision is needed to interpret screenshot images |
 | Vector retrieval | `embed` task default (or capable current model) and pgvector-backed indexing |
 | Knowledge extraction | Working chat model/profile and background indexer; extraction is asynchronous |
 | Native images/PDF | Corresponding verified model/transport capability; not every engine supports these |
@@ -65,8 +65,8 @@ From a container, `localhost` is that container. Use an accessible LAN address o
 - Root cannot use CLI tools or frontend session handoffs. An unmapped Unix account is not an application administrator; memory access is limited to its allowed audience. CLI engineering workers retain the creating UID/host/application identity.
 - File/command approvals are not an OS sandbox. Approving a command prefix authorizes the program's behavior as that Unix user. Review scripts and grants carefully.
 - The shipped PHP HTTP server is a local/development server, not a production deployment recipe. All HTTP requests must route through `public/index.php`; exposing the repository root can expose secrets and source files.
-- Default service ports bind to loopback. Enabling LAN HTTP does not add TLS. Use appropriate HTTPS/authentication/network controls before broader access; do not expose demo accounts.
-- Local-first is not an enforced data-loss-prevention boundary. Hosted endpoints and internet-facing tools can transmit data. Administrator routing restrictions and obfuscation/recovery are deferred; see [ROADMAP.md](ROADMAP.md).
+- Default service ports, including the application's `8088`, bind to loopback. Enabling LAN HTTP does not add TLS. Use appropriate HTTPS/authentication/network controls before broader access; do not expose demo accounts.
+- Local-first is not an enforced data-loss-prevention boundary. Hosted endpoints and internet-facing tools can transmit data. `Agent\DataExitPolicy` is inactive by default and enforced only at the tool-call seam, and obfuscation/recovery is not an end-to-end workflow; see [ROADMAP.md](ROADMAP.md).
 - Sidebar chat deletion is a soft delete, not data erasure. Editing earlier messages can instead remove later messages and their references. Project/agent deletion has separate, destructive semantics.
 - Idempotent submissions prevent duplicate accepted work for the same key/payload, not exactly-once external side effects after a crash. Uncertain runs stop for investigation instead of automatic replay.
 - Verbose traces may contain sensitive application/conversation data despite credential redaction. Restrict trace sinks and access to logs/backups.
@@ -87,13 +87,15 @@ Coverage is layered. The following describes development paths and regression co
 | Debian/Ubuntu installer logic | Stubbed package-manager/dependency tests, generated secrets, usernames, and reruns; not clean-OS package installation for every release |
 | Standalone onboarding | Isolated PostgreSQL schemas, real PHP routes/workers, fixture model discovery/verification, password change, and repeated chat turns |
 | Real Compose first run | Opt-in disposable Compose harness covers installation/rerun; requires a Docker-capable host and is distinct from dependency stubs |
+| Test isolation | Every test process uses its own throwaway PostgreSQL database and refuses the production database; see [docs/testing.md](docs/testing.md) |
 | Core requests | Fixture tests for messages, tools, schemas, retries, stream decoding, limits, and error paths; the default six-suite runner does not require a live model |
 | Engines | Metadata fixtures cover vLLM/Ollama/llama.cpp shapes; live endpoint/model testing is selective, not exhaustive |
-| Web UI | Browser regressions cover desktop/mobile onboarding, no-JS forms, repeated follow-ups, fragment replacement, queue/Stop behavior, tools, appearance, and attachments under their fixtures |
+| Web UI | Browser regressions cover desktop/mobile onboarding, no-JS forms, repeated follow-ups, fragment replacement, queue/Stop behavior, tools, dark mode, persona management, and attachments under their fixtures |
 | Permissions/state/projects | PHP suites cover authorization, submissions, revisions, recursive decomposition, escalation, review, and recovery; some integration suites need demo fixtures |
-| Navigation/management | Isolated legacy-upgrade and HTTP/browser coverage for grants-only user/group policy, implicit Everyone, fixed operator groups, overlapping memberships, revocation, readonly tables/modal editors, and mixed history |
+| Navigation/management | Isolated legacy-upgrade and HTTP/browser coverage for grants-only user/group policy and delegated user management on Permissions & Users, implicit Everyone, fixed operator groups, overlapping memberships, revocation, readonly tables/modal editors, and mixed history |
+| Live models | `tests/run-all.sh --live` and `tests/live_ui.php` run real-model checks in a private installation, borrowing one profile read-only; results depend on the profile used |
 | ERP/mapped identities | Configuration hooks exist; external ERP/session/table mappings are not an end-to-end validated integration |
 
 Native embedding schemas (`openai`, `ollama`, `tei`) and native rerank schemas (`openai`, `tei`) have fixture coverage. A local Ollama Nomic endpoint has been exercised live through the OpenAI-style embedding adapter; classification/extraction/semantic-ranking tools have live Nemotron coverage. This does not certify every native engine/schema combination. Benchmark HTTP/browser checks use isolated fixtures.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md#test-a-focused-change) for commands and prerequisites. Read test setup before execution: some suites create their own schemas, some need seeded identities/services, and live tests can incur real model calls. No production security audit, performance SLO, exhaustive browser matrix, or cross-platform compatibility certification is claimed.
+See [CONTRIBUTING.md](CONTRIBUTING.md#test-a-focused-change) and [docs/testing.md](docs/testing.md) for commands and prerequisites. Every test gets its own database, a few need the application container, and live tests can incur real model calls. No production security audit, performance SLO, exhaustive browser matrix, or cross-platform compatibility certification is claimed.

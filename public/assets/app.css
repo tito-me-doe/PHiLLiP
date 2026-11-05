@@ -173,6 +173,9 @@ td {
 tr:where(:not(:last-child)) > td {
   border-bottom: 1px solid var(--line);
 }
+/* A delegable section listed under its page in the Pages table. */
+tr.section-row > td { color: var(--muted); font-size: 0.85rem; }
+tr.section-row > td:first-child { padding-left: 1.75rem; }
 td small {
   display: block;
   color: var(--muted);
@@ -1176,3 +1179,20 @@ details.metadata[open] pre { margin: 6px 0 0; font-size: 0.75rem; }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Memory graph (inline SVG from GraphLayout) and the pager under long tables. */
+.graph-wrap { overflow-x: auto; }
+.graph { display: block; width: 100%; min-width: 560px; max-height: 460px; }
+.graph-line { stroke: var(--line-strong); stroke-width: 1.4; fill: none; }
+.graph-hit { stroke: transparent; stroke-width: 12; }
+#graph-arrow, .graph marker path { fill: var(--line-strong); }
+.graph-edge:hover .graph-line { stroke: var(--accent); stroke-width: 2.2; }
+.graph-relation { fill: var(--muted); font-size: 10px; text-anchor: middle; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; opacity: 1; pointer-events: none; }
+.graph.dense .graph-relation { opacity: 0; }
+.graph.dense .graph-edge:hover .graph-relation { opacity: 1; }
+.graph-node circle { fill: color-mix(in srgb, var(--accent) 16%, var(--panel)); stroke: var(--accent); stroke-width: 1.5; transition: fill 0.15s; }
+.graph-node:hover circle, .graph-node:focus-visible circle { fill: color-mix(in srgb, var(--accent) 40%, var(--panel)); }
+.graph-node.selected circle { fill: var(--accent); }
+.graph-node text { fill: var(--ink); font-size: 11px; text-anchor: middle; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; color: var(--muted); font-size: 0.82rem; }
+.pager .button[disabled] { visibility: hidden; }

@@ -30,6 +30,20 @@ class Personas
     }
 
     /** Switch a persona or expert on or off without deleting it. Whoever may edit it may do this. */
+    /** Which section of the Personas & Experts page a persona API route belongs to: characters have a sheet, experts do not. */
+    public static function sectionFor($path, array $body)
+    {
+        $id = null;
+        if (preg_match('~^/api/personas/(\d+)(?:/|$)~', $path, $m)) $id = (int)$m[1];
+        elseif ($path === '/api/personas' && !empty($body['id'])) $id = (int)$body['id'];
+        if ($id !== null) {
+            $row = Database::row('SELECT sheet IS NULL AS expert FROM personas WHERE id = ?', [$id]);
+            return $row && $row['expert'] ? 'experts' : 'personas';
+        }
+        if ($path === '/api/personas') return isset($body['bio']) || isset($body['tagline']) ? 'personas' : 'experts';
+        return 'personas';
+    }
+
     public static function setEnabled($userId, $id, $enabled)
     {
         Access::authenticated($userId);

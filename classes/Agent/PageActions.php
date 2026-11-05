@@ -31,19 +31,19 @@ class PageActions
             }
             if (Onboarding::pending()) throw new \RuntimeException('Finish setup before using PHiLLiP');
             if ($action === 'profile-defaults') {
-                Pages::authorize($state['user']['id'],'models');
+                Pages::authorizeSection($state['user']['id'], 'models', 'profiles');
                 Profiles::setDefaults(['id'=>$_POST['profileid']],$_POST['tasks'] ?? []);
                 Log::flash(Log::writeSuccess('Profile defaults saved'));
                 header('Location: '.Pages::link('models'),true,303); return;
             }
             if ($action === 'save-profile') {
-                Pages::authorize($state['user']['id'],'models');
+                Pages::authorizeSection($state['user']['id'], 'models', 'profiles');
                 Profiles::save($_POST['name'], $_POST['config'] ?? null, isset($_POST['enabled']), $_POST['overrides'] ?? []);
                 Log::flash(Log::writeSuccess('Profile saved'));
                 header('Location: '.Pages::link('models'),true,303); return;
             }
             if (in_array($action, ['save-services','save-parsers'], true)) {
-                Pages::authorize($state['user']['id'],'models');
+                Pages::authorizeSection($state['user']['id'], 'models', $action === 'save-services' ? 'services' : 'attachment-parsing');
                 if ($action === 'save-services') {
                     Config::configureServices($_POST['services'] ?? $_POST);
                 } elseif (array_key_exists('parsers', $_POST)) AttachmentParser::configure($_POST['parsers']);

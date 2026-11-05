@@ -1,6 +1,6 @@
 <?php
 use Agent\Views as V;
-Agent\Pages::authorize($state['user']['id'], 'models');
+Agent\Pages::authorizeSection($state['user']['id'], 'models', 'services');
 $known = ['searxng', 'camoufox'];
 $services = [];
 foreach ($known as $name) {

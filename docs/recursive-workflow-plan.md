@@ -2,6 +2,8 @@
 
 This is a working implementation brief, not a second workflow framework.
 
+**Status: shipped.** `database/018_recursive_projects.sql`, `ProjectWorkflow`, the runner integration, the Project tool methods below, the CLI/page/API surfaces, and the read-only TUI (`phill --once --project`) are all in the tree. User-facing behavior lives in [projects](projects.md); this file keeps the invariants and the contract the code is held to. Real-model coverage is the opt-in `tests/project_recursive_live.php` and `tests/live/ui_projects.py` (see [testing](testing.md)).
+
 ## Invariants
 
 - A Project contains ordinary recursive ToDos; every executing ToDo owns one thread.
@@ -19,11 +21,11 @@ This is a working implementation brief, not a second workflow framework.
 
 Keep existing Project add/update/remove APIs and planning behavior. Introduce a small ProjectWorkflow helper if needed for substantial recursive logic; no generic orchestration framework.
 
-Migration `database/018_recursive_projects.sql` adds:
+Migration `database/018_recursive_projects.sql` (with `019_recursive_constraints.sql`) adds:
 
 - `project_todos.creator_todo_id` nullable, immutable provenance; null means human/planning-created (not runtime-agent editable).
-- `revision` bigint default1, `run_revision` nullable, `ready_revision` nullable, `readiness` JSON object.
-- `wait_reason` nullable (`children` or `decision`), `continuations` integer default0.
+- `revision` bigint default 1, `run_revision` nullable, `ready_revision` nullable, `readiness` JSON object.
+- `wait_reason` nullable (`children` or `decision`), `continuations` integer default 0.
 - Extend status CHECK with `waiting`.
 - `project_decisions`: id, project_id, todo_id (requester), target_todo_id nullable (human), todo_revision, question, evidence JSON object, answer nullable, answered_by nullable, created_at/answered_at. Same-project references enforced.
 
@@ -46,18 +48,18 @@ Tools\Project delegates runtime addTodo/updateTodo to addChild/reviseChild, plan
 - Reconcile a completed agent turn with unfinished children/yield intent into waiting, not gate review. Waiting nodes do not occupy the one-active-work slot.
 - Wake a waiting/pending parent on an inbound open decision, even with unfinished children. Wake a waiting child when its question is answered. Wake waiting parents when all direct children are done.
 - Resume the same thread with current assignment, child summaries, current decisions, and gate feedback. Do not replay superseded-revision assignment histories.
-- Distinguish continuations from failed gate attempts; continuations capped64 per node, total nodes capped256, depth32. No new model transport or worker.
+- Distinguish continuations from failed gate attempts; continuations capped at 64 per node, total nodes at 256, depth at 32 (`ProjectWorkflow::MAX_*`). No new model transport or worker.
 - Dynamic readiness check uses `kind=project.todo_preflight`, requires exact `ready`, records revision-bound findings. Gaps escalate to parent, never manufacture readiness.
 - Include todo revision in execution_context and every dispatch/review CAS. Use current child revision digest or lock/revalidate children before accepting a parent review.
 - Root completion means all top-level deliverables independently passed current gates. Never invent a root goal from just project title.
 
-## Integration ownership
+## Where it lives
 
-Domain agent: Project.php, new ProjectWorkflow.php, migration018, tests/project_workflow.php.
-Runner agent: ProjectRunner.php, tests/project_recursive.php, tests/fixtures/project_recursive_engine.php.
-Interface agent: Tools/Project.php, ProjectCli.php, ProjectFrontend.php, views/projects.php, Controller.php, docs/projects.md and focused interface tests. Coordinate method names above; no edits to other owners' files.
-Coordinator: Run.php history/revision guard integration, shared tests/fixtures compatibility, worker reload/migration, independent review and end-to-end dogfood. TUI implementation assigned separately after APIs stabilize.
+- Domain: `Project.php`, `ProjectWorkflow.php`, migration 018/019; tests `tests/project_workflow.php`, `tests/project_recursive_security.php`.
+- Runner: `ProjectRunner.php`; tests `tests/project_recursive.php`, `tests/project_runner.php`, `tests/fixtures/project_recursive_engine.php`.
+- Interfaces: `Tools/Project.php`, `ProjectCli.php`, `ProjectFrontend.php`, `views/projects.php`, `Controller.php`; tests `tests/project_recursive_interface.php`, `project_cli.php`, `project_frontend.php`.
+- Monitor: `ProjectTui.php`, `bin/phill`; test `tests/project_tui.php`.
 
 ## Acceptance
 
-Actual tool-driven depth3 creation; forbidden self/sibling/foreign/human edits; nearest-parent escalation and human-root resolution; in-flight revision barrier and stale result/review refusal; failed parent gate despite passing children; continuation budget; crash/restart and duplicate tick safety; existing frontend ACL/tool ceilings; host and Docker regressions; live Nemotron recursive project. A small read-only PHP TUI monitor exercises the shared durable state without granting workspace authority.
+Actual tool-driven depth-3 creation; forbidden self/sibling/foreign/human edits; nearest-parent escalation and human-root resolution; in-flight revision barrier and stale result/review refusal; failed parent gate despite passing children; continuation budget; crash/restart and duplicate tick safety; existing frontend ACL/tool ceilings; host and Docker regressions; a live-model recursive project (`tests/project_recursive_live.php`). A small read-only PHP TUI monitor exercises the shared durable state without granting workspace authority.

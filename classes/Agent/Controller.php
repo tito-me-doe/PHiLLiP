@@ -50,7 +50,7 @@ class Controller
             }
             if (!$user) { http_response_code(401); return self::output(['error' => 'Authentication required']); }
             Pages::api($user['id'], $path, $body);
-            if (preg_match('~^/api/manage/(users|groups|memberships|permissions|navigation|tools)$~D', $path, $management)) {
+            if (preg_match('~^/api/manage/(users|groups|memberships|permissions|navigation|tools|sections)$~D', $path, $management)) {
                 $admin = new Administration($user);
                 if ($method === 'GET') return self::output($admin->data($management[1]));
                 if ($method === 'POST') return self::output($admin->action($management[1], $body), 'Changes saved');

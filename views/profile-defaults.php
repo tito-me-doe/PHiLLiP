@@ -1,6 +1,6 @@
 <?php
 use Agent\Views as V;
-Agent\Pages::authorize($state['user']['id'],'models');
+Agent\Pages::authorizeSection($state['user']['id'], 'models', 'profiles');
 $profile = (new Agent\Registry())->profile(['id'=>$_GET['id'] ?? $_GET['defaults'] ?? '']);
 if (!$profile) throw new InvalidArgumentException('Profile not found');
 $assignments = Agent\Database::rows('SELECT d.*,p.name FROM profile_defaults d LEFT JOIN profiles p ON p.id=d.profileid ORDER BY d.default_for');

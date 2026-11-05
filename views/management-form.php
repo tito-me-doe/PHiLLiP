@@ -2,7 +2,8 @@
 use Agent\Views as V;
 use Agent\Pages;
 $entity = $_GET['entity'] ?? $_GET['edit'] ?? '';
-if (!in_array($entity, ['users','groups','tools','navigation'], true)) throw new InvalidArgumentException('Unknown editor');
+if (!in_array($entity, ['users','groups','tools','navigation','sections'], true)) throw new InvalidArgumentException('Unknown editor');
+Agent\Administration::requireAdministrator($state['user'], $entity);
 $data = (new Agent\Administration($state['user']))->data($entity);
 $record = $_GET['record'] ?? null;
 if ($record !== null && !is_string($record)) throw new InvalidArgumentException('Invalid record');
@@ -13,12 +14,18 @@ foreach ($entity === 'navigation' ? $data['pages'] : ($data[$entity] ?? []) as $
 }
 if ($record !== null && !$row) throw new InvalidArgumentException('Record not found');
 $returnPage = Agent\Administration::page($entity);
-$labels = ['users'=>'user','groups'=>'group','tools'=>'tool access','navigation'=>'page'];
+$labels = ['users'=>'user','groups'=>'group','tools'=>'tool access','navigation'=>'page','sections'=>'section access'];
 $title = ($remove ? 'Remove ' : ($row ? 'Edit ' : 'New ')).$labels[$entity];
 if ($entity === 'tools') {
     $resource = $_GET['resource'] ?? '';
     if (!is_string($resource) || !in_array($resource, Agent\Frontend::TOOLS, true)) throw new InvalidArgumentException('Choose an available tool');
     $title = 'Tool access · '.Agent\ToolRegistry::label(substr($resource,strrpos($resource,'\\')+1));
+}
+if ($entity === 'sections') {
+    $resource = $_GET['resource'] ?? '';
+    $sectionResources = Agent\Pages::sectionResources();
+    if (!is_string($resource) || !isset($sectionResources[$resource])) throw new InvalidArgumentException('Choose a section that can be delegated');
+    $title = 'Section access · '.$sectionResources[$resource];
 }
 ?>
 <div class="dialog-head"><h2><?= V::h($title) ?></h2><a class="button icon" data-close-editor href="<?= Pages::link($returnPage) ?>" aria-label="Close"><?= V::icon('close') ?></a></div>
@@ -53,7 +60,7 @@ if ($entity === 'tools') {
                 <label class="check-label"><input name="members[]" type="checkbox" value="<?= V::h($person['id']) ?>" <?= in_array($person['id'], $selected, true) ? 'checked' : '' ?>><?= V::h($person['display_name'].' ('.$person['username'].')') ?></label>
             <?php endforeach; ?></fieldset>
         <?php endif; ?>
-    <?php elseif ($entity === 'tools'): ?>
+    <?php elseif ($entity === 'tools' || $entity === 'sections'): ?>
         <input type="hidden" name="resource" value="<?= V::h($resource) ?>">
         <?= V::render('permission-fields',['management'=>$data,'resource'=>$resource]) ?>
     <?php elseif ($entity === 'navigation'): ?>
